@@ -10,6 +10,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { OrdersModule } from './orders/orders.module';
 import { ProductsModule } from './products/products.module';
 import { StockModule } from './stock/stock.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { StockModule } from './stock/stock.module';
     StockModule,
     OrdersModule,
     DashboardModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [
