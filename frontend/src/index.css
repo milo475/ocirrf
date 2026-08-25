@@ -45,6 +45,13 @@
   --color-status-ready:     oklch(0.78 0.11 150); /* бэлэн — ногоон */
   --color-status-completed: oklch(0.65 0.05 150); /* дууссан — намуухан ногоон */
   --color-status-cancelled: oklch(0.62 0.19 32);  /* цуцлагдсан — alarm улаан */
+
+  /* Хүргэлтийн статусын өнгө (DeliveryStatus enum-ийн 5 төлөв) */
+  --color-delivery-pending:   oklch(0.65 0.02 60);  /* хүлээгдэж буй — саарал */
+  --color-delivery-assigned:  oklch(0.75 0.10 245); /* хуваарилагдсан — цэнхэр */
+  --color-delivery-ontheway:  oklch(0.80 0.12 85);  /* замд яваа — шар */
+  --color-delivery-delivered: oklch(0.78 0.11 150); /* хүргэгдсэн — ногоон */
+  --color-delivery-failed:    oklch(0.62 0.19 32);  /* амжилтгүй — улаан */
 }
 
 /* ── Эрх бүрийн accent (dark үндсэн) ─────────────────────────── */
@@ -85,6 +92,12 @@
   --color-status-ready:     oklch(0.52 0.12 150);
   --color-status-completed: oklch(0.48 0.06 150);
   --color-status-cancelled: oklch(0.55 0.20 32);
+
+  --color-delivery-pending:   oklch(0.50 0.02 60);
+  --color-delivery-assigned:  oklch(0.50 0.12 245);
+  --color-delivery-ontheway:  oklch(0.55 0.13 85);
+  --color-delivery-delivered: oklch(0.50 0.12 150);
+  --color-delivery-failed:    oklch(0.55 0.20 32);
 }
 
 /* Light темэд accent-ууд бараанаар */
