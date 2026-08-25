@@ -222,6 +222,13 @@ const DICT = {
     'хуваарилагдсан': 'assigned',
     'хүргэсэн': 'delivered',
 
+    'Операторын самбар': 'Operator overview',
+    'Миний шивсэн захиалга': 'My orders entered',
+    'Биелсэн': 'Fulfilled',
+    '7 хоногийн шивэлт': '7-day order entry',
+    'Бага үлдэгдэлтэй бараа': 'Low stock items',
+    'Бүх үлдэгдэл хэвийн': 'All stock levels healthy',
+
     // — Тохиргоо —
     'Хэл': 'Language',
     'Тема': 'Theme',

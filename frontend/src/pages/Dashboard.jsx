@@ -1,5 +1,6 @@
 import { useAuth } from '../context/AuthContext'
 import AdminDashboard from './dashboards/AdminDashboard'
+import OperatorDashboard from './dashboards/OperatorDashboard'
 import StockHealthDashboard from './dashboards/StockHealthDashboard'
 
 /**
@@ -13,6 +14,8 @@ export default function Dashboard() {
   switch (user?.role) {
     case 'ADMIN':
       return <AdminDashboard />
+    case 'OPERATOR':
+      return <OperatorDashboard />
     default:
       return <StockHealthDashboard />
   }
