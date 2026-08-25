@@ -18,6 +18,19 @@ import { UPLOADS_DIR } from '../src/uploads.config';
 const T = Date.now().toString().slice(-7); // давхардахгүй суффикс
 const SKU = `E2E-${T}`;
 
+/** УБ горимын жишиг хаяг (fullAddress-ийн хүлээгдэх утгатай хослоно) */
+const UB_ADDR = {
+  region: 'ULAANBAATAR',
+  district: 'ХУД',
+  khoroo: '11',
+  building: 'Гоёо хотхон 45-р байр',
+  entrance: '2',
+  floor: '5',
+  door: '501',
+};
+const UB_FULL =
+  'ХУД, 11-р хороо, Гоёо хотхон 45-р байр, 2-р орц, 5 давхар, 501 тоот';
+
 /** Хамгийн жижиг хүчинтэй PNG (8×8) — баталгаажуулах зурагт */
 function makePng(): Buffer {
   const chunk = (type: string, data: Buffer) => {
@@ -322,9 +335,46 @@ describe('ursGAL v2 API (e2e)', () => {
 
   // ────────────────────────────────────────────── ORDERS
   describe('Orders — transaction ⭐', () => {
-    // N1: address багана бүтэцлэгдсэн хаягаар солигдсон —
-    // хаягийн заавал шалгалт N2-ийн region-д суурилсан validation-аар эргэж ирнэ
-    it.skip('хаяггүй → 400 (N2-д бүтэцлэгдсэн хаягаар солигдоно)', () => {});
+    it('УБ горимд дүүрэггүй → 400 «Дүүрэг заавал»', async () => {
+      const { district: _d, ...noDistrict } = UB_ADDR;
+      const res = await api()
+        .post('/api/orders')
+        .set(auth(tok.operator))
+        .send({
+          customerPhone: `9${T}`,
+          ...noDistrict,
+          items: [{ productId, qty: 1 }],
+        })
+        .expect(400);
+      expect(res.body.message).toContain('Дүүрэг заавал');
+    });
+
+    it('Орон нутагт тээвэргүй → 400 «Ачаа явах тээвэр заавал»', async () => {
+      const res = await api()
+        .post('/api/orders')
+        .set(auth(tok.operator))
+        .send({
+          customerPhone: `9${T}`,
+          region: 'ORON_NUTAG',
+          province: 'Архангай',
+          soum: 'Эрдэнэбулган',
+          items: [{ productId, qty: 1 }],
+        })
+        .expect(400);
+      expect(res.body.message).toContain('Ачаа явах тээвэр заавал');
+    });
+
+    it('утас 8 оронтой биш → 400', async () => {
+      await api()
+        .post('/api/orders')
+        .set(auth(tok.operator))
+        .send({
+          customerPhone: '123',
+          ...UB_ADDR,
+          items: [{ productId, qty: 1 }],
+        })
+        .expect(400);
+    });
 
     it('давхардсан productId → 400', async () => {
       await api()
@@ -348,10 +398,22 @@ describe('ursGAL v2 API (e2e)', () => {
         .send({
           customerName: `Э2Э-${T}`,
           customerPhone: `9${T}`,
+          extraPhone: `8${T}`,
+          ...UB_ADDR,
           items: [{ productId, qty: 4 }],
         })
         .expect(201);
       orderId = res.body.id;
+      expect(res.body.region).toBe('ULAANBAATAR');
+      expect(res.body.district).toBe('ХУД');
+      expect(res.body.province).toBeNull(); // эсрэг горимын талбар null
+
+      // GET /:id — fullAddress зөв угсрагдана
+      const detail = await api()
+        .get(`/api/orders/${orderId}`)
+        .set(auth(tok.operator))
+        .expect(200);
+      expect(detail.body.fullAddress).toBe(UB_FULL);
       expect(res.body.orderNo).toMatch(/^ORD-\d{8}-\d{4}$/);
       expect(Number(res.body.totalAmount)).toBe(4000);
       expect(res.body.deliveryStatus).toBe('PENDING');
@@ -378,6 +440,7 @@ describe('ursGAL v2 API (e2e)', () => {
         .send({
           customerName: `Э2Э-их-${T}`,
           customerPhone: `9${T}`,
+          ...UB_ADDR,
           items: [{ productId, qty: 9999 }],
         })
         .expect(400);
@@ -404,10 +467,23 @@ describe('ursGAL v2 API (e2e)', () => {
         .send({
           customerName: `Э2Э-адм-${T}`,
           customerPhone: `8${T}`,
+          region: 'ORON_NUTAG',
+          province: 'Архангай',
+          soum: 'Эрдэнэбулган',
+          transport: 'Од транс',
+          addressDetail: 'Захын хойд талд',
           items: [{ productId, qty: 1 }],
         })
         .expect(201);
       adminOrderId = admOrd.body.id;
+      expect(admOrd.body.district).toBeNull(); // УБ талбарууд null
+      const admDetail = await api()
+        .get(`/api/orders/${adminOrderId}`)
+        .set(auth(tok.admin))
+        .expect(200);
+      expect(admDetail.body.fullAddress).toBe(
+        'Архангай, Эрдэнэбулган сум — Тээвэр: Од транс, Захын хойд талд',
+      );
       await api()
         .patch(`/api/orders/${adminOrderId}/status`)
         .set(auth(tok.operator))
@@ -503,6 +579,7 @@ describe('ursGAL v2 API (e2e)', () => {
         .expect(200);
       const mine = res.body.find((d: { id: string }) => d.id === orderId);
       expect(mine).toBeDefined();
+      expect(mine.fullAddress).toBe(UB_FULL);
       expect(mine.items[0].qty).toBe(4);
     });
 
@@ -573,6 +650,7 @@ describe('ursGAL v2 API (e2e)', () => {
         .send({
           customerName: `Э2Э-2-${T}`,
           customerPhone: `7${T}`,
+          ...UB_ADDR,
           items: [{ productId, qty: 2 }],
         })
         .expect(201);

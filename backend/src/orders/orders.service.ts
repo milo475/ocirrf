@@ -7,6 +7,7 @@ import {
 import type { AuthUser } from '../auth/decorators/current-user.decorator';
 import { OrderStatus, Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { formatFullAddress } from './address.util';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { QueryOrdersDto } from './dto/query-orders.dto';
 
@@ -131,12 +132,26 @@ export class OrdersService {
         };
       });
 
-      // 5. Order + OrderItem-үүд
+      // 5. Order + OrderItem-үүд.
+      // Хаяг: зөвхөн өөрийн горимын талбаруудыг хадгалж, эсрэг горимынхыг null
+      const isUB = dto.region === 'ULAANBAATAR';
       const order = await tx.order.create({
         data: {
           orderNo,
-          customerName: dto.customerName,
+          customerName: dto.customerName ?? null,
           phone: dto.customerPhone,
+          extraPhone: dto.extraPhone ?? null,
+          region: dto.region,
+          district: isUB ? dto.district : null,
+          khoroo: isUB ? dto.khoroo : null,
+          building: isUB ? dto.building : null,
+          entrance: isUB ? dto.entrance : null,
+          floor: isUB ? dto.floor : null,
+          door: isUB ? dto.door : null,
+          province: isUB ? null : dto.province,
+          soum: isUB ? null : dto.soum,
+          transport: isUB ? null : dto.transport,
+          addressDetail: isUB ? null : (dto.addressDetail ?? null),
           note: dto.note,
           totalAmount,
           createdById: userId,
@@ -249,7 +264,8 @@ export class OrdersService {
     if (!order) {
       throw new NotFoundException('Захиалга олдсонгүй');
     }
-    return order;
+    // Бүтэцлэгдсэн талбаруудын хамт нэг мөр хаягийг өгнө
+    return { ...order, fullAddress: formatFullAddress(order) };
   }
 
   async findAll(query: QueryOrdersDto) {

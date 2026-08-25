@@ -2,15 +2,19 @@ import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
+  IsEnum,
   IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
   IsUUID,
+  Matches,
   Min,
   MinLength,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
+import { DeliveryRegion } from '../../generated/prisma/client';
 
 export class OrderItemInput {
   @IsUUID('4', { message: 'productId буруу форматтай' })
@@ -21,14 +25,83 @@ export class OrderItemInput {
   qty: number;
 }
 
-export class CreateOrderDto {
-  @IsString()
-  @MinLength(2, { message: 'Захиалагчийн нэр хамгийн багадаа 2 тэмдэгт' })
-  customerName: string;
+/** УБ горимд заавал */
+const ifUB = (o: CreateOrderDto) => o.region === 'ULAANBAATAR';
+/** Орон нутгийн горимд заавал */
+const ifON = (o: CreateOrderDto) => o.region === 'ORON_NUTAG';
 
+export class CreateOrderDto {
+  /** Хүлээн авагчийн нэр — заавал биш */
+  @IsOptional()
   @IsString()
-  @IsNotEmpty({ message: 'Утасны дугаар хоосон байж болохгүй' })
+  @MinLength(2, { message: 'Хүлээн авагчийн нэр хамгийн багадаа 2 тэмдэгт' })
+  customerName?: string;
+
+  /** Хүлээн авагчийн утас — заавал, 8 оронтой */
+  @Matches(/^\d{8}$/, { message: 'Утасны дугаар 8 оронтой тоо байна' })
   customerPhone: string;
+
+  /** Нэмэлт (захиалагчийн) утас */
+  @IsOptional()
+  @Matches(/^\d{8}$/, { message: 'Нэмэлт утас 8 оронтой тоо байна' })
+  extraPhone?: string;
+
+  @IsEnum(DeliveryRegion, {
+    message: 'Бүс буруу (ULAANBAATAR эсвэл ORON_NUTAG)',
+  })
+  region: DeliveryRegion;
+
+  // ── УБ горим: бүгд заавал ──
+  @ValidateIf(ifUB)
+  @IsString()
+  @IsNotEmpty({ message: 'Дүүрэг заавал' })
+  district?: string;
+
+  @ValidateIf(ifUB)
+  @IsString()
+  @IsNotEmpty({ message: 'Хороо заавал' })
+  khoroo?: string;
+
+  @ValidateIf(ifUB)
+  @IsString()
+  @IsNotEmpty({ message: 'Барилга/Хороолол/Хашаа заавал' })
+  building?: string;
+
+  @ValidateIf(ifUB)
+  @IsString()
+  @IsNotEmpty({ message: 'Орц заавал' })
+  entrance?: string;
+
+  @ValidateIf(ifUB)
+  @IsString()
+  @IsNotEmpty({ message: 'Давхар заавал' })
+  floor?: string;
+
+  @ValidateIf(ifUB)
+  @IsString()
+  @IsNotEmpty({ message: 'Хаалга заавал' })
+  door?: string;
+
+  // ── Орон нутгийн горим: заавал ──
+  @ValidateIf(ifON)
+  @IsString()
+  @IsNotEmpty({ message: 'Аймаг заавал' })
+  province?: string;
+
+  @ValidateIf(ifON)
+  @IsString()
+  @IsNotEmpty({ message: 'Сум/Суурин газар заавал' })
+  soum?: string;
+
+  @ValidateIf(ifON)
+  @IsString()
+  @IsNotEmpty({ message: 'Ачаа явах тээвэр заавал' })
+  transport?: string;
+
+  /** Хаягийн дэлгэрэнгүй (орон нутгийн нэмэлт, чөлөөт текст) */
+  @IsOptional()
+  @IsString()
+  addressDetail?: string;
 
   @IsOptional()
   @IsString()

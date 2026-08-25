@@ -9,6 +9,7 @@ import {
   OrderStatus,
   Prisma,
 } from '../generated/prisma/client';
+import { formatFullAddress } from '../orders/address.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { CompleteDeliveryDto } from './dto/complete-delivery.dto';
 
@@ -72,9 +73,9 @@ export class DeliveryService {
     });
   }
 
-  /** Жолоочийн өөрийн дуусаагүй хүргэлтүүд */
-  myDeliveries(driverId: string) {
-    return this.prisma.order.findMany({
+  /** Жолоочийн өөрийн дуусаагүй хүргэлтүүд (fullAddress-тэй) */
+  async myDeliveries(driverId: string) {
+    const rows = await this.prisma.order.findMany({
       where: {
         assignedDriverId: driverId,
         deliveryStatus: {
@@ -106,6 +107,7 @@ export class DeliveryService {
       },
       orderBy: { assignedAt: 'asc' },
     });
+    return rows.map((r) => ({ ...r, fullAddress: formatFullAddress(r) }));
   }
 
   /** Хүргэлт баталгаажуулах (зурагтай) эсвэл амжилтгүй гэж тэмдэглэх */

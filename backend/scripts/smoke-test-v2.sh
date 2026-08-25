@@ -36,7 +36,7 @@ QTY=$(curl -sf -X POST $API/stock/adjust -H "Authorization: Bearer $TOK_manager"
 echo "── 3. OPERATOR захиалга шивнэ (хаягтай) ──"
 # Хүлээгдэх: NEW захиалга, үлдэгдэл 12→9
 ORD=$(curl -sf -X POST $API/orders -H "Authorization: Bearer $TOK_operator" -H "$H" \
-  -d "{\"customerName\":\"Смоук Харилцагч\",\"customerPhone\":\"90$STAMP\",\"address\":\"Смоук хаяг 1-1\",\"items\":[{\"productId\":\"$PID\",\"qty\":3}]}")
+  -d "{\"customerName\":\"Смоук Харилцагч\",\"customerPhone\":\"99112233\",\"region\":\"ULAANBAATAR\",\"district\":\"БЗД\",\"khoroo\":\"14\",\"building\":\"45-р байр\",\"entrance\":\"1\",\"floor\":\"3\",\"door\":\"33\",\"items\":[{\"productId\":\"$PID\",\"qty\":3}]}")
 OID=$(echo "$ORD" | json "['id']")
 echo "OK: $(echo "$ORD" | json "['orderNo']") ($(echo "$ORD" | json "['totalAmount']")₮)"
 
@@ -55,7 +55,7 @@ curl -sf $API/deliveries/my -H "Authorization: Bearer $TOK_driver" \
 import json,sys
 d = json.load(sys.stdin)
 row = next(x for x in d if x['id'] == '$OID')
-print('OK:', row['orderNo'], '|', row['address'], '|', len(row['items']), 'мөр')"
+print('OK:', row['orderNo'], '|', row['fullAddress'], '|', len(row['items']), 'мөр')"
 
 echo "── 6. DRIVER зурагтай баталгаажуулна ──"
 # Хүлээгдэх: DELIVERED + зураг serve хийгдэнэ
