@@ -135,7 +135,8 @@ model StockMovement {
   id        String   @id @default(uuid())
   productId String
   qtyChange Int // + орлого, - зарлага
-  reason    String // "ORDER", "CANCEL", "MANUAL", "INITIAL"
+  reason    String // "PURCHASE_IN", "MANUAL_OUT", "CORRECTION", "ORDER", "ORDER_CANCEL", "INITIAL"
+  note      String? // нэмэлт тайлбар (v2)
   refId     String? // захиалгын id гэх мэт
   userId    String
   createdAt DateTime @default(now())

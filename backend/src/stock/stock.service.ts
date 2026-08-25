@@ -3,20 +3,31 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import type { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AdjustStockDto } from './dto/adjust-stock.dto';
 import { QueryMovementsDto } from './dto/query-movements.dto';
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 @Injectable()
 export class StockService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Үлдэгдлийг гараар тохируулна. Transaction дотор атомоор:
-   * increment ашигласнаар зэрэг хийгдэх adjust-ууд бие биенийхээ
-   * утгыг дарж бичихгүй; сөрөг гарвал transaction бүхэлдээ буцна.
+   * Орлого/зарлага/залруулга. Transaction дотор атом increment —
+   * шинэ үлдэгдэл сөрөг бол бүхэлдээ буцна.
+   * Шалтгааны утга чиглэлтэйгээ таарах ёстой:
+   * PURCHASE_IN зөвхөн +, MANUAL_OUT зөвхөн −, CORRECTION аль ч байж болно.
    */
   adjust(dto: AdjustStockDto, userId: string) {
+    if (dto.reason === 'PURCHASE_IN' && dto.qtyChange < 0) {
+      throw new BadRequestException('PURCHASE_IN (орлого) эерэг тоотой байна');
+    }
+    if (dto.reason === 'MANUAL_OUT' && dto.qtyChange > 0) {
+      throw new BadRequestException('MANUAL_OUT (зарлага) сөрөг тоотой байна');
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const exists = await tx.product.findUnique({
         where: { id: dto.productId },
@@ -43,6 +54,7 @@ export class StockService {
           productId: dto.productId,
           qtyChange: dto.qtyChange,
           reason: dto.reason,
+          note: dto.note ?? null,
           refId: null,
           userId,
         },
@@ -53,8 +65,20 @@ export class StockService {
   }
 
   async movements(query: QueryMovementsDto) {
-    const { productId, page = 1, limit = 20 } = query;
-    const where = productId ? { productId } : {};
+    const { productId, reason, from, to, page = 1, limit = 20 } = query;
+
+    const where: Prisma.StockMovementWhereInput = {
+      ...(productId ? { productId } : {}),
+      ...(reason ? { reason } : {}),
+      ...(from || to
+        ? {
+            createdAt: {
+              ...(from ? { gte: new Date(from) } : {}),
+              ...(to ? { lte: new Date(to) } : {}),
+            },
+          }
+        : {}),
+    };
 
     const [items, total] = await Promise.all([
       this.prisma.stockMovement.findMany({
@@ -71,5 +95,41 @@ export class StockService {
     ]);
 
     return { items, total };
+  }
+
+  /**
+   * Сүүлийн N хоногийн өдөр тутмын орлого(+)/зарлага(−) нийлбэр —
+   * manager dashboard-ийн график. Өнөөдрийг оруулаад days хоног.
+   */
+  async summary(days = 7) {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    start.setDate(start.getDate() - (days - 1));
+
+    const moves = await this.prisma.stockMovement.findMany({
+      where: { createdAt: { gte: start } },
+      select: { qtyChange: true, createdAt: true },
+    });
+
+    const dayKey = (d: Date) =>
+      new Date(d.getTime() - d.getTimezoneOffset() * 60_000)
+        .toISOString()
+        .slice(0, 10);
+
+    const byDay = new Map<string, { date: string; in: number; out: number }>();
+    for (let i = 0; i < days; i++) {
+      const d = new Date(start.getTime() + i * DAY_MS);
+      const key = dayKey(d);
+      byDay.set(key, { date: key, in: 0, out: 0 });
+    }
+
+    for (const m of moves) {
+      const row = byDay.get(dayKey(m.createdAt));
+      if (!row) continue;
+      if (m.qtyChange > 0) row.in += m.qtyChange;
+      else row.out += -m.qtyChange;
+    }
+
+    return [...byDay.values()];
   }
 }
