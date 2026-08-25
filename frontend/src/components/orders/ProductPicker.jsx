@@ -87,11 +87,12 @@ export default function ProductPicker({ onPick, excludeIds = [] }) {
           )}
           {results.map((p, i) => {
             const added = excludeIds.includes(p.id)
+            const out = p.stockQty === 0
             return (
               <li key={p.id}>
                 <button
                   type="button"
-                  disabled={added}
+                  disabled={added || out}
                   onClick={() => pick(p)}
                   onMouseEnter={() => setActive(i)}
                   className={`w-full text-left px-3 py-2 text-sm flex items-baseline justify-between gap-3 disabled:opacity-40 ${
@@ -106,6 +107,11 @@ export default function ProductPicker({ onPick, excludeIds = [] }) {
                     {added && (
                       <span className="text-xs text-ink-muted ml-2">
                         {t('— нэмэгдсэн')}
+                      </span>
+                    )}
+                    {out && !added && (
+                      <span className="inline-flex ml-2 font-mono text-[10px] uppercase tracking-wide border rounded px-1 py-0.5 text-status-cancelled border-status-cancelled/40 bg-status-cancelled/12">
+                        {t('stock.out')}
                       </span>
                     )}
                   </span>
