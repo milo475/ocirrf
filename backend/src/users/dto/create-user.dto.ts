@@ -1,4 +1,12 @@
-import { IsEmail, IsEnum, IsString, MinLength } from 'class-validator';
+import {
+  IsEmail,
+  IsEnum,
+  IsOptional,
+  IsString,
+  Matches,
+  MinLength,
+  ValidateIf,
+} from 'class-validator';
 import { Role } from '../../generated/prisma/client';
 
 export class CreateUserDto {
@@ -13,6 +21,17 @@ export class CreateUserDto {
   @MinLength(6, { message: 'Нууц үг хамгийн багадаа 6 тэмдэгт байна' })
   password: string;
 
-  @IsEnum(Role, { message: 'Role буруу (ADMIN эсвэл OPERATOR)' })
+  @IsEnum(Role, { message: 'Role буруу' })
   role: Role;
+
+  /** role=DRIVER үед заавал: хүргэлт тутмын хөлс (string → Decimal) */
+  @ValidateIf((o: CreateUserDto) => o.role === 'DRIVER')
+  @Matches(/^\d{1,10}(\.\d{1,2})?$/, {
+    message: 'feePerDelivery буруу форматтай (жишээ: 3000 эсвэл 3000.50)',
+  })
+  feePerDelivery?: string;
+
+  @IsOptional()
+  @IsString()
+  vehicleInfo?: string;
 }

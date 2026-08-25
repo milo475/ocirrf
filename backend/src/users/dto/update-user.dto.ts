@@ -3,6 +3,7 @@ import {
   IsEnum,
   IsOptional,
   IsString,
+  Matches,
   MinLength,
 } from 'class-validator';
 import { Role } from '../../generated/prisma/client';
@@ -14,7 +15,7 @@ export class UpdateUserDto {
   name?: string;
 
   @IsOptional()
-  @IsEnum(Role, { message: 'Role буруу (ADMIN эсвэл OPERATOR)' })
+  @IsEnum(Role, { message: 'Role буруу' })
   role?: Role;
 
   @IsOptional()
@@ -26,4 +27,15 @@ export class UpdateUserDto {
   @IsString()
   @MinLength(6, { message: 'Нууц үг хамгийн багадаа 6 тэмдэгт байна' })
   password?: string;
+
+  /** Жолоочийн хүргэлт тутмын хөлс */
+  @IsOptional()
+  @Matches(/^\d{1,10}(\.\d{1,2})?$/, {
+    message: 'feePerDelivery буруу форматтай',
+  })
+  feePerDelivery?: string;
+
+  @IsOptional()
+  @IsString()
+  vehicleInfo?: string;
 }
