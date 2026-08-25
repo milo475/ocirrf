@@ -14,7 +14,9 @@ async function bootstrap() {
     }),
   );
   app.enableCors({
-    origin: 'http://localhost:5173',
+    // Dev үед Vite (5173); production-д нэг порт тул CORS бараг хэрэггүй ч
+    // тусдаа домэйнд байршуулбал CORS_ORIGIN-оор тохируулна
+    origin: process.env.CORS_ORIGIN ?? 'http://localhost:5173',
     credentials: true,
   });
   app.enableShutdownHooks();

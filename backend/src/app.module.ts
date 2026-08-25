@@ -1,5 +1,7 @@
+import { join } from 'node:path';
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
+import { ServeStaticModule } from '@nestjs/serve-static';
 import { AppController } from './app.controller';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
@@ -14,6 +16,12 @@ import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
+    // frontend/dist-ийг нэг порт дээрээс serve хийнэ:
+    // /api/* backend-д, бусад бүх зам SPA-ийн index.html руу
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', '..', 'frontend', 'dist'),
+      exclude: ['/api/{*path}'],
+    }),
     PrismaModule,
     AuthModule,
     CategoriesModule,
