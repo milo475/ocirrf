@@ -8,6 +8,7 @@ import { LanguageProvider } from './context/LanguageContext'
 import { ThemeProvider } from './context/ThemeContext'
 import Dashboard from './pages/Dashboard'
 import Login from './pages/Login'
+import MyDeliveries from './pages/MyDeliveries'
 import OrderDetail from './pages/OrderDetail'
 import OrderNew from './pages/OrderNew'
 import Orders from './pages/Orders'
@@ -35,6 +36,7 @@ function App() {
                     <Route path="/orders/new" element={<OrderNew />} />
                     <Route path="/orders/:id" element={<OrderDetail />} />
                     <Route path="/stock" element={<Stock />} />
+                    <Route path="/deliveries" element={<MyDeliveries />} />
                     <Route path="/settings" element={<Settings />} />
 
                     {/* Зөвхөн админ */}

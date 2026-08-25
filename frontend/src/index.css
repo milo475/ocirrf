@@ -33,6 +33,11 @@
   --color-alarm:     oklch(0.62 0.19 32);   /* vermilion */
   --color-safe:      oklch(0.72 0.10 150);
 
+  /* Эрхийн accent — data-role селектороор доор дарж бичигдэнэ */
+  --color-accent:            oklch(0.70 0.02 60);
+  --color-accent-foreground: oklch(0.15 0.01 60);
+  --color-accent-muted:      oklch(0.30 0.02 60);
+
   /* Захиалгын статусын өнгө (OrderStatus enum-ийн 6 төлөв) */
   --color-status-new:       oklch(0.75 0.10 245); /* шинэ — цэнхэр */
   --color-status-confirmed: oklch(0.78 0.09 200); /* баталгаажсан — номин */
@@ -40,6 +45,28 @@
   --color-status-ready:     oklch(0.78 0.11 150); /* бэлэн — ногоон */
   --color-status-completed: oklch(0.65 0.05 150); /* дууссан — намуухан ногоон */
   --color-status-cancelled: oklch(0.62 0.19 32);  /* цуцлагдсан — alarm улаан */
+}
+
+/* ── Эрх бүрийн accent (dark үндсэн) ─────────────────────────── */
+[data-role="admin"] {
+  --color-accent:            oklch(0.62 0.15 20); /* бордо-улаан */
+  --color-accent-foreground: oklch(0.13 0.01 20);
+  --color-accent-muted:      oklch(0.30 0.06 20);
+}
+[data-role="manager"] {
+  --color-accent:            oklch(0.70 0.12 250); /* хөх */
+  --color-accent-foreground: oklch(0.13 0.01 250);
+  --color-accent-muted:      oklch(0.30 0.06 250);
+}
+[data-role="operator"] {
+  --color-accent:            oklch(0.72 0.13 155); /* ногоон */
+  --color-accent-foreground: oklch(0.13 0.01 155);
+  --color-accent-muted:      oklch(0.29 0.05 155);
+}
+[data-role="driver"] {
+  --color-accent:            oklch(0.80 0.14 80); /* amber */
+  --color-accent-foreground: oklch(0.15 0.02 80);
+  --color-accent-muted:      oklch(0.32 0.06 80);
 }
 
 /* light тема — токенуудыг дарж бичнэ */
@@ -58,6 +85,28 @@
   --color-status-ready:     oklch(0.52 0.12 150);
   --color-status-completed: oklch(0.48 0.06 150);
   --color-status-cancelled: oklch(0.55 0.20 32);
+}
+
+/* Light темэд accent-ууд бараанаар */
+[data-theme="light"][data-role="admin"] {
+  --color-accent:            oklch(0.45 0.16 20);
+  --color-accent-foreground: oklch(0.98 0.005 20);
+  --color-accent-muted:      oklch(0.90 0.05 20);
+}
+[data-theme="light"][data-role="manager"] {
+  --color-accent:            oklch(0.48 0.14 250);
+  --color-accent-foreground: oklch(0.98 0.005 250);
+  --color-accent-muted:      oklch(0.90 0.05 250);
+}
+[data-theme="light"][data-role="operator"] {
+  --color-accent:            oklch(0.48 0.13 155);
+  --color-accent-foreground: oklch(0.98 0.005 155);
+  --color-accent-muted:      oklch(0.90 0.05 155);
+}
+[data-theme="light"][data-role="driver"] {
+  --color-accent:            oklch(0.55 0.13 75);
+  --color-accent-foreground: oklch(0.99 0.005 75);
+  --color-accent-muted:      oklch(0.91 0.06 75);
 }
 
 @layer base {
