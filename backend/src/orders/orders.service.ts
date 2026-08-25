@@ -137,7 +137,6 @@ export class OrdersService {
           orderNo,
           customerName: dto.customerName,
           phone: dto.customerPhone,
-          address: dto.address ?? '',
           note: dto.note,
           totalAmount,
           createdById: userId,

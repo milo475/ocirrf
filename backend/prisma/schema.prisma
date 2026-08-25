@@ -24,6 +24,11 @@ enum OrderStatus {
   CANCELLED
 }
 
+enum DeliveryRegion {
+  ULAANBAATAR
+  ORON_NUTAG
+}
+
 enum DeliveryStatus {
   PENDING
   ASSIGNED
@@ -76,11 +81,27 @@ model Product {
 }
 
 model Order {
-  id             String         @id @default(uuid())
-  orderNo        String         @unique
-  customerName   String
-  phone          String
-  address        String
+  id           String  @id @default(uuid())
+  orderNo      String  @unique
+  customerName String? // Хүлээн авагчийн нэр (заавал биш)
+  phone        String // Хүлээн авагчийн утас — заавал
+  extraPhone   String? // Нэмэлт (захиалагчийн) утас
+
+  // Бүтэцлэгдсэн хаяг (v2 нэмэлт багц)
+  region        DeliveryRegion @default(ULAANBAATAR)
+  // УБ горим:
+  district      String? // Дүүрэг
+  khoroo        String? // Хороо
+  building      String? // Барилга / Хороолол / Хашаа
+  entrance      String? // Орц
+  floor         String? // Давхар
+  door          String? // Хаалга
+  // Орон нутаг горим:
+  province      String? // Аймаг
+  soum          String? // Сум / Суурин газар
+  transport     String? // Ачаа явах тээвэр (орон нутагт заавал)
+  addressDetail String? // Хаягийн дэлгэрэнгүй (чөлөөт текст)
+
   note           String?
   totalAmount    Decimal        @default(0) @db.Decimal(12, 2)
   orderStatus    OrderStatus    @default(NEW)

@@ -322,17 +322,9 @@ describe('ursGAL v2 API (e2e)', () => {
 
   // ────────────────────────────────────────────── ORDERS
   describe('Orders — transaction ⭐', () => {
-    it('хаяггүй → 400', async () => {
-      await api()
-        .post('/api/orders')
-        .set(auth(tok.operator))
-        .send({
-          customerName: `Э2Э-${T}`,
-          customerPhone: `9${T}`,
-          items: [{ productId, qty: 1 }],
-        })
-        .expect(400);
-    });
+    // N1: address багана бүтэцлэгдсэн хаягаар солигдсон —
+    // хаягийн заавал шалгалт N2-ийн region-д суурилсан validation-аар эргэж ирнэ
+    it.skip('хаяггүй → 400 (N2-д бүтэцлэгдсэн хаягаар солигдоно)', () => {});
 
     it('давхардсан productId → 400', async () => {
       await api()
@@ -341,7 +333,6 @@ describe('ursGAL v2 API (e2e)', () => {
         .send({
           customerName: `Э2Э-${T}`,
           customerPhone: `9${T}`,
-          address: 'э2э хаяг',
           items: [
             { productId, qty: 1 },
             { productId, qty: 2 },
@@ -357,7 +348,6 @@ describe('ursGAL v2 API (e2e)', () => {
         .send({
           customerName: `Э2Э-${T}`,
           customerPhone: `9${T}`,
-          address: 'Э2Э хаяг 1-1',
           items: [{ productId, qty: 4 }],
         })
         .expect(201);
@@ -388,7 +378,6 @@ describe('ursGAL v2 API (e2e)', () => {
         .send({
           customerName: `Э2Э-их-${T}`,
           customerPhone: `9${T}`,
-          address: 'хаяг',
           items: [{ productId, qty: 9999 }],
         })
         .expect(400);
@@ -415,7 +404,6 @@ describe('ursGAL v2 API (e2e)', () => {
         .send({
           customerName: `Э2Э-адм-${T}`,
           customerPhone: `8${T}`,
-          address: 'админ хаяг',
           items: [{ productId, qty: 1 }],
         })
         .expect(201);
@@ -515,7 +503,6 @@ describe('ursGAL v2 API (e2e)', () => {
         .expect(200);
       const mine = res.body.find((d: { id: string }) => d.id === orderId);
       expect(mine).toBeDefined();
-      expect(mine.address).toBe('Э2Э хаяг 1-1');
       expect(mine.items[0].qty).toBe(4);
     });
 
@@ -586,7 +573,6 @@ describe('ursGAL v2 API (e2e)', () => {
         .send({
           customerName: `Э2Э-2-${T}`,
           customerPhone: `7${T}`,
-          address: 'Э2Э хаяг 2-2',
           items: [{ productId, qty: 2 }],
         })
         .expect(201);

@@ -41,9 +41,13 @@ export type ManagerDashboard = {
   awaitingAssignment: {
     id: string;
     orderNo: string;
-    customerName: string;
+    customerName: string | null;
     phone: string;
-    address: string;
+    region: string;
+    district: string | null;
+    khoroo: string | null;
+    province: string | null;
+    soum: string | null;
     totalAmount: unknown; // Prisma.Decimal — JSON-д string болно
     orderStatus: string;
     createdAt: Date;
