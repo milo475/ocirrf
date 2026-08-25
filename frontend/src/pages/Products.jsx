@@ -49,6 +49,7 @@ export default function Products() {
   const [categories, setCategories] = useState([])
 
   const [formOpen, setFormOpen] = useState(false)
+  const [formError, setFormError] = useState(null)
   const [editing, setEditing] = useState(null)
   const [adjusting, setAdjusting] = useState(null)
   const [deactivating, setDeactivating] = useState(null)
@@ -85,6 +86,7 @@ export default function Products() {
 
   async function handleFormSubmit(values) {
     setBusy(true)
+    setFormError(null)
     try {
       if (editing) {
         await api(`/products/${editing.id}`, { method: 'PATCH', body: values })
@@ -97,6 +99,7 @@ export default function Products() {
       setEditing(null)
       load()
     } catch (e) {
+      setFormError(e.message) // форм дотроо талбарын доор
       toast.show(e.message, { type: 'error' })
     } finally {
       setBusy(false)
@@ -270,6 +273,7 @@ export default function Products() {
         onClose={() => {
           setFormOpen(false)
           setEditing(null)
+          setFormError(null)
         }}
         title={editing ? `Засах — ${editing.name}` : 'Шинэ бараа'}
       >
@@ -278,6 +282,7 @@ export default function Products() {
           initial={editing}
           categories={categories}
           submitting={busy}
+          error={formError}
           onSubmit={handleFormSubmit}
           onCancel={() => {
             setFormOpen(false)

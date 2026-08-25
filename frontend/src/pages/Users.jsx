@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import Button from '../components/ui/Button'
+import ConfirmDialog from '../components/ui/ConfirmDialog'
 import EmptyState from '../components/ui/EmptyState'
 import Input from '../components/ui/Input'
 import Modal from '../components/ui/Modal'
@@ -42,7 +43,7 @@ function ActiveToggle({ checked, disabled, onChange }) {
   )
 }
 
-function UserForm({ submitting, onSubmit, onCancel }) {
+function UserForm({ submitting, error, onSubmit, onCancel }) {
   const [values, setValues] = useState({
     name: '',
     email: '',
@@ -91,6 +92,11 @@ function UserForm({ submitting, onSubmit, onCancel }) {
         <option value="OPERATOR">Оператор</option>
         <option value="ADMIN">Админ</option>
       </Select>
+      {error && (
+        <p className="text-sm text-alarm border border-alarm rounded px-3 py-2">
+          {error}
+        </p>
+      )}
       <div className="flex justify-end gap-2 pt-2">
         <Button variant="ghost" onClick={onCancel} disabled={submitting}>
           Болих
@@ -110,7 +116,9 @@ export default function Users() {
   const [users, setUsers] = useState(null)
   const [error, setError] = useState(null)
   const [formOpen, setFormOpen] = useState(false)
+  const [formError, setFormError] = useState(null)
   const [busy, setBusy] = useState(false)
+  const [deactivating, setDeactivating] = useState(null)
 
   const load = useCallback(() => {
     setError(null)
@@ -125,10 +133,28 @@ export default function Users() {
 
   async function handleCreate(values) {
     setBusy(true)
+    setFormError(null)
     try {
       await api('/users', { method: 'POST', body: values })
       toast.show(`«${values.name}» бүртгэгдлээ`)
       setFormOpen(false)
+      load()
+    } catch (e) {
+      setFormError(e.message) // форм дотроо талбарын доор
+      toast.show(e.message, { type: 'error' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function setActive(u, isActive) {
+    setBusy(true)
+    try {
+      await api(`/users/${u.id}`, { method: 'PATCH', body: { isActive } })
+      toast.show(
+        isActive ? `«${u.fullName}» идэвхжлээ` : `«${u.fullName}» идэвхгүй боллоо`,
+      )
+      setDeactivating(null)
       load()
     } catch (e) {
       toast.show(e.message, { type: 'error' })
@@ -137,21 +163,10 @@ export default function Users() {
     }
   }
 
-  async function toggleActive(u) {
-    try {
-      await api(`/users/${u.id}`, {
-        method: 'PATCH',
-        body: { isActive: !u.isActive },
-      })
-      toast.show(
-        u.isActive
-          ? `«${u.fullName}» идэвхгүй боллоо`
-          : `«${u.fullName}» идэвхжлээ`,
-      )
-      load()
-    } catch (e) {
-      toast.show(e.message, { type: 'error' })
-    }
+  /** Идэвхгүй болгоход баталгаажуулна; идэвхжүүлэх нь шууд */
+  function toggleActive(u) {
+    if (u.isActive) setDeactivating(u)
+    else setActive(u, true)
   }
 
   const columns = [
@@ -213,15 +228,33 @@ export default function Users() {
 
       <Modal
         open={formOpen}
-        onClose={() => setFormOpen(false)}
+        onClose={() => {
+          setFormOpen(false)
+          setFormError(null)
+        }}
         title="Шинэ хэрэглэгч"
       >
         <UserForm
           submitting={busy}
+          error={formError}
           onSubmit={handleCreate}
-          onCancel={() => setFormOpen(false)}
+          onCancel={() => {
+            setFormOpen(false)
+            setFormError(null)
+          }}
         />
       </Modal>
+
+      <ConfirmDialog
+        open={!!deactivating}
+        title="Хэрэглэгч идэвхгүй болгох"
+        message={`«${deactivating?.fullName}» цаашид нэвтэрч чадахгүй болно. Идэвхгүй болгох уу?`}
+        confirmLabel="Идэвхгүй болгох"
+        danger
+        loading={busy}
+        onConfirm={() => setActive(deactivating, false)}
+        onCancel={() => setDeactivating(null)}
+      />
     </div>
   )
 }

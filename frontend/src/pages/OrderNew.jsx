@@ -17,6 +17,7 @@ export default function OrderNew() {
   const [note, setNote] = useState('')
   const [items, setItems] = useState([]) // [{ product, qty }]
   const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState(null)
 
   function addProduct(product) {
     // Нэг бараа давхар нэмэгдэхгүй (picker дээр ч disabled байдаг)
@@ -54,6 +55,7 @@ export default function OrderNew() {
   async function handleSubmit(e) {
     e.preventDefault()
     setSubmitting(true)
+    setSubmitError(null)
     try {
       const order = await api('/orders', {
         method: 'POST',
@@ -71,6 +73,7 @@ export default function OrderNew() {
       navigate(`/orders/${order.id}`)
     } catch (err) {
       // Жишээ нь: «Сүү 1л» үлдэгдэл хүрэлцэхгүй (байгаа: X, хүссэн: Y)
+      setSubmitError(err.message)
       toast.show(err.message, { type: 'error' })
     } finally {
       setSubmitting(false)
@@ -181,6 +184,12 @@ export default function OrderNew() {
           </div>
         )}
       </section>
+
+      {submitError && (
+        <p className="mt-6 text-sm text-alarm border border-alarm rounded px-3 py-2">
+          {submitError}
+        </p>
+      )}
 
       {/* 4 — Нийт дүн + 5 — илгээх */}
       <section className="mt-8 flex items-center justify-between gap-4">

@@ -8,6 +8,7 @@ export default function ProductForm({
   initial,
   categories,
   submitting,
+  error,
   onSubmit,
   onCancel,
 }) {
@@ -75,6 +76,12 @@ export default function ProductForm({
         onChange={set('price')}
         placeholder="12500.00"
       />
+
+      {error && (
+        <p className="text-sm text-alarm border border-alarm rounded px-3 py-2">
+          {error}
+        </p>
+      )}
 
       <div className="flex justify-end gap-2 pt-2">
         <Button variant="ghost" onClick={onCancel} disabled={submitting}>

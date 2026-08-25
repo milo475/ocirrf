@@ -11,10 +11,12 @@ export default function StockAdjustModal({ product, onClose, onDone }) {
   const [qtyChange, setQtyChange] = useState('')
   const [reason, setReason] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState(null)
 
   async function handleSubmit(e) {
     e.preventDefault()
     setSubmitting(true)
+    setError(null)
     try {
       const res = await api('/stock/adjust', {
         method: 'POST',
@@ -29,6 +31,7 @@ export default function StockAdjustModal({ product, onClose, onDone }) {
       )
       onDone()
     } catch (err) {
+      setError(err.message) // талбарын доор inline
       toast.show(err.message, { type: 'error' })
     } finally {
       setSubmitting(false)
@@ -76,6 +79,11 @@ export default function StockAdjustModal({ product, onClose, onDone }) {
           onChange={(e) => setReason(e.target.value)}
           placeholder="Жишээ: агуулахын тооллого"
         />
+        {error && (
+          <p className="text-sm text-alarm border border-alarm rounded px-3 py-2">
+            {error}
+          </p>
+        )}
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="ghost" onClick={onClose} disabled={submitting}>
             Болих
