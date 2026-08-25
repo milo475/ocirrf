@@ -270,6 +270,11 @@ const DICT = {
     'Хүргэлт баталгаажлаа': 'Delivery confirmed',
     'Амжилтгүй гэж тэмдэглэгдлээ': 'Marked as failed',
 
+    'Хөлс': 'Fee',
+    'Хүргэлтийн хөлс (₮)': 'Fee per delivery (₮)',
+    'Тээврийн хэрэгсэл': 'Vehicle',
+    'Хэрэглэгч шинэчлэгдлээ': 'User updated',
+
     // — Тохиргоо —
     'Хэл': 'Language',
     'Тема': 'Theme',

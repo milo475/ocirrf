@@ -13,10 +13,31 @@ import { useLang } from '../context/LanguageContext'
 import { api } from '../lib/api'
 import { formatDateTime } from '../lib/format'
 
+const ROLE_COLORS = {
+  ADMIN: 'oklch(0.62 0.15 20)',
+  MANAGER: 'oklch(0.62 0.12 250)',
+  OPERATOR: 'oklch(0.60 0.13 155)',
+  DRIVER: 'oklch(0.68 0.13 80)',
+}
+const ROLE_LABELS = {
+  ADMIN: 'Админ',
+  MANAGER: 'Менежер',
+  OPERATOR: 'Оператор',
+  DRIVER: 'Жолооч',
+}
+
 function RoleBadge({ role, t }) {
+  const color = ROLE_COLORS[role] ?? 'var(--color-ink-muted)'
   return (
-    <span className="inline-flex font-mono text-[11px] uppercase tracking-wide border border-rule rounded px-1.5 py-0.5 text-ink-muted">
-      {role === 'ADMIN' ? t('Админ') : t('Оператор')}
+    <span
+      className="inline-flex font-mono text-[11px] uppercase tracking-wide border rounded px-1.5 py-0.5"
+      style={{
+        color,
+        borderColor: `color-mix(in oklch, ${color} 40%, transparent)`,
+        backgroundColor: `color-mix(in oklch, ${color} 12%, transparent)`,
+      }}
+    >
+      {t(ROLE_LABELS[role] ?? role)}
     </span>
   )
 }
@@ -50,14 +71,30 @@ function UserForm({ submitting, error, onSubmit, onCancel, t }) {
     email: '',
     password: '',
     role: 'OPERATOR',
+    feePerDelivery: '3000.00',
+    vehicleInfo: '',
   })
   const set = (key) => (e) => setValues((v) => ({ ...v, [key]: e.target.value }))
+  const isDriver = values.role === 'DRIVER'
 
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault()
-        onSubmit(values)
+        onSubmit({
+          name: values.name,
+          email: values.email,
+          password: values.password,
+          role: values.role,
+          ...(isDriver
+            ? {
+                feePerDelivery: String(values.feePerDelivery).trim(),
+                ...(values.vehicleInfo.trim()
+                  ? { vehicleInfo: values.vehicleInfo.trim() }
+                  : {}),
+              }
+            : {}),
+        })
       }}
       className="space-y-4"
     >
@@ -91,8 +128,31 @@ function UserForm({ submitting, error, onSubmit, onCancel, t }) {
       />
       <Select id="u-role" label={t('Эрх')} value={values.role} onChange={set('role')}>
         <option value="OPERATOR">{t('Оператор')}</option>
+        <option value="MANAGER">{t('Менежер')}</option>
+        <option value="DRIVER">{t('Жолооч')}</option>
         <option value="ADMIN">{t('Админ')}</option>
       </Select>
+      {isDriver && (
+        <>
+          <Input
+            id="u-fee"
+            label={t('Хүргэлтийн хөлс (₮)')}
+            required
+            inputMode="decimal"
+            pattern="\d{1,10}(\.\d{1,2})?"
+            value={values.feePerDelivery}
+            onChange={set('feePerDelivery')}
+            className="font-mono"
+          />
+          <Input
+            id="u-vehicle"
+            label={t('Тээврийн хэрэгсэл')}
+            value={values.vehicleInfo}
+            onChange={set('vehicleInfo')}
+            placeholder="Prius 30"
+          />
+        </>
+      )}
       {error && (
         <p className="text-sm text-alarm border border-alarm rounded px-3 py-2">
           {error}
@@ -110,6 +170,96 @@ function UserForm({ submitting, error, onSubmit, onCancel, t }) {
   )
 }
 
+
+/** Хэрэглэгч засах: эрх солих + жолоочийн хөлс/тээвэр */
+function UserEditModal({ user, self, onClose, onDone, t, toast }) {
+  const [role, setRole] = useState(user.role)
+  const [fee, setFee] = useState(user.driverProfile?.feePerDelivery ?? '3000.00')
+  const [vehicle, setVehicle] = useState(user.driverProfile?.vehicleInfo ?? '')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState(null)
+  const isDriver = role === 'DRIVER'
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setSubmitting(true)
+    setError(null)
+    try {
+      await api(`/users/${user.id}`, {
+        method: 'PATCH',
+        body: {
+          ...(role !== user.role ? { role } : {}),
+          ...(isDriver
+            ? {
+                feePerDelivery: String(fee).trim(),
+                ...(vehicle.trim() ? { vehicleInfo: vehicle.trim() } : {}),
+              }
+            : {}),
+        },
+      })
+      toast.show(t('Хэрэглэгч шинэчлэгдлээ'))
+      onDone()
+    } catch (err) {
+      setError(err.message)
+      toast.show(err.message, { type: 'error' })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} title={`${t('Засах')} — ${user.fullName}`}>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <Select
+          id="ue-role"
+          label={t('Эрх')}
+          value={role}
+          onChange={(e) => setRole(e.target.value)}
+          disabled={self}
+        >
+          <option value="OPERATOR">{t('Оператор')}</option>
+          <option value="MANAGER">{t('Менежер')}</option>
+          <option value="DRIVER">{t('Жолооч')}</option>
+          <option value="ADMIN">{t('Админ')}</option>
+        </Select>
+        {isDriver && (
+          <>
+            <Input
+              id="ue-fee"
+              label={t('Хүргэлтийн хөлс (₮)')}
+              required
+              inputMode="decimal"
+              pattern="\d{1,10}(\.\d{1,2})?"
+              value={fee}
+              onChange={(e) => setFee(e.target.value)}
+              className="font-mono"
+            />
+            <Input
+              id="ue-vehicle"
+              label={t('Тээврийн хэрэгсэл')}
+              value={vehicle}
+              onChange={(e) => setVehicle(e.target.value)}
+            />
+          </>
+        )}
+        {error && (
+          <p className="text-sm text-alarm border border-alarm rounded px-3 py-2">
+            {error}
+          </p>
+        )}
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="ghost" onClick={onClose} disabled={submitting}>
+            {t('Болих')}
+          </Button>
+          <Button type="submit" loading={submitting}>
+            {t('Хадгалах')}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
 export default function Users() {
   const { user: me } = useAuth()
   const toast = useToast()
@@ -121,6 +271,7 @@ export default function Users() {
   const [formError, setFormError] = useState(null)
   const [busy, setBusy] = useState(false)
   const [deactivating, setDeactivating] = useState(null)
+  const [editing, setEditing] = useState(null)
 
   const load = useCallback(() => {
     setError(null)
@@ -195,6 +346,29 @@ export default function Users() {
       ),
     },
     {
+      key: 'fee',
+      header: t('Хөлс'),
+      align: 'right',
+      render: (u) => (
+        <span className="font-mono text-sm tabular-nums text-ink-muted">
+          {u.driverProfile ? u.driverProfile.feePerDelivery : '—'}
+        </span>
+      ),
+    },
+    {
+      key: '_edit',
+      header: '',
+      render: (u) => (
+        <button
+          type="button"
+          onClick={() => setEditing(u)}
+          className="text-xs text-ink-muted hover:text-ink"
+        >
+          {t('Засах')}
+        </button>
+      ),
+    },
+    {
       key: 'isActive',
       header: t('Идэвхтэй'),
       render: (u) => (
@@ -250,6 +424,20 @@ export default function Users() {
           }}
         />
       </Modal>
+
+      {editing && (
+        <UserEditModal
+          user={editing}
+          self={editing.id === me?.id}
+          onClose={() => setEditing(null)}
+          onDone={() => {
+            setEditing(null)
+            load()
+          }}
+          t={t}
+          toast={toast}
+        />
+      )}
 
       <ConfirmDialog
         open={!!deactivating}

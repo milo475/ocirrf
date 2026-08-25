@@ -15,6 +15,9 @@ const LIMIT = 20
 const REASONS = {
   ORDER: { label: 'reason.order', cls: 'text-status-new border-status-new/40 bg-status-new/12' },
   ORDER_CANCEL: { label: 'Цуцлалт', cls: 'text-status-cancelled border-status-cancelled/40 bg-status-cancelled/12' },
+  PURCHASE_IN: { label: 'Орлого', cls: 'text-status-ready border-status-ready/40 bg-status-ready/12' },
+  MANUAL_OUT: { label: 'Зарлага', cls: 'text-status-preparing border-status-preparing/40 bg-status-preparing/12' },
+  CORRECTION: { label: 'Залруулга', cls: 'text-status-confirmed border-status-confirmed/40 bg-status-confirmed/12' },
   INITIAL: { label: 'Эхний орлого', cls: 'text-status-ready border-status-ready/40 bg-status-ready/12' },
   MANUAL: { label: 'Гар тохируулга', cls: 'text-ink-muted border-rule bg-surface' },
 }
@@ -36,6 +39,7 @@ function ReasonBadge({ reason, t }) {
 export default function Stock() {
   const { t } = useLang()
   const [productId, setProductId] = useState('')
+  const [reason, setReason] = useState('')
   const [page, setPage] = useState(1)
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
@@ -45,10 +49,11 @@ export default function Stock() {
     setError(null)
     const q = new URLSearchParams({ page: String(page), limit: String(LIMIT) })
     if (productId) q.set('productId', productId)
+    if (reason) q.set('reason', reason)
     api(`/stock/movements?${q}`)
       .then(setData)
       .catch((e) => setError(e))
-  }, [productId, page])
+  }, [productId, reason, page])
 
   useEffect(() => {
     load()
@@ -100,7 +105,16 @@ export default function Stock() {
     {
       key: 'reason',
       header: t('Шалтгаан'),
-      render: (m) => <ReasonBadge reason={m.reason} t={t} />,
+      render: (m) => (
+        <span>
+          <ReasonBadge reason={m.reason} t={t} />
+          {m.note && (
+            <span className="block text-xs text-ink-muted mt-0.5 max-w-44 truncate" title={m.note}>
+              {m.note}
+            </span>
+          )}
+        </span>
+      ),
     },
     {
       key: 'refId',
@@ -129,8 +143,26 @@ export default function Stock() {
 
   return (
     <div>
-      <div className="flex items-end justify-between gap-4 flex-wrap">
+      <div className="flex items-end justify-between gap-3 flex-wrap">
         <h1 className="font-serif text-4xl font-medium">{t('Үлдэгдлийн хөдөлгөөн')}</h1>
+        <Select
+          id="stock-reason"
+          value={reason}
+          onChange={(e) => {
+            setReason(e.target.value)
+            setPage(1)
+          }}
+          className="w-44"
+        >
+          <option value="">{t('Шалтгаан')}: {t('Бүгд')}</option>
+          {Object.entries(REASONS)
+            .filter(([k]) => k !== 'MANUAL')
+            .map(([k, v]) => (
+              <option key={k} value={k}>
+                {t(v.label)}
+              </option>
+            ))}
+        </Select>
         <Select
           id="stock-product"
           value={productId}
