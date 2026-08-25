@@ -5,6 +5,12 @@ export function formatMoneyShort(n) {
   return `₮${n}`
 }
 
+/** Огноо + цаг: "2026-08-25 14:30" */
+export function formatDateTime(iso) {
+  const d = new Date(iso)
+  return `${d.toLocaleDateString('en-CA')} ${d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
+}
+
 /** Бүтэн дүн: 12500 → "12,500.00₮" (Decimal 12,2-той нийцнэ) */
 export function formatMoney(n) {
   return `${Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}₮`
