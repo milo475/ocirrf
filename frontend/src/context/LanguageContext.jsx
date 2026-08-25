@@ -208,6 +208,20 @@ const DICT = {
     'Өөрийгөө идэвхгүй болгох боломжгүй': 'You cannot deactivate yourself',
     'Хэрэглэгч алга': 'No users',
 
+    // — Эрхийн самбарууд —
+    'Удирдлагын самбар': 'Admin overview',
+    'Нийт хүргэлт': 'Total deliveries',
+    'Нийт харилцагч': 'Total customers',
+    'Нийт жолооч': 'Total drivers',
+    'Хүргэлтэд гарсан': 'Out for delivery',
+    'Амжилттай хүргэсэн': 'Delivered',
+    '7 хоногийн гүйцэтгэл': '7-day performance',
+    'Үүсгэсэн захиалга': 'Orders created',
+    'Хүргэсэн': 'Delivered',
+    'Шилдэг жолооч TOP-3': 'Top 3 drivers',
+    'хуваарилагдсан': 'assigned',
+    'хүргэсэн': 'delivered',
+
     // — Тохиргоо —
     'Хэл': 'Language',
     'Тема': 'Theme',
