@@ -7,9 +7,16 @@ import { RolesGuard } from './auth/guards/roles.guard';
 import { CategoriesModule } from './categories/categories.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ProductsModule } from './products/products.module';
+import { StockModule } from './stock/stock.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule, CategoriesModule, ProductsModule],
+  imports: [
+    PrismaModule,
+    AuthModule,
+    CategoriesModule,
+    ProductsModule,
+    StockModule,
+  ],
   controllers: [AppController],
   providers: [
     // Дараалал чухал: эхлээд JWT (Public-ийг үл хамааруулна), дараа нь Roles
