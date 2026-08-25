@@ -146,6 +146,7 @@ const DICT = {
     'Цуцлах': 'Cancel',
     '← Захиалгын жагсаалт': '← Orders list',
     'Хаяг': 'Address',
+    'Хүргэлтийн хаяг': 'Delivery address',
     'Тэмдэглэл': 'Note',
     'Нэгж үнэ': 'Unit price',
     'Тоо': 'Qty',

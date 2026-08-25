@@ -16,6 +16,7 @@ export default function OrderNew() {
 
   const [customerName, setCustomerName] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
+  const [address, setAddress] = useState('')
   const [note, setNote] = useState('')
   const [items, setItems] = useState([]) // [{ product, qty }]
   const [submitting, setSubmitting] = useState(false)
@@ -51,6 +52,7 @@ export default function OrderNew() {
   const canSubmit =
     customerName.trim().length >= 2 &&
     customerPhone.trim().length > 0 &&
+    address.trim().length > 0 &&
     items.length > 0 &&
     items.every((i) => Number.isInteger(Number(i.qty)) && Number(i.qty) >= 1)
 
@@ -64,6 +66,7 @@ export default function OrderNew() {
         body: {
           customerName: customerName.trim(),
           customerPhone: customerPhone.trim(),
+          address: address.trim(),
           ...(note.trim() ? { note: note.trim() } : {}),
           items: items.map((i) => ({
             productId: i.product.id,
@@ -111,6 +114,15 @@ export default function OrderNew() {
             className="font-mono"
           />
         </div>
+        <Input
+          id="o-address"
+          label={t('Хаяг')}
+          required
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
+          placeholder={t('Хүргэлтийн хаяг')}
+          className="mt-4"
+        />
         <Input
           id="o-note"
           label={t('Тэмдэглэл')}

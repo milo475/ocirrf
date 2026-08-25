@@ -30,9 +30,10 @@ export class CreateOrderDto {
   @IsNotEmpty({ message: 'Утасны дугаар хоосон байж болохгүй' })
   customerPhone: string;
 
-  @IsOptional()
+  /** Хүргэлттэй систем тул хаяг заавал (v2) */
   @IsString()
-  address?: string;
+  @IsNotEmpty({ message: 'Хүргэлтийн хаяг хоосон байж болохгүй' })
+  address: string;
 
   @IsOptional()
   @IsString()

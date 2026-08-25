@@ -227,7 +227,11 @@ export class OrdersService {
   async findOne(id: string) {
     const order = await this.prisma.order.findUnique({
       where: { id },
-      include: { items: true, createdBy: CREATED_BY_SELECT },
+      include: {
+        items: true,
+        createdBy: CREATED_BY_SELECT,
+        assignedDriver: CREATED_BY_SELECT,
+      },
     });
     if (!order) {
       throw new NotFoundException('Захиалга олдсонгүй');
@@ -236,10 +240,19 @@ export class OrdersService {
   }
 
   async findAll(query: QueryOrdersDto) {
-    const { status, search, page = 1, limit = 20 } = query;
+    const {
+      status,
+      deliveryStatus,
+      driverId,
+      search,
+      page = 1,
+      limit = 20,
+    } = query;
 
     const where: Prisma.OrderWhereInput = {
       ...(status ? { orderStatus: status } : {}),
+      ...(deliveryStatus ? { deliveryStatus } : {}),
+      ...(driverId ? { assignedDriverId: driverId } : {}),
       ...(search
         ? {
             OR: [
