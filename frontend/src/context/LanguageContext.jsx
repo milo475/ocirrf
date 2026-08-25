@@ -263,6 +263,13 @@ const DICT = {
     'Баталгаажуулах зураг': 'Proof photo',
     '(завгүй)': '(busy)',
 
+    'Одоогоор хуваарилагдсан хүргэлт алга': 'No deliveries assigned right now',
+    'Амжилттай': 'Successful',
+    'Илгээх': 'Submit',
+    'Шалтгаан бичнэ үү': 'Enter the reason',
+    'Хүргэлт баталгаажлаа': 'Delivery confirmed',
+    'Амжилтгүй гэж тэмдэглэгдлээ': 'Marked as failed',
+
     // — Тохиргоо —
     'Хэл': 'Language',
     'Тема': 'Theme',
