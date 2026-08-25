@@ -22,11 +22,22 @@ export class ProductsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findAll(query: QueryProductsDto) {
-    const { search, categoryId, isActive = true, page = 1, limit = 20 } = query;
+    const {
+      search,
+      categoryId,
+      isActive = true,
+      lowStock,
+      page = 1,
+      limit = 20,
+    } = query;
 
     const where: Prisma.ProductWhereInput = {
       isActive,
       ...(categoryId ? { categoryId } : {}),
+      // stockQty <= lowStockLimit — багана хоорондын харьцуулалт (field reference)
+      ...(lowStock
+        ? { stockQty: { lte: this.prisma.product.fields.lowStockLimit } }
+        : {}),
       ...(search
         ? {
             OR: [
@@ -70,6 +81,7 @@ export class ProductsService {
           sku: dto.sku,
           name: dto.name,
           price: dto.price, // string → Decimal, float-гүй
+          lowStockLimit: dto.lowStockLimit,
           categoryId: dto.categoryId,
           unit: dto.unit,
           imageUrl: dto.imageUrl,

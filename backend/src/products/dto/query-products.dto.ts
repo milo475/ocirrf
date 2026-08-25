@@ -26,6 +26,14 @@ export class QueryProductsDto {
   @IsBoolean()
   isActive?: boolean = true;
 
+  /** true бол stockQty <= lowStockLimit бараанууд л */
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === 'true' ? true : value === 'false' ? false : (value as unknown),
+  )
+  @IsBoolean()
+  lowStock?: boolean;
+
   @IsOptional()
   @Type(() => Number)
   @IsInt()

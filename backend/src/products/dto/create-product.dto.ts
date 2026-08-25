@@ -1,10 +1,12 @@
 import {
   IsBoolean,
+  IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
   IsUUID,
   Matches,
+  Min,
   MinLength,
 } from 'class-validator';
 
@@ -43,6 +45,12 @@ export class CreateProductDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  /** Үүнээс доош орвол бага үлдэгдлийн анхааруулга (default 5) */
+  @IsOptional()
+  @IsInt({ message: 'lowStockLimit бүхэл тоо байна' })
+  @Min(0)
+  lowStockLimit?: number;
 
   // stockQty энд СНААТАЙГААР байхгүй: үлдэгдэл зөвхөн StockModule/OrderModule-ээр
   // StockMovement бичлэгтэй хамт өөрчлөгдөнө.
