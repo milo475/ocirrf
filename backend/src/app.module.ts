@@ -9,6 +9,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
 import { CategoriesModule } from './categories/categories.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { DeliveryModule } from './delivery/delivery.module';
 import { OrdersModule } from './orders/orders.module';
 import { ProductsModule } from './products/products.module';
 import { StockModule } from './stock/stock.module';
@@ -37,6 +38,7 @@ import { UsersModule } from './users/users.module';
     StockModule,
     OrdersModule,
     DashboardModule,
+    DeliveryModule,
     UsersModule,
   ],
   controllers: [AppController],
