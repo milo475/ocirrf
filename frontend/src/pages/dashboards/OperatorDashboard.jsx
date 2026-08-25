@@ -4,8 +4,8 @@ import MetricCard from '../../components/dashboard/MetricCard'
 import Rise from '../../components/dashboard/Rise'
 import EmptyState from '../../components/ui/EmptyState'
 import { useLang } from '../../context/LanguageContext'
-import { mockOperatorDashboard as data } from '../../data/mockDashboards'
-// API холбогдохоор дээрх мөр useOperatorDashboard() болж солигдоно (P21)
+import { DashError, DashSkeleton } from '../../components/dashboard/DashStates'
+import { useDashboard } from '../../hooks/useDashboard'
 
 /** Үлдэгдлийн badge: 0 → улаан «Дууссан», лимитээс доош → шар тоо */
 function LowStockBadge({ product, t }) {
@@ -26,6 +26,10 @@ function LowStockBadge({ product, t }) {
 export default function OperatorDashboard() {
   const { t } = useLang()
   const navigate = useNavigate()
+  const { data, error, reload } = useDashboard('operator')
+
+  if (error) return <DashError error={error} onRetry={reload} />
+  if (!data) return <DashSkeleton />
 
   const counts = data.last7Days.map((d) => d.count)
   const dayLabels = data.last7Days.map((d) => d.date.slice(8, 10))

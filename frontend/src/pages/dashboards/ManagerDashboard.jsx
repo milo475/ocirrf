@@ -3,13 +3,17 @@ import BarMini from '../../components/dashboard/BarMini'
 import Rise from '../../components/dashboard/Rise'
 import Badge from '../../components/ui/Badge'
 import { useLang } from '../../context/LanguageContext'
-import { mockManagerDashboard as data } from '../../data/mockDashboards'
+import { DashError, DashSkeleton } from '../../components/dashboard/DashStates'
+import { useDashboard } from '../../hooks/useDashboard'
 import { formatMoney } from '../../lib/format'
-// API холбогдохоор дээрх мөр useManagerDashboard() болж солигдоно (P21)
 
 export default function ManagerDashboard() {
   const { t } = useLang()
   const navigate = useNavigate()
+  const { data, error, reload } = useDashboard('manager')
+
+  if (error) return <DashError error={error} onRetry={reload} />
+  if (!data) return <DashSkeleton />
 
   const inValues = data.stockLast7Days.map((d) => d.in)
   const outValues = data.stockLast7Days.map((d) => d.out)

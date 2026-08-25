@@ -3,14 +3,18 @@ import BarMini from '../../components/dashboard/BarMini'
 import Rise from '../../components/dashboard/Rise'
 import Button from '../../components/ui/Button'
 import { useLang } from '../../context/LanguageContext'
-import { mockDriverDashboard as data } from '../../data/mockDashboards'
+import { DashError, DashSkeleton } from '../../components/dashboard/DashStates'
+import { useDashboard } from '../../hooks/useDashboard'
 import { formatMoney } from '../../lib/format'
-// API холбогдохоор дээрх мөр useDriverDashboard() болж солигдоно (P21)
 
 /** Жолоочийн самбар — утсанд зориулсан том элементүүд */
 export default function DriverDashboard() {
   const { t } = useLang()
   const navigate = useNavigate()
+  const { data, error, reload } = useDashboard('driver')
+
+  if (error) return <DashError error={error} onRetry={reload} />
+  if (!data) return <DashSkeleton />
 
   const delivered = data.last7Days.map((d) => d.delivered)
   const dayLabels = data.last7Days.map((d) => d.date.slice(8, 10))

@@ -3,11 +3,15 @@ import MetricCard from '../../components/dashboard/MetricCard'
 import RankList from '../../components/dashboard/RankList'
 import Rise from '../../components/dashboard/Rise'
 import { useLang } from '../../context/LanguageContext'
-import { mockAdminDashboard as data } from '../../data/mockDashboards'
-// API холбогдохоор дээрх мөр useAdminDashboard() болж солигдоно (P21)
+import { DashError, DashSkeleton } from '../../components/dashboard/DashStates'
+import { useDashboard } from '../../hooks/useDashboard'
 
 export default function AdminDashboard() {
   const { t } = useLang()
+  const { data, error, reload } = useDashboard('admin')
+
+  if (error) return <DashError error={error} onRetry={reload} />
+  if (!data) return <DashSkeleton />
 
   const created = data.last7Days.map((d) => d.ordersCreated)
   const delivered = data.last7Days.map((d) => d.delivered)
