@@ -3,10 +3,24 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '../generated/prisma/client';
+import { OrderStatus, Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { QueryOrdersDto } from './dto/query-orders.dto';
+
+/**
+ * Зөвшөөрөгдсөн статус шилжилтүүд.
+ * NEW → CONFIRMED → PREPARING (бэлтгэж буй) → READY (гарахад бэлэн) → COMPLETED.
+ * COMPLETED болон CANCELLED — эцсийн, цааш шилжихгүй.
+ */
+const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
+  NEW: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
+  CONFIRMED: [OrderStatus.PREPARING, OrderStatus.CANCELLED],
+  PREPARING: [OrderStatus.READY, OrderStatus.CANCELLED],
+  READY: [OrderStatus.COMPLETED],
+  COMPLETED: [],
+  CANCELLED: [],
+};
 
 function isUniqueViolation(e: unknown): boolean {
   return (
@@ -155,6 +169,58 @@ export class OrdersService {
       }
 
       return order;
+    });
+  }
+
+  async updateStatus(id: string, status: OrderStatus, userId: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id },
+      include: { items: true },
+    });
+    if (!order) {
+      throw new NotFoundException('Захиалга олдсонгүй');
+    }
+
+    if (!ALLOWED_TRANSITIONS[order.orderStatus].includes(status)) {
+      throw new BadRequestException(
+        `${order.orderStatus}-ээс ${status} руу шууд шилжих боломжгүй`,
+      );
+    }
+
+    // Цуцлалт: статус + үлдэгдэл буцаах + movement — нэг transaction
+    if (status === OrderStatus.CANCELLED) {
+      return this.prisma.$transaction(async (tx) => {
+        const cancelled = await tx.order.update({
+          where: { id },
+          data: { orderStatus: OrderStatus.CANCELLED },
+          include: { items: true, createdBy: CREATED_BY_SELECT },
+        });
+
+        for (const item of order.items) {
+          await tx.product.update({
+            where: { id: item.productId },
+            data: { stockQty: { increment: item.qty } },
+          });
+          await tx.stockMovement.create({
+            data: {
+              productId: item.productId,
+              qtyChange: item.qty,
+              reason: 'ORDER_CANCEL',
+              refId: order.id,
+              userId,
+            },
+          });
+        }
+
+        return cancelled;
+      });
+    }
+
+    // Бусад шилжилт — зөвхөн статус update
+    return this.prisma.order.update({
+      where: { id },
+      data: { orderStatus: status },
+      include: { items: true, createdBy: CREATED_BY_SELECT },
     });
   }
 
