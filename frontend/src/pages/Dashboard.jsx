@@ -1,5 +1,11 @@
-import Sparkline from '../components/dashboard/Sparkline'
+import { useMemo, useState } from 'react'
+import BeeswarmChart from '../components/dashboard/BeeswarmChart'
+import CategoryFilter from '../components/dashboard/CategoryFilter'
+import ProductDrawer from '../components/dashboard/ProductDrawer'
+import Rise from '../components/dashboard/Rise'
 import StatRow from '../components/dashboard/StatRow'
+import ViewToggle from '../components/dashboard/ViewToggle'
+import Watchlist from '../components/dashboard/Watchlist'
 import { products } from '../data/mockStockHealth'
 import { formatMoneyShort } from '../lib/format'
 
@@ -27,44 +33,77 @@ function PackageIcon() {
 }
 
 export default function Dashboard() {
+  const [view, setView] = useState('combined')
+  const [filter, setFilter] = useState(null)
+  const [selected, setSelected] = useState(null)
+
   const totalSales = products.reduce((a, p) => a + p.monthlySales, 0)
+  const categories = useMemo(
+    () => [...new Set(products.map((p) => p.category))],
+    [],
+  )
 
   return (
     <div>
       {/* Алхам 2 — Header */}
-      <section className="flex items-end justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <PackageIcon />
-          <h1 className="font-serif text-4xl font-medium">Нөөцийн эрүүл мэнд</h1>
-        </div>
-        <p className="font-mono text-sm text-ink-muted tabular-nums">
-          {products.length} бараа / {formatMoneyShort(totalSales)}
-        </p>
-      </section>
+      <Rise delay={0}>
+        <section className="flex items-end justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <PackageIcon />
+            <h1 className="font-serif text-4xl font-medium">
+              Нөөцийн эрүүл мэнд
+            </h1>
+          </div>
+          <p className="font-mono text-sm text-ink-muted tabular-nums">
+            {products.length} бараа / {formatMoneyShort(totalSales)}
+          </p>
+        </section>
+      </Rise>
 
       {/* Алхам 6 — Stat row */}
-      <section className="mt-16 border-t border-rule pt-8">
-        <StatRow products={products} />
-      </section>
+      <Rise delay={60}>
+        <section className="mt-16 border-t border-rule pt-8">
+          <StatRow products={products} />
+        </section>
+      </Rise>
 
-      {/* Алхам 5-ын батлах хэсэг — sparkline-ууд өгөгдөлтэйгээ таарч буйг
-          нүдээр шалгах түр зурвас. Алхам 7 (beeswarm) орохоор солигдоно. */}
-      <section className="mt-16 border-t border-rule pt-8">
-        <p className="text-xs uppercase tracking-wide text-ink-muted mb-4">
-          13 долоо хоногийн трэнд (түр — beeswarm-аар солигдоно)
-        </p>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-x-6 gap-y-4">
-          {products.slice(0, 10).map((p) => (
-            <div key={p.id} className="flex items-center gap-2 min-w-0">
-              <Sparkline values={p.healthHistory} />
-              <span className="text-xs text-ink-muted truncate">
-                {p.name}
-                <span className="font-mono ml-1">{p.stockHealth}</span>
-              </span>
-            </div>
-          ))}
-        </div>
-      </section>
+      {/* Алхам 7–9 — Beeswarm */}
+      <Rise delay={120}>
+        <section className="mt-16 border-t border-rule pt-8">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+            <ViewToggle value={view} onChange={setView} />
+            <CategoryFilter
+              categories={categories}
+              value={filter}
+              onChange={setFilter}
+            />
+          </div>
+          <BeeswarmChart
+            products={products}
+            view={view}
+            filter={filter}
+            selectedId={selected?.id}
+            onSelect={setSelected}
+          />
+        </section>
+      </Rise>
+
+      {/* Алхам 10 — Watchlist */}
+      <Rise delay={180}>
+        <section className="mt-16 border-t border-rule pt-8">
+          <p className="text-xs uppercase tracking-wide text-ink-muted mb-4">
+            Хяналтын жагсаалт — хамгийн эрсдэлтэй 8
+          </p>
+          <Watchlist
+            products={products}
+            selectedId={selected?.id}
+            onSelect={setSelected}
+          />
+        </section>
+      </Rise>
+
+      {/* Алхам 11 — Drawer */}
+      <ProductDrawer product={selected} onClose={() => setSelected(null)} />
     </div>
   )
 }
