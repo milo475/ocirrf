@@ -253,6 +253,16 @@ const DICT = {
     'Залруулга': 'Correction',
     'Тоо ширхэг': 'Quantity',
 
+    'Хүргэлт': 'Delivery',
+    'Хүргэлтийн мэдээлэл': 'Delivery info',
+    'Жолооч хуваарилах': 'Assign driver',
+    'Хуваарилах': 'Assign',
+    'Жолооч хуваарилагдлаа': 'Driver assigned',
+    'Хуваарилсан': 'Assigned at',
+    'Хүргэсэн огноо': 'Delivered at',
+    'Баталгаажуулах зураг': 'Proof photo',
+    '(завгүй)': '(busy)',
+
     // — Тохиргоо —
     'Хэл': 'Language',
     'Тема': 'Theme',

@@ -284,6 +284,7 @@ export class OrdersService {
         include: {
           _count: { select: { items: true } },
           createdBy: CREATED_BY_SELECT,
+          assignedDriver: CREATED_BY_SELECT,
         },
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,

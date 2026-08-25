@@ -11,6 +11,14 @@ import { api } from '../lib/api'
 import { formatDateTime, formatMoney } from '../lib/format'
 
 const LIMIT = 20
+const DELIVERY_LABELS = {
+  PENDING: 'Хүлээгдэж буй',
+  ASSIGNED: 'Хуваарилагдсан',
+  ON_THE_WAY: 'Замд яваа',
+  DELIVERED: 'Хүргэгдсэн',
+  FAILED: 'Амжилтгүй',
+}
+
 const STATUS_TABS = ['', 'NEW', 'CONFIRMED', 'PREPARING', 'READY', 'COMPLETED', 'CANCELLED']
 
 export default function Orders() {
@@ -20,6 +28,7 @@ export default function Orders() {
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
+  const [deliveryStatus, setDeliveryStatus] = useState('')
   const [page, setPage] = useState(1)
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
@@ -37,10 +46,11 @@ export default function Orders() {
     const q = new URLSearchParams({ page: String(page), limit: String(LIMIT) })
     if (search) q.set('search', search)
     if (status) q.set('status', status)
+    if (deliveryStatus) q.set('deliveryStatus', deliveryStatus)
     api(`/orders?${q}`)
       .then(setData)
       .catch((e) => setError(e))
-  }, [search, status, page])
+  }, [search, status, deliveryStatus, page])
 
   useEffect(() => {
     load()
@@ -72,6 +82,20 @@ export default function Orders() {
       key: 'orderStatus',
       header: t('Статус'),
       render: (o) => <Badge status={o.orderStatus} />,
+    },
+    {
+      key: 'deliveryStatus',
+      header: t('Хүргэлт'),
+      render: (o) => <Badge status={o.deliveryStatus} />,
+    },
+    {
+      key: 'assignedDriver',
+      header: t('Жолооч'),
+      render: (o) => (
+        <span className="text-ink-muted text-sm">
+          {o.assignedDriver?.fullName ?? '—'}
+        </span>
+      ),
     },
     {
       key: 'createdAt',
@@ -117,7 +141,22 @@ export default function Orders() {
             {s ? t(STATUS_LABELS[s]) : t('Бүгд')}
           </button>
         ))}
-        <div className="ml-auto">
+        <div className="ml-auto flex items-end gap-2">
+          <select
+            value={deliveryStatus}
+            onChange={(e) => {
+              setDeliveryStatus(e.target.value)
+              setPage(1)
+            }}
+            className="bg-bg border border-rule rounded px-2 py-2 text-sm focus:outline-none focus:border-ink-muted"
+          >
+            <option value="">{t('Хүргэлт')}: {t('Бүгд')}</option>
+            {['PENDING', 'ASSIGNED', 'ON_THE_WAY', 'DELIVERED', 'FAILED'].map((s2) => (
+              <option key={s2} value={s2}>
+                {t(DELIVERY_LABELS[s2])}
+              </option>
+            ))}
+          </select>
           <Input
             id="order-search"
             value={searchInput}
