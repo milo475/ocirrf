@@ -6,6 +6,7 @@ import EmptyState from '../components/ui/EmptyState'
 import Input from '../components/ui/Input'
 import Spinner from '../components/ui/Spinner'
 import Table from '../components/ui/Table'
+import { useLang } from '../context/LanguageContext'
 import { api } from '../lib/api'
 import { formatDateTime, formatMoney } from '../lib/format'
 
@@ -14,6 +15,7 @@ const STATUS_TABS = ['', 'NEW', 'CONFIRMED', 'PREPARING', 'READY', 'COMPLETED', 
 
 export default function Orders() {
   const navigate = useNavigate()
+  const { t } = useLang()
 
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
@@ -47,18 +49,18 @@ export default function Orders() {
   const columns = [
     {
       key: 'orderNo',
-      header: '№',
+      header: t('№'),
       render: (o) => <span className="font-mono">{o.orderNo}</span>,
     },
-    { key: 'customerName', header: 'Харилцагч' },
+    { key: 'customerName', header: t('Харилцагч') },
     {
       key: 'phone',
-      header: 'Утас',
+      header: t('Утас'),
       render: (o) => <span className="font-mono tabular-nums">{o.phone}</span>,
     },
     {
       key: 'totalAmount',
-      header: 'Дүн',
+      header: t('Дүн'),
       align: 'right',
       render: (o) => (
         <span className="font-mono tabular-nums">
@@ -68,12 +70,12 @@ export default function Orders() {
     },
     {
       key: 'orderStatus',
-      header: 'Статус',
+      header: t('Статус'),
       render: (o) => <Badge status={o.orderStatus} />,
     },
     {
       key: 'createdAt',
-      header: 'Огноо',
+      header: t('Огноо'),
       render: (o) => (
         <span className="font-mono text-xs text-ink-muted tabular-nums">
           {formatDateTime(o.createdAt)}
@@ -82,7 +84,7 @@ export default function Orders() {
     },
     {
       key: 'createdBy',
-      header: 'Үүсгэсэн',
+      header: t('Үүсгэсэн'),
       render: (o) => (
         <span className="text-ink-muted">{o.createdBy?.fullName ?? '—'}</span>
       ),
@@ -92,8 +94,8 @@ export default function Orders() {
   return (
     <div>
       <div className="flex items-end justify-between gap-4 flex-wrap">
-        <h1 className="font-serif text-4xl font-medium">Захиалга</h1>
-        <Button onClick={() => navigate('/orders/new')}>+ Шинэ захиалга</Button>
+        <h1 className="font-serif text-4xl font-medium">{t('Захиалга')}</h1>
+        <Button onClick={() => navigate('/orders/new')}>{t('+ Шинэ захиалга')}</Button>
       </div>
 
       {/* Статусын tab-ууд */}
@@ -112,7 +114,7 @@ export default function Orders() {
                 : 'text-ink-muted hover:text-ink'
             }`}
           >
-            {s ? STATUS_LABELS[s] : 'Бүгд'}
+            {s ? t(STATUS_LABELS[s]) : t('Бүгд')}
           </button>
         ))}
         <div className="ml-auto">
@@ -120,7 +122,7 @@ export default function Orders() {
             id="order-search"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="№, нэр, утас…"
+            placeholder={t('№, нэр, утас…')}
             className="w-56"
           />
         </div>
@@ -129,9 +131,9 @@ export default function Orders() {
       <div className="mt-6">
         {error ? (
           <EmptyState
-            title="Жагсаалт ачаалж чадсангүй"
+            title={t('Жагсаалт ачаалж чадсангүй')}
             note={error.message}
-            action={<Button onClick={load}>Дахин оролдох</Button>}
+            action={<Button onClick={load}>{t('Дахин оролдох')}</Button>}
           />
         ) : !data ? (
           <div className="py-16 text-center">
@@ -146,7 +148,7 @@ export default function Orders() {
             total={data.total}
             onPageChange={setPage}
             onRowClick={(o) => navigate(`/orders/${o.id}`)}
-            empty="Захиалга олдсонгүй"
+            empty={t('Захиалга олдсонгүй')}
           />
         )}
       </div>

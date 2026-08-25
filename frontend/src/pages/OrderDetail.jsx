@@ -6,6 +6,7 @@ import ConfirmDialog from '../components/ui/ConfirmDialog'
 import EmptyState from '../components/ui/EmptyState'
 import Spinner from '../components/ui/Spinner'
 import { useToast } from '../components/ui/Toast'
+import { useLang } from '../context/LanguageContext'
 import { api } from '../lib/api'
 import { formatDateTime, formatMoney } from '../lib/format'
 import { TRANSITIONS, TRANSITION_LABELS } from '../lib/orderStatus'
@@ -22,6 +23,7 @@ function InfoItem({ label, value }) {
 export default function OrderDetail() {
   const { id } = useParams()
   const toast = useToast()
+  const { t } = useLang()
 
   const [order, setOrder] = useState(null)
   const [error, setError] = useState(null)
@@ -45,8 +47,8 @@ export default function OrderDetail() {
       await api(`/orders/${id}/status`, { method: 'PATCH', body: { status } })
       toast.show(
         status === 'CANCELLED'
-          ? 'Захиалга цуцлагдаж, үлдэгдэл буцаан нэмэгдлээ'
-          : 'Статус шинэчлэгдлээ',
+          ? t('Захиалга цуцлагдаж, үлдэгдэл буцаан нэмэгдлээ')
+          : t('Статус шинэчлэгдлээ'),
       )
       setCancelOpen(false)
       load()
@@ -60,9 +62,9 @@ export default function OrderDetail() {
   if (error) {
     return (
       <EmptyState
-        title="Захиалга ачаалж чадсангүй"
+        title={t('Захиалга ачаалж чадсангүй')}
         note={error.message}
-        action={<Button onClick={load}>Дахин оролдох</Button>}
+        action={<Button onClick={load}>{t('Дахин оролдох')}</Button>}
       />
     )
   }
@@ -83,7 +85,7 @@ export default function OrderDetail() {
   return (
     <div className="max-w-3xl">
       <Link to="/orders" className="text-sm text-ink-muted hover:text-ink">
-        ← Захиалгын жагсаалт
+        {t('← Захиалгын жагсаалт')}
       </Link>
 
       <div className="mt-4 flex items-center justify-between gap-4 flex-wrap">
@@ -93,13 +95,13 @@ export default function OrderDetail() {
 
       {/* Толгой мэдээлэл */}
       <section className="mt-8 grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-5">
-        <InfoItem label="Харилцагч" value={order.customerName} />
+        <InfoItem label={t('Харилцагч')} value={order.customerName} />
         <InfoItem
-          label="Утас"
+          label={t('Утас')}
           value={<span className="font-mono tabular-nums">{order.phone}</span>}
         />
         <InfoItem
-          label="Огноо"
+          label={t('Огноо')}
           value={
             <span className="font-mono text-sm tabular-nums">
               {formatDateTime(order.createdAt)}
@@ -107,11 +109,11 @@ export default function OrderDetail() {
           }
         />
         <InfoItem
-          label="Үүсгэсэн"
+          label={t('Үүсгэсэн')}
           value={order.createdBy?.fullName ?? '—'}
         />
-        {order.address && <InfoItem label="Хаяг" value={order.address} />}
-        {order.note && <InfoItem label="Тэмдэглэл" value={order.note} />}
+        {order.address && <InfoItem label={t('Хаяг')} value={order.address} />}
+        {order.note && <InfoItem label={t('Тэмдэглэл')} value={order.note} />}
       </section>
 
       {/* Item-ууд — захиалга үүсэх үеийн snapshot утгууд */}
@@ -119,10 +121,10 @@ export default function OrderDetail() {
         <table className="w-full text-sm">
           <thead>
             <tr className="text-xs uppercase tracking-wide text-ink-muted border-b border-rule">
-              <th className="text-left font-normal py-2">Бараа</th>
-              <th className="text-right font-normal py-2 px-3">Нэгж үнэ</th>
-              <th className="text-right font-normal py-2 px-3">Тоо</th>
-              <th className="text-right font-normal py-2">Дүн</th>
+              <th className="text-left font-normal py-2">{t('Бараа')}</th>
+              <th className="text-right font-normal py-2 px-3">{t('Нэгж үнэ')}</th>
+              <th className="text-right font-normal py-2 px-3">{t('Тоо')}</th>
+              <th className="text-right font-normal py-2">{t('Дүн')}</th>
             </tr>
           </thead>
           <tbody className="font-mono tabular-nums">
@@ -139,7 +141,7 @@ export default function OrderDetail() {
           </tbody>
         </table>
         <div className="mt-4 flex justify-end items-baseline gap-3">
-          <span className="text-sm text-ink-muted">Нийт</span>
+          <span className="text-sm text-ink-muted">{t('Нийт')}</span>
           <span className="font-mono text-2xl tabular-nums">
             {formatMoney(order.totalAmount)}
           </span>
@@ -151,7 +153,7 @@ export default function OrderDetail() {
         <section className="mt-10 border-t border-rule pt-6 flex items-center gap-3">
           {forward.map((s) => (
             <Button key={s} loading={busy} onClick={() => transition(s)}>
-              {TRANSITION_LABELS[s]}
+              {t(TRANSITION_LABELS[s])}
             </Button>
           ))}
           {canCancel && (
@@ -161,7 +163,7 @@ export default function OrderDetail() {
               onClick={() => setCancelOpen(true)}
               className="ml-auto"
             >
-              Цуцлах
+              {t('Цуцлах')}
             </Button>
           )}
         </section>
@@ -169,9 +171,9 @@ export default function OrderDetail() {
 
       <ConfirmDialog
         open={cancelOpen}
-        title="Захиалга цуцлах"
-        message="Үлдэгдэл буцаан нэмэгдэнэ. Цуцлах уу?"
-        confirmLabel="Цуцлах"
+        title={t('Захиалга цуцлах')}
+        message={t('Үлдэгдэл буцаан нэмэгдэнэ. Цуцлах уу?')}
+        confirmLabel={t('Цуцлах')}
         danger
         loading={busy}
         onConfirm={() => transition('CANCELLED')}

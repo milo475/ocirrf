@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useLang } from '../../context/LanguageContext'
 import { api } from '../../lib/api'
 import { formatMoney } from '../../lib/format'
 
@@ -7,6 +8,7 @@ import { formatMoney } from '../../lib/format'
  * сонгоход onPick(product) дуудагдана. excludeIds — аль хэдийн нэмэгдсэн.
  */
 export default function ProductPicker({ onPick, excludeIds = [] }) {
+  const { t } = useLang()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
   const [open, setOpen] = useState(false)
@@ -73,7 +75,7 @@ export default function ProductPicker({ onPick, excludeIds = [] }) {
         onChange={(e) => setQuery(e.target.value)}
         onKeyDown={onKeyDown}
         onFocus={() => results.length > 0 && setOpen(true)}
-        placeholder="Бараа хайх — нэр эсвэл SKU…"
+        placeholder={t('Бараа хайх — нэр эсвэл SKU…')}
         className="w-full bg-bg border border-rule rounded px-3 py-2 text-sm focus:outline-none focus:border-ink-muted"
         role="combobox"
         aria-expanded={open}
@@ -81,7 +83,7 @@ export default function ProductPicker({ onPick, excludeIds = [] }) {
       {open && (
         <ul className="absolute z-30 mt-1 w-full bg-surface border border-rule rounded shadow-lg max-h-72 overflow-y-auto">
           {results.length === 0 && (
-            <li className="px-3 py-2 text-sm text-ink-muted">Олдсонгүй</li>
+            <li className="px-3 py-2 text-sm text-ink-muted">{t('Олдсонгүй')}</li>
           )}
           {results.map((p, i) => {
             const added = excludeIds.includes(p.id)
@@ -103,7 +105,7 @@ export default function ProductPicker({ onPick, excludeIds = [] }) {
                     </span>
                     {added && (
                       <span className="text-xs text-ink-muted ml-2">
-                        — нэмэгдсэн
+                        {t('— нэмэгдсэн')}
                       </span>
                     )}
                   </span>

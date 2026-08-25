@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router'
 import { useAuth } from '../../context/AuthContext'
+import { useLang } from '../../context/LanguageContext'
 import ThemeToggle from './ThemeToggle'
 
 const NAV_ITEMS = [
@@ -8,6 +9,7 @@ const NAV_ITEMS = [
   { to: '/orders', label: 'Захиалга' },
   { to: '/stock', label: 'Үлдэгдэл' },
   { to: '/users', label: 'Хэрэглэгчид', adminOnly: true },
+  { to: '/settings', label: 'Тохиргоо' },
 ]
 
 function navClass({ isActive }) {
@@ -21,6 +23,7 @@ function navClass({ isActive }) {
 
 export default function AppShell() {
   const { user, logout } = useAuth()
+  const { t } = useLang()
   const navigate = useNavigate()
 
   const items = NAV_ITEMS.filter(
@@ -43,7 +46,7 @@ export default function AppShell() {
           <nav className="flex items-center gap-1">
             {items.map((item) => (
               <NavLink key={item.to} to={item.to} end={item.end} className={navClass}>
-                {item.label}
+                {t(item.label)}
               </NavLink>
             ))}
           </nav>
@@ -54,14 +57,14 @@ export default function AppShell() {
               <div className="flex items-center gap-2">
                 <span className="text-sm">{user.name}</span>
                 <span className="font-mono text-[11px] uppercase tracking-wide border border-rule rounded px-1.5 py-0.5 text-ink-muted">
-                  {user.role === 'ADMIN' ? 'Админ' : 'Оператор'}
+                  {user.role === 'ADMIN' ? t('Админ') : t('Оператор')}
                 </span>
                 <button
                   type="button"
                   onClick={handleLogout}
                   className="text-sm text-ink-muted hover:text-alarm transition-colors"
                 >
-                  Гарах
+                  {t('Гарах')}
                 </button>
               </div>
             )}

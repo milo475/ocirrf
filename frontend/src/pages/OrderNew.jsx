@@ -5,12 +5,14 @@ import Button from '../components/ui/Button'
 import EmptyState from '../components/ui/EmptyState'
 import Input from '../components/ui/Input'
 import { useToast } from '../components/ui/Toast'
+import { useLang } from '../context/LanguageContext'
 import { api } from '../lib/api'
 import { formatMoney } from '../lib/format'
 
 export default function OrderNew() {
   const navigate = useNavigate()
   const toast = useToast()
+  const { t } = useLang()
 
   const [customerName, setCustomerName] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
@@ -69,7 +71,7 @@ export default function OrderNew() {
           })),
         },
       })
-      toast.show(`Захиалга ${order.orderNo} үүслээ`)
+      toast.show(t('Захиалга {no} үүслээ', { no: order.orderNo }))
       navigate(`/orders/${order.id}`)
     } catch (err) {
       // Жишээ нь: «Сүү 1л» үлдэгдэл хүрэлцэхгүй (байгаа: X, хүссэн: Y)
@@ -82,17 +84,17 @@ export default function OrderNew() {
 
   return (
     <form onSubmit={handleSubmit} className="max-w-3xl">
-      <h1 className="font-serif text-4xl font-medium">Шинэ захиалга</h1>
+      <h1 className="font-serif text-4xl font-medium">{t('Шинэ захиалга')}</h1>
 
       {/* 1 — Харилцагч */}
       <section className="mt-10">
         <p className="text-xs uppercase tracking-wide text-ink-muted mb-4">
-          Харилцагч
+          {t('Харилцагч')}
         </p>
         <div className="grid md:grid-cols-2 gap-4">
           <Input
             id="o-name"
-            label="Нэр"
+            label={t('Нэр')}
             required
             minLength={2}
             value={customerName}
@@ -101,7 +103,7 @@ export default function OrderNew() {
           />
           <Input
             id="o-phone"
-            label="Утас"
+            label={t('Утас')}
             required
             value={customerPhone}
             onChange={(e) => setCustomerPhone(e.target.value)}
@@ -111,10 +113,10 @@ export default function OrderNew() {
         </div>
         <Input
           id="o-note"
-          label="Тэмдэглэл"
+          label={t('Тэмдэглэл')}
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          placeholder="Хүргэлтийн заавар г.м. (заавал биш)"
+          placeholder={t('Хүргэлтийн заавар г.м. (заавал биш)')}
           className="mt-4"
         />
       </section>
@@ -122,7 +124,7 @@ export default function OrderNew() {
       {/* 2 — Барааны мөрүүд */}
       <section className="mt-12 border-t border-rule pt-8">
         <p className="text-xs uppercase tracking-wide text-ink-muted mb-4">
-          Бараа
+          {t('Бараа')}
         </p>
         <ProductPicker
           onPick={addProduct}
@@ -132,8 +134,8 @@ export default function OrderNew() {
         {items.length === 0 ? (
           <div className="mt-4">
             <EmptyState
-              title="Бараа сонгогдоогүй"
-              note="Дээрх хайлтаар бараа нэмнэ үү"
+              title={t('Бараа сонгогдоогүй')}
+              note={t('Дээрх хайлтаар бараа нэмнэ үү')}
             />
           </div>
         ) : (
@@ -166,7 +168,7 @@ export default function OrderNew() {
                     <button
                       type="button"
                       onClick={() => removeItem(product.id)}
-                      aria-label="Мөр устгах"
+                      aria-label={t('Мөр устгах')}
                       className="text-ink-muted hover:text-alarm text-lg leading-none px-1"
                     >
                       ×
@@ -175,7 +177,7 @@ export default function OrderNew() {
                   {over && (
                     // UX зөвлөмж — илгээхийг хориглохгүй, жинхэнэ шалгалт backend-д
                     <p className="mt-1.5 text-xs text-status-preparing">
-                      ⚠ Үлдэгдэл: {product.stockQty}
+                      {t('⚠ Үлдэгдэл: {n}', { n: product.stockQty })}
                     </p>
                   )}
                 </div>
@@ -194,13 +196,13 @@ export default function OrderNew() {
       {/* 4 — Нийт дүн + 5 — илгээх */}
       <section className="mt-8 flex items-center justify-between gap-4">
         <p className="text-sm text-ink-muted">
-          Нийт{' '}
+          {t('Нийт')}{' '}
           <span className="font-mono text-2xl text-ink tabular-nums ml-2">
             {formatMoney(total)}
           </span>
         </p>
         <Button type="submit" loading={submitting} disabled={!canSubmit}>
-          Захиалга үүсгэх
+          {t('Захиалга үүсгэх')}
         </Button>
       </section>
     </form>

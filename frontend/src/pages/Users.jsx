@@ -9,19 +9,20 @@ import Spinner from '../components/ui/Spinner'
 import Table from '../components/ui/Table'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../context/AuthContext'
+import { useLang } from '../context/LanguageContext'
 import { api } from '../lib/api'
 import { formatDateTime } from '../lib/format'
 
-function RoleBadge({ role }) {
+function RoleBadge({ role, t }) {
   return (
     <span className="inline-flex font-mono text-[11px] uppercase tracking-wide border border-rule rounded px-1.5 py-0.5 text-ink-muted">
-      {role === 'ADMIN' ? 'Админ' : 'Оператор'}
+      {role === 'ADMIN' ? t('Админ') : t('Оператор')}
     </span>
   )
 }
 
 /** isActive switch — өөрийн мөрөнд disabled */
-function ActiveToggle({ checked, disabled, onChange }) {
+function ActiveToggle({ checked, disabled, onChange, title }) {
   return (
     <button
       type="button"
@@ -29,7 +30,7 @@ function ActiveToggle({ checked, disabled, onChange }) {
       aria-checked={checked}
       disabled={disabled}
       onClick={onChange}
-      title={disabled ? 'Өөрийгөө идэвхгүй болгох боломжгүй' : undefined}
+      title={disabled ? title : undefined}
       className={`relative w-9 h-5 rounded-full transition-colors disabled:opacity-40 ${
         checked ? 'bg-safe' : 'bg-rule'
       }`}
@@ -43,7 +44,7 @@ function ActiveToggle({ checked, disabled, onChange }) {
   )
 }
 
-function UserForm({ submitting, error, onSubmit, onCancel }) {
+function UserForm({ submitting, error, onSubmit, onCancel, t }) {
   const [values, setValues] = useState({
     name: '',
     email: '',
@@ -62,16 +63,16 @@ function UserForm({ submitting, error, onSubmit, onCancel }) {
     >
       <Input
         id="u-name"
-        label="Нэр"
+        label={t('Нэр')}
         required
         minLength={2}
         value={values.name}
         onChange={set('name')}
-        placeholder="Бүтэн нэр"
+        placeholder={t('Бүтэн нэр')}
       />
       <Input
         id="u-email"
-        label="Имэйл"
+        label={t('Имэйл')}
         type="email"
         required
         value={values.email}
@@ -80,17 +81,17 @@ function UserForm({ submitting, error, onSubmit, onCancel }) {
       />
       <Input
         id="u-password"
-        label="Нууц үг"
+        label={t('Нууц үг')}
         type="password"
         required
         minLength={6}
         value={values.password}
         onChange={set('password')}
-        placeholder="Хамгийн багадаа 6 тэмдэгт"
+        placeholder={t('Хамгийн багадаа 6 тэмдэгт')}
       />
-      <Select id="u-role" label="Эрх" value={values.role} onChange={set('role')}>
-        <option value="OPERATOR">Оператор</option>
-        <option value="ADMIN">Админ</option>
+      <Select id="u-role" label={t('Эрх')} value={values.role} onChange={set('role')}>
+        <option value="OPERATOR">{t('Оператор')}</option>
+        <option value="ADMIN">{t('Админ')}</option>
       </Select>
       {error && (
         <p className="text-sm text-alarm border border-alarm rounded px-3 py-2">
@@ -99,10 +100,10 @@ function UserForm({ submitting, error, onSubmit, onCancel }) {
       )}
       <div className="flex justify-end gap-2 pt-2">
         <Button variant="ghost" onClick={onCancel} disabled={submitting}>
-          Болих
+          {t('Болих')}
         </Button>
         <Button type="submit" loading={submitting}>
-          Бүртгэх
+          {t('Бүртгэх')}
         </Button>
       </div>
     </form>
@@ -112,6 +113,7 @@ function UserForm({ submitting, error, onSubmit, onCancel }) {
 export default function Users() {
   const { user: me } = useAuth()
   const toast = useToast()
+  const { t } = useLang()
 
   const [users, setUsers] = useState(null)
   const [error, setError] = useState(null)
@@ -136,7 +138,7 @@ export default function Users() {
     setFormError(null)
     try {
       await api('/users', { method: 'POST', body: values })
-      toast.show(`«${values.name}» бүртгэгдлээ`)
+      toast.show(t('«{name}» бүртгэгдлээ', { name: values.name }))
       setFormOpen(false)
       load()
     } catch (e) {
@@ -152,7 +154,9 @@ export default function Users() {
     try {
       await api(`/users/${u.id}`, { method: 'PATCH', body: { isActive } })
       toast.show(
-        isActive ? `«${u.fullName}» идэвхжлээ` : `«${u.fullName}» идэвхгүй боллоо`,
+        isActive
+          ? t('«{name}» идэвхжлээ', { name: u.fullName })
+          : t('«{name}» идэвхгүй боллоо', { name: u.fullName }),
       )
       setDeactivating(null)
       load()
@@ -170,20 +174,20 @@ export default function Users() {
   }
 
   const columns = [
-    { key: 'fullName', header: 'Нэр' },
+    { key: 'fullName', header: t('Нэр') },
     {
       key: 'username',
-      header: 'Имэйл',
+      header: t('Имэйл'),
       render: (u) => <span className="font-mono text-sm">{u.username}</span>,
     },
     {
       key: 'role',
-      header: 'Эрх',
-      render: (u) => <RoleBadge role={u.role} />,
+      header: t('Эрх'),
+      render: (u) => <RoleBadge role={u.role} t={t} />,
     },
     {
       key: 'createdAt',
-      header: 'Бүртгэсэн',
+      header: t('Бүртгэсэн'),
       render: (u) => (
         <span className="font-mono text-xs text-ink-muted tabular-nums">
           {formatDateTime(u.createdAt)}
@@ -192,11 +196,12 @@ export default function Users() {
     },
     {
       key: 'isActive',
-      header: 'Идэвхтэй',
+      header: t('Идэвхтэй'),
       render: (u) => (
         <ActiveToggle
           checked={u.isActive}
           disabled={u.id === me?.id}
+          title={t('Өөрийгөө идэвхгүй болгох боломжгүй')}
           onChange={() => toggleActive(u)}
         />
       ),
@@ -206,23 +211,23 @@ export default function Users() {
   return (
     <div>
       <div className="flex items-end justify-between gap-4 flex-wrap">
-        <h1 className="font-serif text-4xl font-medium">Хэрэглэгчид</h1>
-        <Button onClick={() => setFormOpen(true)}>+ Шинэ хэрэглэгч</Button>
+        <h1 className="font-serif text-4xl font-medium">{t('Хэрэглэгчид')}</h1>
+        <Button onClick={() => setFormOpen(true)}>{t('+ Шинэ хэрэглэгч')}</Button>
       </div>
 
       <div className="mt-8">
         {error ? (
           <EmptyState
-            title="Жагсаалт ачаалж чадсангүй"
+            title={t('Жагсаалт ачаалж чадсангүй')}
             note={error.message}
-            action={<Button onClick={load}>Дахин оролдох</Button>}
+            action={<Button onClick={load}>{t('Дахин оролдох')}</Button>}
           />
         ) : !users ? (
           <div className="py-16 text-center">
             <Spinner size={22} />
           </div>
         ) : (
-          <Table columns={columns} rows={users} empty="Хэрэглэгч алга" />
+          <Table columns={columns} rows={users} empty={t('Хэрэглэгч алга')} />
         )}
       </div>
 
@@ -232,9 +237,10 @@ export default function Users() {
           setFormOpen(false)
           setFormError(null)
         }}
-        title="Шинэ хэрэглэгч"
+        title={t('Шинэ хэрэглэгч')}
       >
         <UserForm
+          t={t}
           submitting={busy}
           error={formError}
           onSubmit={handleCreate}
@@ -247,9 +253,9 @@ export default function Users() {
 
       <ConfirmDialog
         open={!!deactivating}
-        title="Хэрэглэгч идэвхгүй болгох"
-        message={`«${deactivating?.fullName}» цаашид нэвтэрч чадахгүй болно. Идэвхгүй болгох уу?`}
-        confirmLabel="Идэвхгүй болгох"
+        title={t('Хэрэглэгч идэвхгүй болгох')}
+        message={t('«{name}» цаашид нэвтэрч чадахгүй болно. Идэвхгүй болгох уу?', { name: deactivating?.fullName })}
+        confirmLabel={t('Идэвхгүй болгох')}
         danger
         loading={busy}
         onConfirm={() => setActive(deactivating, false)}

@@ -1,9 +1,12 @@
+import { useLang } from '../../context/LanguageContext'
+
 const OPTIONS = [
   { value: 'combined', label: 'Нэгтгэсэн' },
   { value: 'segment', label: 'Категориор' },
 ]
 
 export default function ViewToggle({ value, onChange }) {
+  const { t } = useLang()
   return (
     <div className="inline-flex border border-rule rounded overflow-hidden">
       {OPTIONS.map((o) => (
@@ -17,7 +20,7 @@ export default function ViewToggle({ value, onChange }) {
               : 'text-ink-muted hover:text-ink'
           }`}
         >
-          {o.label}
+          {t(o.label)}
         </button>
       ))}
     </div>

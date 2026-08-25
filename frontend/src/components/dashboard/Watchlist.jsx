@@ -1,3 +1,4 @@
+import { useLang } from '../../context/LanguageContext'
 import { formatMoneyShort } from '../../lib/format'
 import {
   daysSince,
@@ -23,6 +24,7 @@ const fmtDate = (iso) =>
 
 /** exposure оноогоор эрэмбэлсэн дээд 8 эрсдэлтэй бараа (DASHBOARD.md Алхам 10) */
 export default function Watchlist({ products, selectedId, onSelect }) {
+  const { t } = useLang()
   const rows = [...products]
     .sort((a, b) => exposure(b) - exposure(a))
     .slice(0, 8)
@@ -35,16 +37,16 @@ export default function Watchlist({ products, selectedId, onSelect }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="text-xs uppercase tracking-wide text-ink-muted border-b border-rule">
-              <th className="text-left font-normal py-2 pr-3">Бараа</th>
-              <th className="text-right font-normal py-2 px-3">Сарын борл.</th>
-              <th className="text-right font-normal py-2 px-3">Оноо</th>
-              <th className="text-left font-normal py-2 px-3">13 дол.хон</th>
-              <th className="text-right font-normal py-2 px-3">Уналт</th>
-              <th className="text-right font-normal py-2 px-3">Дуусах</th>
-              <th className="text-right font-normal py-2 px-3">Эргэц</th>
-              <th className="text-right font-normal py-2 px-3">7 хон. Δ</th>
-              <th className="text-right font-normal py-2 px-3">Сүүлд нөхсөн</th>
-              <th className="text-right font-normal py-2 pl-3">Дараагийн</th>
+              <th className="text-left font-normal py-2 pr-3">{t('Бараа')}</th>
+              <th className="text-right font-normal py-2 px-3">{t('Сарын борл.')}</th>
+              <th className="text-right font-normal py-2 px-3">{t('Оноо')}</th>
+              <th className="text-left font-normal py-2 px-3">{t('13 дол.хон')}</th>
+              <th className="text-right font-normal py-2 px-3">{t('Уналт')}</th>
+              <th className="text-right font-normal py-2 px-3">{t('Дуусах')}</th>
+              <th className="text-right font-normal py-2 px-3">{t('Эргэц')}</th>
+              <th className="text-right font-normal py-2 px-3">{t('7 хон. Δ')}</th>
+              <th className="text-right font-normal py-2 px-3">{t('Сүүлд нөхсөн')}</th>
+              <th className="text-right font-normal py-2 pl-3">{t('Дараагийн')}</th>
             </tr>
           </thead>
           <tbody className="font-mono tabular-nums">
@@ -75,7 +77,7 @@ export default function Watchlist({ products, selectedId, onSelect }) {
                   {dd.toFixed(0)}%
                 </td>
                 <td className={`text-right px-3 ${alarmIf(runway < 8)}`}>
-                  {runway === Infinity ? '∞' : `${Math.round(runway)}дх`}
+                  {runway === Infinity ? '∞' : `${Math.round(runway)}${t('дх')}`}
                 </td>
                 <td
                   className={`text-right px-3 ${alarmIf(
@@ -91,7 +93,7 @@ export default function Watchlist({ products, selectedId, onSelect }) {
                   {wow}
                 </td>
                 <td className={`text-right px-3 ${alarmIf(restockDays > 30)}`}>
-                  {restockDays}хон
+                  {restockDays}{t('хон')}
                 </td>
                 <td className="text-right pl-3">{fmtDate(p.nextRestockDate)}</td>
               </tr>
@@ -123,7 +125,7 @@ export default function Watchlist({ products, selectedId, onSelect }) {
                 {formatMoneyShort(p.monthlySales)} ·{' '}
                 <span className={alarmIf(dd > 15)}>↓{dd.toFixed(0)}%</span> ·{' '}
                 <span className={alarmIf(runway < 8)}>
-                  {runway === Infinity ? '∞' : `${Math.round(runway)}дх`}
+                  {runway === Infinity ? '∞' : `${Math.round(runway)}${t('дх')}`}
                 </span>{' '}
                 ·{' '}
                 <span className={alarmIf(wow < 0)}>

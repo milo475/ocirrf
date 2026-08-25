@@ -8,6 +8,7 @@ import ViewToggle from '../components/dashboard/ViewToggle'
 import Watchlist from '../components/dashboard/Watchlist'
 import Button from '../components/ui/Button'
 import EmptyState from '../components/ui/EmptyState'
+import { useLang } from '../context/LanguageContext'
 import { api } from '../lib/api'
 import { formatMoneyShort } from '../lib/format'
 // Mock хэвээр үлдэнэ (туршилтад хэрэгтэй): '../data/mockStockHealth'
@@ -54,6 +55,7 @@ function DashboardSkeleton() {
 }
 
 export default function Dashboard() {
+  const { t } = useLang()
   const [view, setView] = useState('combined')
   const [filter, setFilter] = useState(null)
   const [selected, setSelected] = useState(null)
@@ -83,9 +85,9 @@ export default function Dashboard() {
   if (error) {
     return (
       <EmptyState
-        title="Өгөгдөл ачаалж чадсангүй"
+        title={t('Өгөгдөл ачаалж чадсангүй')}
         note={error.message}
-        action={<Button onClick={load}>Дахин оролдох</Button>}
+        action={<Button onClick={load}>{t('Дахин оролдох')}</Button>}
       />
     )
   }
@@ -95,8 +97,8 @@ export default function Dashboard() {
   if (products.length === 0) {
     return (
       <EmptyState
-        title="Бараа бүртгэгдээгүй байна"
-        note="Эхлээд бараагаа бүртгэж, үлдэгдэл оруулна уу"
+        title={t('Бараа бүртгэгдээгүй байна')}
+        note={t('Эхлээд бараагаа бүртгэж, үлдэгдэл оруулна уу')}
       />
     )
   }
@@ -109,11 +111,11 @@ export default function Dashboard() {
           <div className="flex items-center gap-3">
             <PackageIcon />
             <h1 className="font-serif text-4xl font-medium">
-              Нөөцийн эрүүл мэнд
+              {t('Нөөцийн эрүүл мэнд')}
             </h1>
           </div>
           <p className="font-mono text-sm text-ink-muted tabular-nums">
-            {products.length} бараа / {formatMoneyShort(totalSales)}
+            {products.length} {t('бараа')} / {formatMoneyShort(totalSales)}
           </p>
         </section>
       </Rise>
@@ -150,7 +152,7 @@ export default function Dashboard() {
       <Rise delay={180}>
         <section className="mt-16 border-t border-rule pt-8">
           <p className="text-xs uppercase tracking-wide text-ink-muted mb-4">
-            Хяналтын жагсаалт — хамгийн эрсдэлтэй 8
+            {t('Хяналтын жагсаалт — хамгийн эрсдэлтэй 8')}
           </p>
           <Watchlist
             products={products}

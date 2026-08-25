@@ -4,43 +4,51 @@ import ProtectedRoute from './components/auth/ProtectedRoute'
 import AppShell from './components/layout/AppShell'
 import { ToastProvider } from './components/ui/Toast'
 import { AuthProvider } from './context/AuthContext'
+import { LanguageProvider } from './context/LanguageContext'
+import { ThemeProvider } from './context/ThemeContext'
 import Dashboard from './pages/Dashboard'
 import Login from './pages/Login'
 import OrderDetail from './pages/OrderDetail'
 import OrderNew from './pages/OrderNew'
 import Orders from './pages/Orders'
 import Products from './pages/Products'
+import Settings from './pages/Settings'
 import Stock from './pages/Stock'
 import Users from './pages/Users'
 
 function App() {
   return (
-    <AuthProvider>
-      <ToastProvider>
-        <BrowserRouter>
-        <Routes>
-          {/* Login — nav-гүй, хамгаалалтгүй */}
-          <Route path="/login" element={<Login />} />
+    <LanguageProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <ToastProvider>
+            <BrowserRouter>
+              <Routes>
+                {/* Login — nav-гүй, хамгаалалтгүй */}
+                <Route path="/login" element={<Login />} />
 
-          <Route element={<ProtectedRoute />}>
-            <Route element={<AppShell />}>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/products" element={<Products />} />
-              <Route path="/orders" element={<Orders />} />
-              <Route path="/orders/new" element={<OrderNew />} />
-              <Route path="/orders/:id" element={<OrderDetail />} />
-              <Route path="/stock" element={<Stock />} />
+                <Route element={<ProtectedRoute />}>
+                  <Route element={<AppShell />}>
+                    <Route path="/" element={<Dashboard />} />
+                    <Route path="/products" element={<Products />} />
+                    <Route path="/orders" element={<Orders />} />
+                    <Route path="/orders/new" element={<OrderNew />} />
+                    <Route path="/orders/:id" element={<OrderDetail />} />
+                    <Route path="/stock" element={<Stock />} />
+                    <Route path="/settings" element={<Settings />} />
 
-              {/* Зөвхөн админ */}
-              <Route element={<AdminRoute />}>
-                <Route path="/users" element={<Users />} />
-              </Route>
-            </Route>
-          </Route>
-        </Routes>
-        </BrowserRouter>
-      </ToastProvider>
-    </AuthProvider>
+                    {/* Зөвхөн админ */}
+                    <Route element={<AdminRoute />}>
+                      <Route path="/users" element={<Users />} />
+                    </Route>
+                  </Route>
+                </Route>
+              </Routes>
+            </BrowserRouter>
+          </ToastProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </LanguageProvider>
   )
 }
 

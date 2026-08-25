@@ -1,3 +1,5 @@
+import { useLang } from '../../context/LanguageContext'
+
 /**
  * Статусын badge. OrderStatus-ийн 6 төлөв index.css-ийн
  * --color-status-* токенуудаар өнгөждөг.
@@ -16,6 +18,7 @@ export const STATUS_LABELS = Object.fromEntries(
 )
 
 export default function Badge({ status, children, className = '' }) {
+  const { t } = useLang()
   const s = STATUS[status]
   return (
     <span
@@ -23,7 +26,7 @@ export default function Badge({ status, children, className = '' }) {
         s ? s.cls : 'text-ink-muted border-rule bg-surface'
       } ${className}`}
     >
-      {s ? s.label : children}
+      {s ? t(s.label) : children}
     </span>
   )
 }

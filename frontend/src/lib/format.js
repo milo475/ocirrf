@@ -1,7 +1,14 @@
-/** Мөнгөн дүн товчоор: 48_200_000 → "₮48.2сая", 750_000 → "₮750мянга" */
+/** LanguageContext тохируулдаг — сая/мянга эсвэл M/K гэж товчлохыг шийднэ */
+let formatLang = 'mn'
+export function setFormatLang(lang) {
+  formatLang = lang
+}
+
+/** Мөнгөн дүн товчоор: 48_200_000 → "₮48.2сая" (en: "₮48.2M") */
 export function formatMoneyShort(n) {
-  if (n >= 1_000_000) return `₮${(n / 1_000_000).toFixed(1)}сая`
-  if (n >= 1_000) return `₮${Math.round(n / 1_000)}мянга`
+  const [mil, thou] = formatLang === 'en' ? ['M', 'K'] : ['сая', 'мянга']
+  if (n >= 1_000_000) return `₮${(n / 1_000_000).toFixed(1)}${mil}`
+  if (n >= 1_000) return `₮${Math.round(n / 1_000)}${thou}`
   return `₮${n}`
 }
 

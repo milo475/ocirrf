@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useLang } from '../../context/LanguageContext'
 import Button from '../ui/Button'
 import Input from '../ui/Input'
 import Select from '../ui/Select'
@@ -12,6 +13,7 @@ export default function ProductForm({
   onSubmit,
   onCancel,
 }) {
+  const { t } = useLang()
   const [values, setValues] = useState({
     name: initial?.name ?? '',
     sku: initial?.sku ?? '',
@@ -36,7 +38,7 @@ export default function ProductForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       <Input
         id="p-name"
-        label="Нэр"
+        label={t('Нэр')}
         required
         minLength={2}
         value={values.name}
@@ -54,11 +56,11 @@ export default function ProductForm({
       />
       <Select
         id="p-category"
-        label="Ангилал"
+        label={t('Ангилал')}
         value={values.categoryId}
         onChange={set('categoryId')}
       >
-        <option value="">Ангилалгүй</option>
+        <option value="">{t('Ангилалгүй')}</option>
         {categories.map((c) => (
           <option key={c.id} value={c.id}>
             {c.name}
@@ -67,7 +69,7 @@ export default function ProductForm({
       </Select>
       <Input
         id="p-price"
-        label="Үнэ (₮)"
+        label={t('Үнэ (₮)')}
         required
         inputMode="decimal"
         pattern="\d{1,10}(\.\d{1,2})?"
@@ -85,10 +87,10 @@ export default function ProductForm({
 
       <div className="flex justify-end gap-2 pt-2">
         <Button variant="ghost" onClick={onCancel} disabled={submitting}>
-          Болих
+          {t('Болих')}
         </Button>
         <Button type="submit" loading={submitting}>
-          {initial ? 'Хадгалах' : 'Бүртгэх'}
+          {initial ? t('Хадгалах') : t('Бүртгэх')}
         </Button>
       </div>
     </form>

@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router'
 import { useAuth } from '../context/AuthContext'
+import { useLang } from '../context/LanguageContext'
 
 export default function Login() {
   const { user, loading, login } = useAuth()
+  const { t } = useLang()
   const navigate = useNavigate()
 
   const [email, setEmail] = useState('')
@@ -15,7 +17,7 @@ export default function Login() {
   if (loading) {
     return (
       <main className="min-h-screen bg-bg text-ink-muted flex items-center justify-center font-mono text-sm">
-        ачаалж байна…
+        {t('ачаалж байна…')}
       </main>
     )
   }
@@ -43,7 +45,7 @@ export default function Login() {
         <div className="bg-surface border border-rule rounded-lg p-8">
           <h1 className="font-serif text-4xl font-medium text-center">ursGAL</h1>
           <p className="mt-2 text-center text-sm text-ink-muted">
-            Нөөц ба захиалгын систем
+            {t('Нөөц ба захиалгын систем')}
           </p>
 
           <form onSubmit={onSubmit} className="mt-8 space-y-4">
@@ -52,7 +54,7 @@ export default function Login() {
                 htmlFor="email"
                 className="block text-xs uppercase tracking-wide text-ink-muted mb-1.5"
               >
-                Имэйл
+                {t('Имэйл')}
               </label>
               <input
                 id="email"
@@ -71,7 +73,7 @@ export default function Login() {
                 htmlFor="password"
                 className="block text-xs uppercase tracking-wide text-ink-muted mb-1.5"
               >
-                Нууц үг
+                {t('Нууц үг')}
               </label>
               <input
                 id="password"
@@ -98,7 +100,7 @@ export default function Login() {
               {submitting && (
                 <span className="inline-block w-4 h-4 border-2 border-bg border-t-transparent rounded-full animate-spin" />
               )}
-              {submitting ? 'Нэвтэрч байна…' : 'Нэвтрэх'}
+              {submitting ? t('Нэвтэрч байна…') : t('Нэвтрэх')}
             </button>
           </form>
         </div>

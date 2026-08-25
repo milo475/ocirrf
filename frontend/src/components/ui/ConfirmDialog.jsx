@@ -1,18 +1,23 @@
+import { useLang } from '../../context/LanguageContext'
 import Button from './Button'
 import Modal from './Modal'
 
 /** Баталгаажуулах асуулт — Modal дээр суурилсан */
 export default function ConfirmDialog({
   open,
-  title = 'Баталгаажуулах',
+  title,
   message,
-  confirmLabel = 'Тийм',
-  cancelLabel = 'Болих',
+  confirmLabel,
+  cancelLabel,
   danger = false,
   loading = false,
   onConfirm,
   onCancel,
 }) {
+  const { t } = useLang()
+  title = title ?? t('Баталгаажуулах')
+  confirmLabel = confirmLabel ?? t('Тийм')
+  cancelLabel = cancelLabel ?? t('Болих')
   return (
     <Modal
       open={open}

@@ -1,6 +1,7 @@
 import { max } from 'd3-array'
 import { scaleLinear, scaleSqrt } from 'd3-scale'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useLang } from '../../context/LanguageContext'
 import { computeBeeswarm, healthColor } from '../../lib/beeswarm'
 import { formatMoneyShort } from '../../lib/format'
 
@@ -31,6 +32,7 @@ export default function BeeswarmChart({
   selectedId,
   onSelect,
 }) {
+  const { t } = useLang()
   const [containerRef, containerWidth] = useContainerWidth()
   const width = Math.max(containerWidth, MIN_CHART_WIDTH)
   const [tooltip, setTooltip] = useState(null)
@@ -113,7 +115,7 @@ export default function BeeswarmChart({
             fontSize="10"
             fill="var(--color-ink-muted)"
           >
-            эрсдэлийн босго
+            {t('эрсдэлийн босго')}
           </text>
 
           {bands.map((band) => (
@@ -126,7 +128,7 @@ export default function BeeswarmChart({
                   fontSize="11"
                   fill="var(--color-ink-muted)"
                 >
-                  {band.label} · {band.items.length} бараа ·{' '}
+                  {band.label} · {band.items.length} {t('бараа')} ·{' '}
                   {formatMoneyShort(
                     band.items.reduce((a, p) => a + p.monthlySales, 0),
                   )}

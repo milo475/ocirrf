@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useLang } from '../../context/LanguageContext'
 import { formatMoneyShort } from '../../lib/format'
 import { daysSince } from '../../lib/metrics'
 import Sparkline from './Sparkline'
@@ -17,6 +18,7 @@ function InfoRow({ label, value }) {
 
 /** Баруун талаас гулсаж гарах дэлгэрэнгүй самбар (DASHBOARD.md Алхам 11) */
 export default function ProductDrawer({ product, onClose }) {
+  const { t } = useLang()
   const [shown, setShown] = useState(false)
 
   // Гарч ирэх шилжилт: mount дараа нэг frame-ийн дараа идэвхжүүлнэ
@@ -80,7 +82,7 @@ export default function ProductDrawer({ product, onClose }) {
 
           <section className="mt-8">
             <p className="text-xs uppercase tracking-wide text-ink-muted mb-3">
-              Онооны задаргаа
+              {t('Онооны задаргаа')}
             </p>
             <Waterfall
               drivers={product.drivers}
@@ -90,24 +92,24 @@ export default function ProductDrawer({ product, onClose }) {
 
           <section className="mt-8">
             <p className="text-xs uppercase tracking-wide text-ink-muted mb-3">
-              13 долоо хоногийн хандлага
+              {t('13 долоо хоногийн хандлага')}
             </p>
             <Sparkline values={product.healthHistory} width={380} height={64} />
           </section>
 
           <section className="mt-8">
             <dl>
-              <InfoRow label="Нийлүүлэгч" value={product.supplier} />
+              <InfoRow label={t('Нийлүүлэгч')} value={product.supplier} />
               <InfoRow
-                label="Үлдэгдэл / захиалгын түвшин"
+                label={t('Үлдэгдэл / захиалгын түвшин')}
                 value={`${product.stockQty} / ${product.reorderLevel}`}
               />
               <InfoRow
-                label="Сарын борлуулалт"
+                label={t('Сарын борлуулалт')}
                 value={formatMoneyShort(product.monthlySales)}
               />
               <InfoRow
-                label="Эргэц"
+                label={t('Эргэц')}
                 value={
                   product.turnoverRate === null
                     ? '—'
@@ -115,11 +117,11 @@ export default function ProductDrawer({ product, onClose }) {
                 }
               />
               <InfoRow
-                label="Сүүлд нөхсөн"
-                value={`${fmtDate(product.lastRestocked)} (${daysSince(product.lastRestocked)} хоног)`}
+                label={t('Сүүлд нөхсөн')}
+                value={`${fmtDate(product.lastRestocked)} (${daysSince(product.lastRestocked)} ${t('хоног')})`}
               />
               <InfoRow
-                label="Дараагийн нөхөлт"
+                label={t('Дараагийн нөхөлт')}
                 value={fmtDate(product.nextRestockDate)}
               />
             </dl>

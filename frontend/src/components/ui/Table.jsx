@@ -1,3 +1,4 @@
+import { useLang } from '../../context/LanguageContext'
 import EmptyState from './EmptyState'
 
 /**
@@ -16,6 +17,7 @@ export default function Table({
   onPageChange,
   empty = 'Мэдээлэл алга',
 }) {
+  const { t } = useLang()
   const pages = Math.max(1, Math.ceil(total / limit))
   const from = total === 0 ? 0 : (page - 1) * limit + 1
   const to = Math.min(page * limit, total)
@@ -70,7 +72,7 @@ export default function Table({
       {onPageChange && total > limit && (
         <div className="flex items-center justify-between mt-4">
           <p className="font-mono text-xs text-ink-muted tabular-nums">
-            {from}–{to} / нийт {total}
+            {t('table.range', { from, to, total })}
           </p>
           <div className="flex items-center gap-1">
             <button

@@ -1,4 +1,5 @@
 import { scaleLinear } from 'd3-scale'
+import { useLang } from '../../context/LanguageContext'
 
 const ROW_H = 30
 const LABEL_W = 138
@@ -9,6 +10,7 @@ const WIDTH = 380
  * Инвариантаар эцсийн багана stockHealth-тэй яг таарна. Тэнхлэг 0–100.
  */
 export default function Waterfall({ drivers, stockHealth }) {
+  const { t } = useLang()
   const x = scaleLinear().domain([0, 100]).range([LABEL_W, WIDTH - 24])
 
   let cum = 55
@@ -76,7 +78,7 @@ export default function Waterfall({ drivers, stockHealth }) {
               fontSize="11"
               fill="var(--color-ink-muted)"
             >
-              {row.label}
+              {t(row.label)}
             </text>
             <rect
               x={x1}

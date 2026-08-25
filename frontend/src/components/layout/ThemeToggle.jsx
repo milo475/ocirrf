@@ -1,32 +1,19 @@
-import { useEffect, useState } from 'react'
+import { useLang } from '../../context/LanguageContext'
+import { useTheme } from '../../context/ThemeContext'
 
-/** data-theme аттрибутыг <html> дээр сэлгэнэ. Сонголт localStorage-д хадгалагдана. */
+/** Темийг ThemeContext-ээр удирдана — Settings хуудастай нэг эх сурвалж */
 export default function ThemeToggle() {
-  const [theme, setTheme] = useState(() => {
-    try {
-      return localStorage.getItem('theme') ?? 'dark'
-    } catch {
-      return 'dark'
-    }
-  })
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme
-    try {
-      localStorage.setItem('theme', theme)
-    } catch {
-      /* хадгалж чадаагүй нь асуудалгүй */
-    }
-  }, [theme])
+  const { theme, setTheme } = useTheme()
+  const { t } = useLang()
 
   return (
     <button
       type="button"
       onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
       className="border border-rule rounded px-2.5 py-1 text-sm text-ink-muted hover:text-ink"
-      title="Тема солих"
+      title={t('Тема солих')}
     >
-      {theme === 'dark' ? '◐ Харанхуй' : '◑ Цайвар'}
+      {theme === 'dark' ? `◐ ${t('Харанхуй')}` : `◑ ${t('Цайвар')}`}
     </button>
   )
 }

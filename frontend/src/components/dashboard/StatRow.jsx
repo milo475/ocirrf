@@ -1,4 +1,5 @@
 import { median } from 'd3-array'
+import { useLang } from '../../context/LanguageContext'
 import { formatMoneyShort } from '../../lib/format'
 import MetricCard from './MetricCard'
 
@@ -6,6 +7,7 @@ const FOUR_WEEKS_AGO = 8 // healthHistory[12]=одоо → [8]=4 долоо хо
 
 /** 4 багана: эрсдэлийн дүн, эрсдэлтэй тоо, медиан оноо, 30 хоногт нөхөх */
 export default function StatRow({ products }) {
+  const { t } = useLang()
   const atRiskNow = products.filter((p) => p.stockHealth < 50)
   const atRiskAgo = products.filter((p) => p.healthHistory[FOUR_WEEKS_AGO] < 50)
 
@@ -29,37 +31,37 @@ export default function StatRow({ products }) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 md:divide-x divide-rule">
       <MetricCard
-        label="Эрсдэлд буй дүн"
+        label={t('Эрсдэлд буй дүн')}
         value={formatMoneyShort(riskSumNow)}
         delta={
           riskSumDeltaPct === null
-            ? { text: '— 4 дол.хон', direction: null }
+            ? { text: t('— 4 дол.хон'), direction: null }
             : {
-                text: `${sign(riskSumDeltaPct, 1)}% / 4 дол.хон`,
+                text: `${sign(riskSumDeltaPct, 1)}% ${t('/ 4 дол.хон')}`,
                 direction: riskSumDeltaPct > 0 ? 'worse' : 'better',
               }
         }
       />
       <MetricCard
-        label="Эрсдэлтэй бараа"
+        label={t('Эрсдэлтэй бараа')}
         value={String(atRiskNow.length)}
         delta={{
-          text: `${sign(countDelta)} / 4 дол.хон`,
+          text: `${sign(countDelta)} ${t('/ 4 дол.хон')}`,
           direction: countDelta > 0 ? 'worse' : countDelta < 0 ? 'better' : null,
         }}
       />
       <MetricCard
-        label="Дундаж оноо"
+        label={t('Дундаж оноо')}
         value={String(Math.round(medianNow))}
         delta={{
-          text: `${sign(medianDelta, 1)} / 4 дол.хон`,
+          text: `${sign(medianDelta, 1)} ${t('/ 4 дол.хон')}`,
           direction: medianDelta < 0 ? 'worse' : medianDelta > 0 ? 'better' : null,
         }}
       />
       <MetricCard
-        label="30 хоногт нөхөх"
+        label={t('30 хоногт нөхөх')}
         value={formatMoneyShort(restock30Sum)}
-        sub={`${restock30.length} бараа`}
+        sub={`${restock30.length} ${t('бараа')}`}
       />
     </div>
   )

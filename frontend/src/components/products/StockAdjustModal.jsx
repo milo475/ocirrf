@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useLang } from '../../context/LanguageContext'
 import { api } from '../../lib/api'
 import Button from '../ui/Button'
 import Input from '../ui/Input'
@@ -8,6 +9,7 @@ import { useToast } from '../ui/Toast'
 /** Үлдэгдэл гараар тохируулах — POST /api/stock/adjust */
 export default function StockAdjustModal({ product, onClose, onDone }) {
   const toast = useToast()
+  const { t } = useLang()
   const [qtyChange, setQtyChange] = useState('')
   const [reason, setReason] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -27,7 +29,11 @@ export default function StockAdjustModal({ product, onClose, onDone }) {
         },
       })
       toast.show(
-        `«${product.name}» үлдэгдэл: ${res.product.stockQty} ${product.unit ?? 'ш'}`,
+        t('«{name}» үлдэгдэл: {qty} {unit}', {
+          name: product.name,
+          qty: res.product.stockQty,
+          unit: product.unit ?? 'ш',
+        }),
       )
       onDone()
     } catch (err) {
@@ -47,11 +53,11 @@ export default function StockAdjustModal({ product, onClose, onDone }) {
     <Modal
       open={!!product}
       onClose={onClose}
-      title={`Үлдэгдэл тохируулах — ${product.name}`}
+      title={`${t('Үлдэгдэл тохируулах')} — ${product.name}`}
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <p className="font-mono text-sm tabular-nums">
-          Одоогийн үлдэгдэл:{' '}
+          {t('Одоогийн үлдэгдэл:')}{' '}
           <span className="text-ink">{product.stockQty}</span>
           {preview !== null && (
             <span className={preview < 0 ? 'text-alarm' : 'text-ink-muted'}>
@@ -62,7 +68,7 @@ export default function StockAdjustModal({ product, onClose, onDone }) {
         </p>
         <Input
           id="adj-qty"
-          label="Өөрчлөлт (+ орлого / − зарлага)"
+          label={t('Өөрчлөлт (+ орлого / − зарлага)')}
           required
           type="number"
           step="1"
@@ -73,11 +79,11 @@ export default function StockAdjustModal({ product, onClose, onDone }) {
         />
         <Input
           id="adj-reason"
-          label="Шалтгаан"
+          label={t('Шалтгаан')}
           required
           value={reason}
           onChange={(e) => setReason(e.target.value)}
-          placeholder="Жишээ: агуулахын тооллого"
+          placeholder={t('Жишээ: агуулахын тооллого')}
         />
         {error && (
           <p className="text-sm text-alarm border border-alarm rounded px-3 py-2">
@@ -86,10 +92,10 @@ export default function StockAdjustModal({ product, onClose, onDone }) {
         )}
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="ghost" onClick={onClose} disabled={submitting}>
-            Болих
+            {t('Болих')}
           </Button>
           <Button type="submit" loading={submitting}>
-            Хадгалах
+            {t('Хадгалах')}
           </Button>
         </div>
       </form>
