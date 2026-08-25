@@ -17,10 +17,8 @@ import { api } from '../lib/api'
 import { formatMoney } from '../lib/format'
 
 const LIMIT = 20
-const LOW_STOCK = 10
-
-/** Үлдэгдлийн нүд: 0 — улаан badge, бага — шар, бусад — энгийн mono */
-function StockCell({ qty, t }) {
+/** Үлдэгдлийн нүд: 0 — улаан badge, лимитээс доош/тэнцүү — шар, бусад — mono */
+function StockCell({ qty, limit, t }) {
   if (qty === 0) {
     return (
       <span className="inline-flex font-mono text-[11px] uppercase tracking-wide border rounded px-1.5 py-0.5 text-status-cancelled border-status-cancelled/40 bg-status-cancelled/12">
@@ -28,7 +26,7 @@ function StockCell({ qty, t }) {
       </span>
     )
   }
-  if (qty < LOW_STOCK) {
+  if (qty <= limit) {
     return (
       <span className="font-mono tabular-nums text-status-preparing">{qty}</span>
     )
@@ -38,13 +36,14 @@ function StockCell({ qty, t }) {
 
 export default function Products() {
   const { user } = useAuth()
-  const isAdmin = user?.role === 'ADMIN'
+  const canEdit = user?.role === 'ADMIN' || user?.role === 'MANAGER'
   const toast = useToast()
   const { t } = useLang()
 
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [categoryId, setCategoryId] = useState('')
+  const [lowStockOnly, setLowStockOnly] = useState(false)
   const [page, setPage] = useState(1)
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
@@ -71,10 +70,11 @@ export default function Products() {
     const q = new URLSearchParams({ page: String(page), limit: String(LIMIT) })
     if (search) q.set('search', search)
     if (categoryId) q.set('categoryId', categoryId)
+    if (lowStockOnly) q.set('lowStock', 'true')
     api(`/products?${q}`)
       .then(setData)
       .catch((e) => setError(e))
-  }, [search, categoryId, page])
+  }, [search, categoryId, lowStockOnly, page])
 
   useEffect(() => {
     load()
@@ -148,7 +148,17 @@ export default function Products() {
       key: 'stockQty',
       header: t('Үлдэгдэл'),
       align: 'right',
-      render: (p) => <StockCell qty={p.stockQty} t={t} />,
+      render: (p) => <StockCell qty={p.stockQty} limit={p.lowStockLimit} t={t} />,
+    },
+    {
+      key: 'lowStockLimit',
+      header: t('Лимит'),
+      align: 'right',
+      render: (p) => (
+        <span className="font-mono tabular-nums text-ink-muted">
+          {p.lowStockLimit}
+        </span>
+      ),
     },
     {
       key: 'isActive',
@@ -160,7 +170,7 @@ export default function Products() {
           <Badge>{t('Идэвхгүй')}</Badge>
         ),
     },
-    ...(isAdmin
+    ...(canEdit
       ? [
           {
             key: '_actions',
@@ -186,7 +196,7 @@ export default function Products() {
                   className="text-ink-muted hover:text-ink"
                   onClick={() => setAdjusting(p)}
                 >
-                  {t('Үлдэгдэл')}
+                  {t('Орлого/Зарлага')}
                 </button>
                 <button
                   type="button"
@@ -206,7 +216,7 @@ export default function Products() {
     <div>
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <h1 className="font-serif text-4xl font-medium">{t('Бараа')}</h1>
-        {isAdmin && (
+        {canEdit && (
           <Button
             onClick={() => {
               setEditing(null)
@@ -244,6 +254,20 @@ export default function Products() {
             </option>
           ))}
         </Select>
+        <button
+          type="button"
+          onClick={() => {
+            setLowStockOnly((v) => !v)
+            setPage(1)
+          }}
+          className={`px-3 py-2 rounded border text-sm transition-colors ${
+            lowStockOnly
+              ? 'border-status-preparing/50 text-status-preparing bg-status-preparing/12'
+              : 'border-rule text-ink-muted hover:text-ink'
+          }`}
+        >
+          {t('Бага үлдэгдэлтэй')}
+        </button>
       </div>
 
       <div className="mt-8">

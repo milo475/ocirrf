@@ -19,6 +19,7 @@ export default function ProductForm({
     sku: initial?.sku ?? '',
     categoryId: initial?.categoryId ?? '',
     price: initial?.price ?? '',
+    lowStockLimit: initial?.lowStockLimit ?? 5,
   })
 
   const set = (key) => (e) =>
@@ -30,6 +31,7 @@ export default function ProductForm({
       name: values.name.trim(),
       sku: values.sku.trim(),
       price: String(values.price).trim(),
+      lowStockLimit: Number(values.lowStockLimit),
       ...(values.categoryId ? { categoryId: values.categoryId } : {}),
     })
   }
@@ -67,6 +69,17 @@ export default function ProductForm({
           </option>
         ))}
       </Select>
+      <Input
+        id="p-limit"
+        label={t('Бага үлдэгдлийн лимит')}
+        type="number"
+        min="0"
+        step="1"
+        required
+        value={values.lowStockLimit}
+        onChange={set('lowStockLimit')}
+        className="font-mono"
+      />
       <Input
         id="p-price"
         label={t('Үнэ (₮)')}

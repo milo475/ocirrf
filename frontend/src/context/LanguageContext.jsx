@@ -245,6 +245,14 @@ const DICT = {
     'Хүргэлтээ эхлэх': 'Start deliveries',
     '7 хоног': '7 days',
 
+    'Лимит': 'Limit',
+    'Бага үлдэгдэлтэй': 'Low stock',
+    'Бага үлдэгдлийн лимит': 'Low stock limit',
+    'Орлого/Зарлага': 'Stock in/out',
+    'Төрөл': 'Type',
+    'Залруулга': 'Correction',
+    'Тоо ширхэг': 'Quantity',
+
     // — Тохиргоо —
     'Хэл': 'Language',
     'Тема': 'Theme',

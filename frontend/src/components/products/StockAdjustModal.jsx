@@ -4,16 +4,34 @@ import { api } from '../../lib/api'
 import Button from '../ui/Button'
 import Input from '../ui/Input'
 import Modal from '../ui/Modal'
+import Select from '../ui/Select'
 import { useToast } from '../ui/Toast'
 
-/** Үлдэгдэл гараар тохируулах — POST /api/stock/adjust */
+/** Орлого/зарлага — POST /api/stock/adjust (v2: reason төрөлтэй) */
 export default function StockAdjustModal({ product, onClose, onDone }) {
   const toast = useToast()
   const { t } = useLang()
-  const [qtyChange, setQtyChange] = useState('')
-  const [reason, setReason] = useState('')
+  const [type, setType] = useState('PURCHASE_IN')
+  const [qty, setQty] = useState('')
+  const [note, setNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
+
+  /**
+   * Хэрэглэгч эерэг тоо оруулна; тэмдгийг төрөл нь тодорхойлно.
+   * CORRECTION үед сөрөг тоо шууд бичиж болно (+/- аль ч чиглэл).
+   */
+  const n = Number(qty)
+  const qtyChange = Number.isNaN(n)
+    ? 0
+    : type === 'MANUAL_OUT'
+      ? -Math.abs(n)
+      : type === 'PURCHASE_IN'
+        ? Math.abs(n)
+        : n
+
+  const preview =
+    qty !== '' && !Number.isNaN(n) ? product.stockQty + qtyChange : null
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -24,8 +42,9 @@ export default function StockAdjustModal({ product, onClose, onDone }) {
         method: 'POST',
         body: {
           productId: product.id,
-          qtyChange: Number(qtyChange),
-          reason: reason.trim(),
+          qtyChange,
+          reason: type,
+          ...(note.trim() ? { note: note.trim() } : {}),
         },
       })
       toast.show(
@@ -37,23 +56,18 @@ export default function StockAdjustModal({ product, onClose, onDone }) {
       )
       onDone()
     } catch (err) {
-      setError(err.message) // талбарын доор inline
+      setError(err.message)
       toast.show(err.message, { type: 'error' })
     } finally {
       setSubmitting(false)
     }
   }
 
-  const preview =
-    qtyChange !== '' && !Number.isNaN(Number(qtyChange))
-      ? product.stockQty + Number(qtyChange)
-      : null
-
   return (
     <Modal
       open={!!product}
       onClose={onClose}
-      title={`${t('Үлдэгдэл тохируулах')} — ${product.name}`}
+      title={`${t('Орлого/Зарлага')} — ${product.name}`}
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <p className="font-mono text-sm tabular-nums">
@@ -66,25 +80,39 @@ export default function StockAdjustModal({ product, onClose, onDone }) {
             </span>
           )}
         </p>
+
+        <Select
+          id="adj-type"
+          label={t('Төрөл')}
+          value={type}
+          onChange={(e) => setType(e.target.value)}
+        >
+          <option value="PURCHASE_IN">{t('Орлого')} (+)</option>
+          <option value="MANUAL_OUT">{t('Зарлага')} (−)</option>
+          <option value="CORRECTION">{t('Залруулга')} (±)</option>
+        </Select>
+
         <Input
           id="adj-qty"
-          label={t('Өөрчлөлт (+ орлого / − зарлага)')}
+          label={t('Тоо ширхэг')}
           required
           type="number"
           step="1"
-          value={qtyChange}
-          onChange={(e) => setQtyChange(e.target.value)}
-          placeholder="10 эсвэл -5"
+          min={type === 'CORRECTION' ? undefined : '1'}
+          value={qty}
+          onChange={(e) => setQty(e.target.value)}
+          placeholder={type === 'CORRECTION' ? '5 эсвэл -5' : '10'}
           className="font-mono"
         />
+
         <Input
-          id="adj-reason"
-          label={t('Шалтгаан')}
-          required
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
+          id="adj-note"
+          label={t('Тэмдэглэл')}
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
           placeholder={t('Жишээ: агуулахын тооллого')}
         />
+
         {error && (
           <p className="text-sm text-alarm border border-alarm rounded px-3 py-2">
             {error}
