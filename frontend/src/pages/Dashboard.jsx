@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import BeeswarmChart from '../components/dashboard/BeeswarmChart'
 import CategoryFilter from '../components/dashboard/CategoryFilter'
 import ProductDrawer from '../components/dashboard/ProductDrawer'
@@ -6,8 +6,11 @@ import Rise from '../components/dashboard/Rise'
 import StatRow from '../components/dashboard/StatRow'
 import ViewToggle from '../components/dashboard/ViewToggle'
 import Watchlist from '../components/dashboard/Watchlist'
-import { products } from '../data/mockStockHealth'
+import Button from '../components/ui/Button'
+import EmptyState from '../components/ui/EmptyState'
+import { api } from '../lib/api'
 import { formatMoneyShort } from '../lib/format'
+// Mock хэвээр үлдэнэ (туршилтад хэрэгтэй): '../data/mockStockHealth'
 
 /** Package icon (lucide-ийн загвараар, инлайн SVG) */
 function PackageIcon() {
@@ -32,16 +35,71 @@ function PackageIcon() {
   )
 }
 
+/** Ачаалж байх үеийн skeleton — хуудасны бүтцийг дуурайна */
+function DashboardSkeleton() {
+  return (
+    <div className="animate-pulse motion-reduce:animate-none" aria-hidden="true">
+      <div className="h-10 w-80 bg-surface rounded" />
+      <div className="mt-16 border-t border-rule pt-8 grid grid-cols-2 md:grid-cols-4 gap-6">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i}>
+            <div className="h-3 w-24 bg-surface rounded" />
+            <div className="mt-3 h-8 w-28 bg-surface rounded" />
+          </div>
+        ))}
+      </div>
+      <div className="mt-16 border-t border-rule pt-8 h-48 bg-surface rounded" />
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const [view, setView] = useState('combined')
   const [filter, setFilter] = useState(null)
   const [selected, setSelected] = useState(null)
 
-  const totalSales = products.reduce((a, p) => a + p.monthlySales, 0)
+  // DASHBOARD.md Алхам 13: mock-ийн оронд бодит API
+  const [products, setProducts] = useState(null)
+  const [error, setError] = useState(null)
+
+  const load = useCallback(() => {
+    setError(null)
+    setProducts(null)
+    api('/dashboard/stock-health')
+      .then(setProducts)
+      .catch((e) => setError(e))
+  }, [])
+
+  useEffect(() => {
+    load()
+  }, [load])
+
+  const totalSales = (products ?? []).reduce((a, p) => a + p.monthlySales, 0)
   const categories = useMemo(
-    () => [...new Set(products.map((p) => p.category))],
-    [],
+    () => [...new Set((products ?? []).map((p) => p.category))],
+    [products],
   )
+
+  if (error) {
+    return (
+      <EmptyState
+        title="Өгөгдөл ачаалж чадсангүй"
+        note={error.message}
+        action={<Button onClick={load}>Дахин оролдох</Button>}
+      />
+    )
+  }
+
+  if (!products) return <DashboardSkeleton />
+
+  if (products.length === 0) {
+    return (
+      <EmptyState
+        title="Бараа бүртгэгдээгүй байна"
+        note="Эхлээд бараагаа бүртгэж, үлдэгдэл оруулна уу"
+      />
+    )
+  }
 
   return (
     <div>

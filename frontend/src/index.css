@@ -18,6 +18,14 @@
   --color-rule:      oklch(0.30 0.010 60);
   --color-alarm:     oklch(0.62 0.19 32);   /* vermilion */
   --color-safe:      oklch(0.72 0.10 150);
+
+  /* Захиалгын статусын өнгө (OrderStatus enum-ийн 6 төлөв) */
+  --color-status-new:       oklch(0.75 0.10 245); /* шинэ — цэнхэр */
+  --color-status-confirmed: oklch(0.78 0.09 200); /* баталгаажсан — номин */
+  --color-status-preparing: oklch(0.80 0.12 85);  /* бэлтгэж буй — шар */
+  --color-status-ready:     oklch(0.78 0.11 150); /* бэлэн — ногоон */
+  --color-status-completed: oklch(0.65 0.05 150); /* дууссан — намуухан ногоон */
+  --color-status-cancelled: oklch(0.62 0.19 32);  /* цуцлагдсан — alarm улаан */
 }
 
 /* light тема — токенуудыг дарж бичнэ */
@@ -29,6 +37,13 @@
   --color-rule:      oklch(0.87 0.008 80);
   --color-alarm:     oklch(0.55 0.20 32);
   --color-safe:      oklch(0.55 0.12 150);
+
+  --color-status-new:       oklch(0.50 0.12 245);
+  --color-status-confirmed: oklch(0.52 0.10 200);
+  --color-status-preparing: oklch(0.55 0.13 85);
+  --color-status-ready:     oklch(0.52 0.12 150);
+  --color-status-completed: oklch(0.48 0.06 150);
+  --color-status-cancelled: oklch(0.55 0.20 32);
 }
 
 @layer base {

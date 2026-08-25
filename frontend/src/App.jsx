@@ -2,6 +2,7 @@ import { BrowserRouter, Route, Routes } from 'react-router'
 import AdminRoute from './components/auth/AdminRoute'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import AppShell from './components/layout/AppShell'
+import { ToastProvider } from './components/ui/Toast'
 import { AuthProvider } from './context/AuthContext'
 import Dashboard from './pages/Dashboard'
 import Login from './pages/Login'
@@ -15,7 +16,8 @@ import Users from './pages/Users'
 function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
+      <ToastProvider>
+        <BrowserRouter>
         <Routes>
           {/* Login — nav-гүй, хамгаалалтгүй */}
           <Route path="/login" element={<Login />} />
@@ -36,7 +38,8 @@ function App() {
             </Route>
           </Route>
         </Routes>
-      </BrowserRouter>
+        </BrowserRouter>
+      </ToastProvider>
     </AuthProvider>
   )
 }
