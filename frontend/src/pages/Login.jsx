@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router'
+import { homeFor } from '../components/auth/RoleRoute'
 import { useAuth } from '../context/AuthContext'
 import { useLang } from '../context/LanguageContext'
 
@@ -22,16 +23,16 @@ export default function Login() {
     )
   }
 
-  // Аль хэдийн нэвтэрсэн бол нүүр рүү
-  if (user) return <Navigate to="/" replace />
+  // Аль хэдийн нэвтэрсэн бол эрхийнхээ нүүр рүү (DRIVER → /deliveries)
+  if (user) return <Navigate to={homeFor(user.role)} replace />
 
   async function onSubmit(e) {
     e.preventDefault()
     setError(null)
     setSubmitting(true)
     try {
-      await login(email, password)
-      navigate('/', { replace: true })
+      const loggedIn = await login(email, password)
+      navigate(homeFor(loggedIn.role), { replace: true })
     } catch (err) {
       setError(err.message ?? 'Алдаа гарлаа')
     } finally {

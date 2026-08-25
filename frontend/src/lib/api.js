@@ -50,13 +50,17 @@ function normalizeError(status, payload) {
 
 async function rawRequest(path, { method = 'GET', body } = {}) {
   const headers = {}
-  if (body !== undefined) headers['Content-Type'] = 'application/json'
+  // FormData бол Content-Type-ыг browser өөрөө (boundary-тэй) тавина
+  const isForm = body instanceof FormData
+  if (body !== undefined && !isForm) {
+    headers['Content-Type'] = 'application/json'
+  }
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`
 
   const res = await fetch(BASE + path, {
     method,
     headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    body: isForm ? body : body !== undefined ? JSON.stringify(body) : undefined,
   })
 
   let payload = null
@@ -121,4 +125,18 @@ export async function api(path, options = {}) {
 /** Хуудас нээгдэхэд refreshToken-оор session сэргээнэ (амжилтгүй бол null) */
 export async function restoreSession() {
   return tryRefresh()
+}
+
+/**
+ * Multipart илгээх туслах (жишээ: хүргэлтийн баталгаажуулах зураг).
+ * fields доторх File/Blob утгууд файлаар, бусад нь string талбараар явна.
+ * 401 retry зэрэг бүх логик api()-тай адил.
+ */
+export function apiUpload(path, fields, { method = 'POST' } = {}) {
+  const form = new FormData()
+  for (const [key, value] of Object.entries(fields)) {
+    if (value === undefined || value === null) continue
+    form.append(key, value)
+  }
+  return api(path, { method, body: form })
 }
