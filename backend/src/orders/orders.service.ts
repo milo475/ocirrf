@@ -1,8 +1,10 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import type { AuthUser } from '../auth/decorators/current-user.decorator';
 import { OrderStatus, Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -172,13 +174,20 @@ export class OrdersService {
     });
   }
 
-  async updateStatus(id: string, status: OrderStatus, userId: string) {
+  async updateStatus(id: string, status: OrderStatus, user: AuthUser) {
     const order = await this.prisma.order.findUnique({
       where: { id },
       include: { items: true },
     });
     if (!order) {
       throw new NotFoundException('Захиалга олдсонгүй');
+    }
+
+    // OPERATOR зөвхөн өөрийн шивсэн захиалгыг удирдана; ADMIN/MANAGER бүгдийг
+    if (user.role === 'OPERATOR' && order.createdById !== user.id) {
+      throw new ForbiddenException(
+        'Зөвхөн өөрийн үүсгэсэн захиалгын статусыг өөрчлөх боломжтой',
+      );
     }
 
     if (!ALLOWED_TRANSITIONS[order.orderStatus].includes(status)) {
@@ -192,7 +201,12 @@ export class OrdersService {
       return this.prisma.$transaction(async (tx) => {
         const cancelled = await tx.order.update({
           where: { id },
-          data: { orderStatus: OrderStatus.CANCELLED },
+          data: {
+            orderStatus: OrderStatus.CANCELLED,
+            // Жолооч хуваарилагдсан байсан бол хуваарилалтыг цуцална
+            assignedDriverId: null,
+            assignedAt: null,
+          },
           include: { items: true, createdBy: CREATED_BY_SELECT },
         });
 
@@ -207,7 +221,7 @@ export class OrdersService {
               qtyChange: item.qty,
               reason: 'ORDER_CANCEL',
               refId: order.id,
-              userId,
+              userId: user.id,
             },
           });
         }

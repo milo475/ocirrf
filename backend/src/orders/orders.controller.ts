@@ -41,12 +41,14 @@ export class OrdersController {
     return this.ordersService.findOne(id);
   }
 
+  /** DRIVER статус өөрчлөхгүй — хүргэлтээ delivery module-ээр баталгаажуулна */
   @Patch(':id/status')
+  @Roles(Role.ADMIN, Role.MANAGER, Role.OPERATOR)
   updateStatus(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateOrderStatusDto,
     @CurrentUser() user: AuthUser,
   ) {
-    return this.ordersService.updateStatus(id, dto.status, user.id);
+    return this.ordersService.updateStatus(id, dto.status, user);
   }
 }
