@@ -229,6 +229,22 @@ const DICT = {
     'Бага үлдэгдэлтэй бараа': 'Low stock items',
     'Бүх үлдэгдэл хэвийн': 'All stock levels healthy',
 
+    'Менежерийн самбар': 'Manager overview',
+    'Орлого / зарлага (7 хоног)': 'Stock in / out (7 days)',
+    'Орлого': 'In',
+    'Зарлага': 'Out',
+    'Хуваарилалт хүлээж буй': 'Awaiting assignment',
+    'Жолоочдын ачаалал': 'Driver load',
+    'идэвхтэй хүргэлт': 'active',
+    'Чөлөөтэй': 'Available',
+    'Завгүй': 'Busy',
+    'Жолоочийн самбар': 'Driver overview',
+    'Өнөөдрийн хүргэлт': "Today's deliveries",
+    'Авах цалин': 'Earnings',
+    'Нийт хүргэсэн': 'Total delivered',
+    'Хүргэлтээ эхлэх': 'Start deliveries',
+    '7 хоног': '7 days',
+
     // — Тохиргоо —
     'Хэл': 'Language',
     'Тема': 'Theme',
