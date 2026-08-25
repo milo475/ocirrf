@@ -1,0 +1,123 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  OPERATOR
+}
+
+enum OrderStatus {
+  NEW
+  CONFIRMED
+  PREPARING
+  READY
+  COMPLETED
+  CANCELLED
+}
+
+enum DeliveryStatus {
+  PENDING
+  ASSIGNED
+  ON_THE_WAY
+  DELIVERED
+  FAILED
+}
+
+model User {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  passwordHash String
+  fullName     String
+  role         Role     @default(OPERATOR)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  orders     Order[]
+  stockMoves StockMovement[]
+}
+
+model Category {
+  id       String    @id @default(uuid())
+  name     String    @unique
+  products Product[]
+}
+
+model Product {
+  id         String   @id @default(uuid())
+  sku        String   @unique
+  name       String
+  price      Decimal  @db.Decimal(12, 2)
+  stockQty   Int      @default(0)
+  unit       String   @default("ш")
+  imageUrl   String?
+  isActive   Boolean  @default(true)
+  categoryId String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  category   Category?       @relation(fields: [categoryId], references: [id])
+  orderItems OrderItem[]
+  stockMoves StockMovement[]
+
+  @@index([name])
+  @@index([isActive])
+}
+
+model Order {
+  id             String         @id @default(uuid())
+  orderNo        String         @unique
+  customerName   String
+  phone          String
+  address        String
+  note           String?
+  totalAmount    Decimal        @default(0) @db.Decimal(12, 2)
+  orderStatus    OrderStatus    @default(NEW)
+  deliveryStatus DeliveryStatus @default(PENDING)
+  createdById    String
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  createdBy User        @relation(fields: [createdById], references: [id])
+  items     OrderItem[]
+
+  @@index([orderStatus])
+  @@index([phone])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id           String  @id @default(uuid())
+  orderId      String
+  productId    String
+  productName  String // snapshot
+  qty          Int
+  priceAtOrder Decimal @db.Decimal(12, 2)
+  lineTotal    Decimal @db.Decimal(12, 2)
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+}
+
+model StockMovement {
+  id        String   @id @default(uuid())
+  productId String
+  qtyChange Int // + орлого, - зарлага
+  reason    String // "ORDER", "CANCEL", "MANUAL", "INITIAL"
+  refId     String? // захиалгын id гэх мэт
+  userId    String
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@index([productId])
+}

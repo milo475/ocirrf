@@ -1,0 +1,49 @@
+@import "tailwindcss";
+@import "@fontsource/newsreader/400.css";
+@import "@fontsource/newsreader/500.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/work-sans/400.css";
+@import "@fontsource/work-sans/500.css";
+
+@theme {
+  --font-serif: "Newsreader", serif;
+  --font-mono: "IBM Plex Mono", monospace;
+  --font-sans: "Work Sans", sans-serif;
+
+  /* dark (үндсэн) — дулаан near-black */
+  --color-bg:        oklch(0.16 0.008 60);
+  --color-surface:   oklch(0.20 0.010 60);
+  --color-ink:       oklch(0.92 0.012 70);
+  --color-ink-muted: oklch(0.62 0.012 70);
+  --color-rule:      oklch(0.30 0.010 60);
+  --color-alarm:     oklch(0.62 0.19 32);   /* vermilion */
+  --color-safe:      oklch(0.72 0.10 150);
+}
+
+/* light тема — токенуудыг дарж бичнэ */
+[data-theme="light"] {
+  --color-bg:        oklch(0.97 0.006 80);
+  --color-surface:   oklch(0.94 0.008 80);
+  --color-ink:       oklch(0.24 0.012 60);
+  --color-ink-muted: oklch(0.50 0.012 60);
+  --color-rule:      oklch(0.87 0.008 80);
+  --color-alarm:     oklch(0.55 0.20 32);
+  --color-safe:      oklch(0.55 0.12 150);
+}
+
+@layer base {
+  html {
+    background-color: var(--color-bg);
+  }
+
+  body {
+    @apply bg-bg text-ink font-sans antialiased;
+    transition: background-color 200ms ease, color 200ms ease;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    body {
+      transition: none;
+    }
+  }
+}
