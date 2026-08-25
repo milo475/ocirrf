@@ -1,4 +1,5 @@
-import { NavLink, Outlet } from 'react-router'
+import { NavLink, Outlet, useNavigate } from 'react-router'
+import { useAuth } from '../../context/AuthContext'
 import ThemeToggle from './ThemeToggle'
 
 const NAV_ITEMS = [
@@ -6,7 +7,7 @@ const NAV_ITEMS = [
   { to: '/products', label: 'Бараа' },
   { to: '/orders', label: 'Захиалга' },
   { to: '/stock', label: 'Үлдэгдэл' },
-  { to: '/users', label: 'Хэрэглэгчид' },
+  { to: '/users', label: 'Хэрэглэгчид', adminOnly: true },
 ]
 
 function navClass({ isActive }) {
@@ -19,6 +20,18 @@ function navClass({ isActive }) {
 }
 
 export default function AppShell() {
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
+
+  const items = NAV_ITEMS.filter(
+    (item) => !item.adminOnly || user?.role === 'ADMIN',
+  )
+
+  function handleLogout() {
+    logout()
+    navigate('/login')
+  }
+
   return (
     <div className="min-h-screen bg-bg text-ink">
       <header className="border-b border-rule">
@@ -28,7 +41,7 @@ export default function AppShell() {
           </NavLink>
 
           <nav className="flex items-center gap-1">
-            {NAV_ITEMS.map((item) => (
+            {items.map((item) => (
               <NavLink key={item.to} to={item.to} end={item.end} className={navClass}>
                 {item.label}
               </NavLink>
@@ -37,14 +50,21 @@ export default function AppShell() {
 
           <div className="ml-auto flex items-center gap-3">
             <ThemeToggle />
-            {/* Хэрэглэгчийн цэс — auth холбогдоход жинхэнэ болно */}
-            <button
-              type="button"
-              className="w-8 h-8 rounded-full bg-surface border border-rule text-xs font-mono text-ink-muted"
-              title="Хэрэглэгч (түр placeholder)"
-            >
-              ?
-            </button>
+            {user && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm">{user.name}</span>
+                <span className="font-mono text-[11px] uppercase tracking-wide border border-rule rounded px-1.5 py-0.5 text-ink-muted">
+                  {user.role === 'ADMIN' ? 'Админ' : 'Оператор'}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="text-sm text-ink-muted hover:text-alarm transition-colors"
+                >
+                  Гарах
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </header>

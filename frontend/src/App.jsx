@@ -1,5 +1,8 @@
 import { BrowserRouter, Route, Routes } from 'react-router'
+import AdminRoute from './components/auth/AdminRoute'
+import ProtectedRoute from './components/auth/ProtectedRoute'
 import AppShell from './components/layout/AppShell'
+import { AuthProvider } from './context/AuthContext'
 import Dashboard from './pages/Dashboard'
 import Login from './pages/Login'
 import OrderDetail from './pages/OrderDetail'
@@ -11,22 +14,30 @@ import Users from './pages/Users'
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* Login — nav-гүй, AppShell-ээс гадуур */}
-        <Route path="/login" element={<Login />} />
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          {/* Login — nav-гүй, хамгаалалтгүй */}
+          <Route path="/login" element={<Login />} />
 
-        <Route element={<AppShell />}>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/products" element={<Products />} />
-          <Route path="/orders" element={<Orders />} />
-          <Route path="/orders/new" element={<OrderNew />} />
-          <Route path="/orders/:id" element={<OrderDetail />} />
-          <Route path="/stock" element={<Stock />} />
-          <Route path="/users" element={<Users />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+          <Route element={<ProtectedRoute />}>
+            <Route element={<AppShell />}>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/products" element={<Products />} />
+              <Route path="/orders" element={<Orders />} />
+              <Route path="/orders/new" element={<OrderNew />} />
+              <Route path="/orders/:id" element={<OrderDetail />} />
+              <Route path="/stock" element={<Stock />} />
+
+              {/* Зөвхөн админ */}
+              <Route element={<AdminRoute />}>
+                <Route path="/users" element={<Users />} />
+              </Route>
+            </Route>
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   )
 }
 

@@ -1,0 +1,9 @@
+import { Navigate, Outlet } from 'react-router'
+import { useAuth } from '../../context/AuthContext'
+
+/** ADMIN биш бол нүүр хуудас руу */
+export default function AdminRoute() {
+  const { user } = useAuth()
+  if (user?.role !== 'ADMIN') return <Navigate to="/" replace />
+  return <Outlet />
+}
