@@ -17,11 +17,19 @@ import { UsersModule } from './users/users.module';
 @Module({
   imports: [
     // frontend/dist-ийг нэг порт дээрээс serve хийнэ:
-    // /api/* backend-д, бусад бүх зам SPA-ийн index.html руу
-    ServeStaticModule.forRoot({
-      rootPath: join(__dirname, '..', '..', 'frontend', 'dist'),
-      exclude: ['/api/{*path}'],
-    }),
+    // /api/* backend-д, бусад бүх зам SPA-ийн index.html руу.
+    // uploads/ — хүргэлтийн баталгаажуулах зургууд /api/uploads/* дээр.
+    ServeStaticModule.forRoot(
+      {
+        rootPath: join(__dirname, '..', '..', 'frontend', 'dist'),
+        exclude: ['/api/{*path}'],
+      },
+      {
+        rootPath: join(__dirname, '..', 'uploads'),
+        serveRoot: '/api/uploads',
+        serveStaticOptions: { index: false },
+      },
+    ),
     PrismaModule,
     AuthModule,
     CategoriesModule,

@@ -20,6 +20,10 @@ lerna-debug.log*
 .env.*
 !.env.example
 
+# Хүргэлтийн баталгаажуулах зургууд (git-д орохгүй, хавтас нь үлдэнэ)
+/uploads/*
+!/uploads/.gitkeep
+
 # IDE
 /.idea
 .project
