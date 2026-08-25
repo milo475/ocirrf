@@ -1,7 +1,28 @@
 import { Injectable } from '@nestjs/common';
-import { OrderStatus } from '../generated/prisma/client';
+import { DeliveryStatus, OrderStatus } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { StockService } from '../stock/stock.service';
+import type {
+  AdminDashboard,
+  ManagerDashboard,
+  OperatorDashboard,
+} from './dashboard.types';
 import type { ProductHealth, StockDriver } from './product-health.type';
+
+/** Локал цагийн бүсээр YYYY-MM-DD түлхүүр */
+function dayKey(d: Date): string {
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60_000)
+    .toISOString()
+    .slice(0, 10);
+}
+
+/** Өнөөдрийг оруулаад сүүлийн 7 хоногийн эхлэл (00:00) */
+function weekStart(): Date {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - 6);
+  return d;
+}
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
@@ -20,7 +41,225 @@ type MovementRow = {
 
 @Injectable()
 export class DashboardService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly stockService: StockService,
+  ) {}
+
+  /** ADMIN самбар: харилцагч/жолооч/хүргэлтийн тоонууд + TOP-3 жолооч */
+  async admin(): Promise<AdminDashboard> {
+    const since = weekStart();
+
+    const [
+      phoneGroups,
+      totalDrivers,
+      deliveriesInProgress,
+      deliveredTotal,
+      created7,
+      delivered7,
+      assignedGroups,
+      deliveredGroups,
+      driverUsers,
+    ] = await Promise.all([
+      this.prisma.order.groupBy({ by: ['phone'] }),
+      this.prisma.user.count({ where: { role: 'DRIVER', isActive: true } }),
+      this.prisma.order.count({
+        where: {
+          deliveryStatus: {
+            in: [DeliveryStatus.ASSIGNED, DeliveryStatus.ON_THE_WAY],
+          },
+        },
+      }),
+      this.prisma.order.count({
+        where: { deliveryStatus: DeliveryStatus.DELIVERED },
+      }),
+      this.prisma.order.findMany({
+        where: { createdAt: { gte: since } },
+        select: { createdAt: true },
+      }),
+      this.prisma.order.findMany({
+        where: { deliveredAt: { gte: since } },
+        select: { deliveredAt: true },
+      }),
+      this.prisma.order.groupBy({
+        by: ['assignedDriverId'],
+        where: { assignedDriverId: { not: null } },
+        _count: { _all: true },
+      }),
+      this.prisma.order.groupBy({
+        by: ['assignedDriverId'],
+        where: {
+          assignedDriverId: { not: null },
+          deliveryStatus: DeliveryStatus.DELIVERED,
+        },
+        _count: { _all: true },
+      }),
+      this.prisma.user.findMany({
+        where: { role: 'DRIVER' },
+        select: { id: true, fullName: true },
+      }),
+    ]);
+
+    const days = new Map<
+      string,
+      { date: string; ordersCreated: number; delivered: number }
+    >();
+    for (let i = 0; i < 7; i++) {
+      const key = dayKey(new Date(since.getTime() + i * 86_400_000));
+      days.set(key, { date: key, ordersCreated: 0, delivered: 0 });
+    }
+    for (const o of created7) {
+      const row = days.get(dayKey(o.createdAt));
+      if (row) row.ordersCreated += 1;
+    }
+    for (const o of delivered7) {
+      if (!o.deliveredAt) continue;
+      const row = days.get(dayKey(o.deliveredAt));
+      if (row) row.delivered += 1;
+    }
+
+    const nameById = new Map(driverUsers.map((u) => [u.id, u.fullName]));
+    const deliveredById = new Map(
+      deliveredGroups.map((g) => [g.assignedDriverId, g._count._all]),
+    );
+    const topDrivers = assignedGroups
+      .map((g) => {
+        const assigned = g._count._all;
+        const delivered = deliveredById.get(g.assignedDriverId) ?? 0;
+        return {
+          id: g.assignedDriverId as string,
+          name: nameById.get(g.assignedDriverId as string) ?? '?',
+          assigned,
+          delivered,
+          dr: Math.round((delivered / assigned) * 100) / 100,
+        };
+      })
+      .sort((a, b) => b.dr - a.dr || b.delivered - a.delivered)
+      .slice(0, 3);
+
+    return {
+      totalCustomers: phoneGroups.length,
+      totalDrivers,
+      deliveriesInProgress,
+      deliveredTotal,
+      last7Days: [...days.values()],
+      topDrivers,
+    };
+  }
+
+  /** OPERATOR самбар: өөрийн шивэлт + бага үлдэгдлийн анхааруулга */
+  async operator(userId: string): Promise<OperatorDashboard> {
+    const since = weekStart();
+
+    const [myOrdersTotal, myDelivered, my7, lowStockProducts] =
+      await Promise.all([
+        this.prisma.order.count({ where: { createdById: userId } }),
+        this.prisma.order.count({
+          where: {
+            createdById: userId,
+            deliveryStatus: DeliveryStatus.DELIVERED,
+          },
+        }),
+        this.prisma.order.findMany({
+          where: { createdById: userId, createdAt: { gte: since } },
+          select: { createdAt: true },
+        }),
+        this.prisma.product.findMany({
+          where: {
+            isActive: true,
+            stockQty: { lte: this.prisma.product.fields.lowStockLimit },
+          },
+          select: {
+            id: true,
+            name: true,
+            sku: true,
+            stockQty: true,
+            lowStockLimit: true,
+          },
+          orderBy: { stockQty: 'asc' },
+        }),
+      ]);
+
+    const days = new Map<string, { date: string; count: number }>();
+    for (let i = 0; i < 7; i++) {
+      const key = dayKey(new Date(since.getTime() + i * 86_400_000));
+      days.set(key, { date: key, count: 0 });
+    }
+    for (const o of my7) {
+      const row = days.get(dayKey(o.createdAt));
+      if (row) row.count += 1;
+    }
+
+    return {
+      myOrdersTotal,
+      myDelivered,
+      myDr:
+        myOrdersTotal > 0
+          ? Math.round((myDelivered / myOrdersTotal) * 100) / 100
+          : 0,
+      last7Days: [...days.values()],
+      lowStockProducts,
+    };
+  }
+
+  /** MANAGER самбар: орлого/зарлага, хуваарилалт хүлээж буй, жолоочийн ачаалал */
+  async manager(): Promise<ManagerDashboard> {
+    const [stockLast7Days, awaitingAssignment, drivers, loadGroups] =
+      await Promise.all([
+        this.stockService.summary(7),
+        this.prisma.order.findMany({
+          where: {
+            orderStatus: {
+              in: [OrderStatus.CONFIRMED, OrderStatus.PREPARING],
+            },
+            assignedDriverId: null,
+          },
+          select: {
+            id: true,
+            orderNo: true,
+            customerName: true,
+            phone: true,
+            address: true,
+            totalAmount: true,
+            orderStatus: true,
+            createdAt: true,
+          },
+          orderBy: { createdAt: 'asc' },
+        }),
+        this.prisma.user.findMany({
+          where: { role: 'DRIVER', isActive: true },
+          select: {
+            id: true,
+            fullName: true,
+            driverProfile: { select: { isAvailable: true } },
+          },
+        }),
+        this.prisma.order.groupBy({
+          by: ['assignedDriverId'],
+          where: {
+            deliveryStatus: {
+              in: [DeliveryStatus.ASSIGNED, DeliveryStatus.ON_THE_WAY],
+            },
+          },
+          _count: { _all: true },
+        }),
+      ]);
+
+    const loadById = new Map(
+      loadGroups.map((g) => [g.assignedDriverId, g._count._all]),
+    );
+
+    return {
+      stockLast7Days,
+      awaitingAssignment,
+      driverLoad: drivers.map((d) => ({
+        id: d.id,
+        name: d.fullName,
+        isAvailable: d.driverProfile?.isAvailable ?? null,
+        active: loadById.get(d.id) ?? 0,
+      })),
+    };
+  }
 
   /**
    * DASHBOARD.md-ийн ProductHealth[] хэлбэрээр бүх идэвхтэй барааг буцаана.
