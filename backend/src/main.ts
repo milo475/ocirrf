@@ -1,13 +1,13 @@
 import 'dotenv/config';
 import { mkdirSync } from 'node:fs';
-import { join } from 'node:path';
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { UPLOADS_DIR } from './uploads.config';
 
 async function bootstrap() {
-  // uploads хавтас байхгүй бол үүсгэнэ (шинэ clone дээр ServeStatic алдахгүй)
-  mkdirSync(join(__dirname, '..', 'uploads'), { recursive: true });
+  // uploads хавтас байхгүй бол үүсгэнэ (шинэ clone/production дээр ServeStatic алдахгүй)
+  mkdirSync(UPLOADS_DIR, { recursive: true });
 
   const app = await NestFactory.create(AppModule);
 

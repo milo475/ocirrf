@@ -63,7 +63,7 @@ pm2 restart ursgal-api
 
 ## 5. Backup
 
-Өдөр тутмын dump (14 хоног хадгална):
+Өдөр тутмын DB dump + uploads/ зургийн архив (14 хоног хадгална):
 
 ```bash
 bash backend/scripts/backup-db.sh
@@ -85,5 +85,6 @@ Cron-д суулгах: `crontab -e` →
 | JWT_SECRET | backend/.env | `openssl rand -hex 32` шинээр |
 | JWT_REFRESH_SECRET | backend/.env | `openssl rand -hex 32` шинээр (өөр утга) |
 | PORT | backend/.env | Шаардлагатай бол |
+| UPLOADS_DIR | backend/.env | Баталгаажуулах зургууд кодоос гадуур (ж: /var/lib/ursgal/uploads) |
 | CORS_ORIGIN | backend/.env | Зөвхөн frontend тусдаа домэйнд байвал |
-| Seed нууц үгс | UI | admin/operator-ийн нууц үгийг солих |
+| Seed нууц үгс | UI | admin/manager/operator/driver 4 хэрэглэгчийн нууц үгийг солих |

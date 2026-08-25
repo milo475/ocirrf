@@ -1,5 +1,4 @@
 import { randomBytes } from 'node:crypto';
-import { join } from 'node:path';
 import {
   BadRequestException,
   Body,
@@ -18,6 +17,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../generated/prisma/client';
+import { UPLOADS_DIR } from '../uploads.config';
 import { DeliveryService } from './delivery.service';
 import { AssignDriverDto } from './dto/assign-driver.dto';
 import { CompleteDeliveryDto } from './dto/complete-delivery.dto';
@@ -28,9 +28,9 @@ const ALLOWED_MIME: Record<string, string> = {
   'image/webp': '.webp',
 };
 
-/** Зургийг таагдашгүй hash нэрээр uploads/-д хадгална */
+/** Зургийг таагдашгүй hash нэрээр UPLOADS_DIR-д хадгална */
 const proofStorage = diskStorage({
-  destination: join(process.cwd(), 'uploads'),
+  destination: UPLOADS_DIR,
   filename: (_req, file, cb) => {
     const ext = ALLOWED_MIME[file.mimetype] ?? '.jpg';
     cb(null, randomBytes(16).toString('hex') + ext);

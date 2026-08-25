@@ -13,6 +13,7 @@ import { DeliveryModule } from './delivery/delivery.module';
 import { OrdersModule } from './orders/orders.module';
 import { ProductsModule } from './products/products.module';
 import { StockModule } from './stock/stock.module';
+import { UPLOADS_DIR } from './uploads.config';
 import { UsersModule } from './users/users.module';
 
 @Module({
@@ -26,7 +27,7 @@ import { UsersModule } from './users/users.module';
         exclude: ['/api/{*path}'],
       },
       {
-        rootPath: join(__dirname, '..', 'uploads'),
+        rootPath: UPLOADS_DIR, // .env-ийн UPLOADS_DIR эсвэл backend/uploads
         serveRoot: '/api/uploads',
         serveStaticOptions: { index: false },
       },
