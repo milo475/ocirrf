@@ -173,6 +173,7 @@ export const ROLE_DEFAULTS: Record<Role, PermKey[]> = {
     PERM.REPORTS_DELIVERY,
     PERM.REPORTS_INVENTORY,
     PERM.ANALYTICS_VIEW, // V3-16: аналитик ADMIN+MANAGER-т
+    PERM.CUSTOMERS_VIEW, // V3-17: харилцагчийн жагсаалт ADMIN+MANAGER-т
   ],
   [Role.OPERATOR]: [
     PERM.ORDERS_VIEW,

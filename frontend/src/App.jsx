@@ -7,7 +7,10 @@ import { AuthProvider } from './context/AuthContext'
 import { LanguageProvider } from './context/LanguageContext'
 import { ThemeProvider } from './context/ThemeContext'
 import ActivityLog from './pages/ActivityLog'
+import Analytics from './pages/Analytics'
+import Customers from './pages/Customers'
 import Dashboard from './pages/Dashboard'
+import Reports from './pages/Reports'
 import DeliveryOps from './pages/DeliveryOps'
 import Finance from './pages/Finance'
 import Login from './pages/Login'
@@ -66,6 +69,9 @@ function App() {
                       <Route path="/finance" element={<Finance />} />
                       <Route path="/finance/payroll" element={<Payroll />} />
                       <Route path="/delivery-ops" element={<DeliveryOps />} />
+                      <Route path="/analytics" element={<Analytics />} />
+                      <Route path="/reports" element={<Reports />} />
+                      <Route path="/customers" element={<Customers />} />
                     </Route>
 
                     <Route element={<RoleRoute roles={['ADMIN', 'OPERATOR']} />}>

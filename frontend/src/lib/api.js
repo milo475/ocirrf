@@ -128,6 +128,28 @@ export async function restoreSession() {
 }
 
 /**
+ * Файл (CSV г.м.) татах — auth header-тэй fetch, 401-д нэг удаа refresh.
+ * {blob, filename} буцаана.
+ */
+export async function apiBlob(path) {
+  const doFetch = () =>
+    fetch(BASE + path, {
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+    })
+  let res = await doFetch()
+  if (res.status === 401) {
+    const refreshed = await tryRefresh()
+    if (refreshed) res = await doFetch()
+  }
+  if (!res.ok) {
+    throw new Error(`Татаж чадсангүй (${res.status})`)
+  }
+  const dispo = res.headers.get('content-disposition') ?? ''
+  const m = dispo.match(/filename="?([^";]+)"?/)
+  return { blob: await res.blob(), filename: m?.[1] ?? 'report.csv' }
+}
+
+/**
  * Multipart илгээх туслах (жишээ: хүргэлтийн баталгаажуулах зураг).
  * fields доторх File/Blob утгууд файлаар, бусад нь string талбараар явна.
  * 401 retry зэрэг бүх логик api()-тай адил.

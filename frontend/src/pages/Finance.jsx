@@ -204,7 +204,17 @@ export default function Finance() {
 
   return (
     <div>
-      <h1 className="font-serif text-4xl font-medium">{t('Санхүү')}</h1>
+      <div className="flex items-end justify-between gap-4 flex-wrap">
+        <h1 className="font-serif text-4xl font-medium">{t('Санхүү')}</h1>
+        {hasPerm('finance.driver_payroll') && (
+          <Link
+            to="/finance/payroll"
+            className="text-sm text-accent hover:underline underline-offset-2"
+          >
+            {t('Жолоочийн цалин')} →
+          </Link>
+        )}
+      </div>
 
       {/* 30 хоногийн тойм */}
       {canViewBoth && summary && (

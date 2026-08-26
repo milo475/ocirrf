@@ -10,6 +10,7 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
 import { CategoriesModule } from './categories/categories.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { CustomersModule } from './customers/customers.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { DeliveryModule } from './delivery/delivery.module';
 import { FinanceModule } from './finance/finance.module';
@@ -55,6 +56,7 @@ import { UsersModule } from './users/users.module';
     NotificationsModule,
     ActivityLogModule,
     PortalModule,
+    CustomersModule,
     SettingsModule,
     AnalyticsModule,
     ReportsModule,

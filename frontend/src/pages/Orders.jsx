@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useNavigate, useSearchParams } from 'react-router'
 import RegionBadge from '../components/orders/RegionBadge'
 import Badge, { STATUS_LABELS } from '../components/ui/Badge'
 import Button from '../components/ui/Button'
@@ -28,8 +28,10 @@ export default function Orders() {
   const { t } = useLang()
   const { hasPerm } = useAuth()
 
-  const [searchInput, setSearchInput] = useState('')
-  const [search, setSearch] = useState('')
+  // /customers-аас ?search=утас-аар шүүгдэж ирж болно
+  const [params] = useSearchParams()
+  const [searchInput, setSearchInput] = useState(params.get('search') ?? '')
+  const [search, setSearch] = useState(params.get('search') ?? '')
   const [status, setStatus] = useState('')
   const [deliveryStatus, setDeliveryStatus] = useState('')
   const [page, setPage] = useState(1)

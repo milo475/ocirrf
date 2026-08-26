@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useNavigate, useSearchParams } from 'react-router'
 import Button from '../components/ui/Button'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import EmptyState from '../components/ui/EmptyState'
@@ -275,12 +275,16 @@ export default function Users() {
   const [deactivating, setDeactivating] = useState(null)
   const [editing, setEditing] = useState(null)
 
+  // "Жолооч нар" цэс /users?role=DRIVER-ээр ирдэг
+  const [params] = useSearchParams()
+  const roleFilter = params.get('role')
+
   const load = useCallback(() => {
     setError(null)
-    api('/users')
+    api(roleFilter ? `/users?role=${roleFilter}` : '/users')
       .then(setUsers)
       .catch((e) => setError(e))
-  }, [])
+  }, [roleFilter])
 
   useEffect(() => {
     load()
@@ -396,7 +400,9 @@ export default function Users() {
   return (
     <div>
       <div className="flex items-end justify-between gap-4 flex-wrap">
-        <h1 className="font-serif text-4xl font-medium">{t('Хэрэглэгчид')}</h1>
+        <h1 className="font-serif text-4xl font-medium">
+          {t(roleFilter === 'DRIVER' ? 'Жолооч нар' : 'Хэрэглэгчид')}
+        </h1>
         <Button onClick={() => setFormOpen(true)}>{t('+ Шинэ хэрэглэгч')}</Button>
       </div>
 

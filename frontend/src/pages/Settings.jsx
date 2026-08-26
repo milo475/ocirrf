@@ -1,5 +1,11 @@
+import { useEffect, useState } from 'react'
+import Button from '../components/ui/Button'
+import Input from '../components/ui/Input'
+import { useToast } from '../components/ui/Toast'
+import { useAuth } from '../context/AuthContext'
 import { useLang } from '../context/LanguageContext'
 import { useTheme } from '../context/ThemeContext'
+import { api } from '../lib/api'
 
 function OptionGroup({ label, options, value, onChange, note }) {
   return (
@@ -60,6 +66,98 @@ export default function Settings() {
           ]}
         />
       </div>
+
+      <SystemSettings t={t} />
     </div>
+  )
+}
+
+/** Системийн тохиргоо — settings.edit эрхтэйд л харагдана */
+function SystemSettings({ t }) {
+  const { hasPerm } = useAuth()
+  const toast = useToast()
+  const canEdit = hasPerm('settings.edit')
+
+  const [values, setValues] = useState(null)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (!canEdit) return
+    api('/settings')
+      .then(setValues)
+      .catch(() => {})
+  }, [canEdit])
+
+  if (!canEdit || !values) return null
+
+  const allowCancel = values.allowCustomerCancel === 'true'
+
+  async function save() {
+    setSaving(true)
+    try {
+      const fresh = await api('/settings', { method: 'PUT', body: values })
+      setValues(fresh)
+      toast.show(t('Тохиргоо хадгалагдлаа'))
+    } catch (e) {
+      toast.show(e.message, { type: 'error' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <section className="mt-12 border-t border-rule pt-8 max-w-md">
+      <p className="text-xs uppercase tracking-wide text-ink-muted mb-4">
+        {t('Системийн тохиргоо')}
+      </p>
+      <div className="space-y-4">
+        <Input
+          id="st-company"
+          label={t('Компанийн нэр')}
+          value={values.companyName}
+          onChange={(e) =>
+            setValues((v) => ({ ...v, companyName: e.target.value }))
+          }
+        />
+        <Input
+          id="st-phone"
+          label={t('Компанийн утас')}
+          value={values.companyPhone}
+          onChange={(e) =>
+            setValues((v) => ({ ...v, companyPhone: e.target.value }))
+          }
+          className="font-mono"
+        />
+        <label className="flex items-center justify-between gap-4 py-1 cursor-pointer">
+          <span className="text-sm">
+            {t('Харилцагч шинэ захиалгаа цуцлах боломжтой')}
+          </span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={allowCancel}
+            aria-label={t('Харилцагч шинэ захиалгаа цуцлах боломжтой')}
+            onClick={() =>
+              setValues((v) => ({
+                ...v,
+                allowCustomerCancel: allowCancel ? 'false' : 'true',
+              }))
+            }
+            className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${
+              allowCancel ? 'bg-accent' : 'bg-rule'
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 w-5 h-5 rounded-full bg-bg transition-all ${
+                allowCancel ? 'left-[22px]' : 'left-0.5'
+              }`}
+            />
+          </button>
+        </label>
+        <Button onClick={save} loading={saving} className="w-full">
+          {t('Хадгалах')}
+        </Button>
+      </div>
+    </section>
   )
 }

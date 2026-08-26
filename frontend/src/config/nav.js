@@ -1,8 +1,10 @@
 import {
   Bell,
   Boxes,
+  ChartColumn,
   ClipboardList,
-  HandCoins,
+  Contact,
+  FileSpreadsheet,
   Home,
   Map,
   Package,
@@ -12,17 +14,18 @@ import {
   Truck,
   UserRound,
   Users,
+  UsersRound,
   Wallet,
 } from 'lucide-react'
 
 /**
- * Sidebar-ын цэсийн нэгдсэн config.
- * perm  — effective permission түлхүүр (байвал hasPerm-ээр шүүгдэнэ)
- * roles — permission-гүй, тухайлсан эрхийн цэс (жолоочийн Миний хүргэлт)
- * Аль нь ч байхгүй бол нэвтэрсэн бүх хэрэглэгчид харагдана.
- * Дараалал чухал: DRIVER-т "Миний хүргэлт" хамгийн эхэнд гарна.
+ * Sidebar-ын цэсийн нэгдсэн config (V3-17-ийн эцсийн бүтэц).
+ * perm — effective permission; anyPerm — аль нэг нь байхад хангалттай;
+ * roles — permission-гүй тухайлсан эрхийн цэс. Аль нь ч байхгүй бол
+ * нэвтэрсэн бүгдэд. Дараалал = харагдах дараалал.
  */
 export const NAV_ITEMS = [
+  // ── DRIVER ──
   {
     key: 'deliveries',
     label: 'Миний хүргэлт',
@@ -30,6 +33,7 @@ export const NAV_ITEMS = [
     path: '/deliveries',
     roles: ['DRIVER'],
   },
+  // ── Staff нүүр ──
   {
     key: 'home',
     label: 'Нүүр',
@@ -75,12 +79,28 @@ export const NAV_ITEMS = [
     path: '/notifications',
     roles: ['CUSTOMER'],
   },
+  // ── Staff үндсэн цэсүүд (permission-оороо автоматаар) ──
   {
     key: 'orders',
     label: 'Захиалга',
     icon: ClipboardList,
     path: '/orders',
+    end: true,
     perm: 'orders.view',
+  },
+  {
+    key: 'customers',
+    label: 'Харилцагчид',
+    icon: Contact,
+    path: '/customers',
+    perm: 'customers.view',
+  },
+  {
+    key: 'drivers',
+    label: 'Жолооч нар',
+    icon: UsersRound,
+    path: '/users?role=DRIVER',
+    perm: 'drivers.view',
   },
   {
     key: 'products',
@@ -94,7 +114,6 @@ export const NAV_ITEMS = [
     label: 'Агуулах',
     icon: Boxes,
     path: '/stock',
-    // v2-ын харагдац (ADMIN+MANAGER)-тай ижил — adjust хийдэг хүнд л цэс
     perm: 'inventory.adjustment',
   },
   {
@@ -102,8 +121,6 @@ export const NAV_ITEMS = [
     label: 'Хүргэлтийн удирдлага',
     icon: Map,
     path: '/delivery-ops',
-    // board нь orders.view+drivers.view хоёуланг шаарддаг — цэсэнд
-    // илүү хязгаарлагч drivers.view-г ашиглана
     perm: 'drivers.view',
   },
   {
@@ -112,21 +129,35 @@ export const NAV_ITEMS = [
     icon: Wallet,
     path: '/finance',
     end: true,
-    // Орлого эсвэл зарлагын аль нэгийг харж чаддаг бол цэс гарна
     anyPerm: ['finance.view_income', 'finance.view_expense'],
   },
   {
-    key: 'payroll',
-    label: 'Жолоочийн цалин',
-    icon: HandCoins,
-    path: '/finance/payroll',
-    perm: 'finance.driver_payroll',
+    key: 'analytics',
+    label: 'Аналитик',
+    icon: ChartColumn,
+    path: '/analytics',
+    perm: 'analytics.view',
+  },
+  {
+    key: 'reports',
+    label: 'Тайлан',
+    icon: FileSpreadsheet,
+    path: '/reports',
+    anyPerm: ['reports.delivery', 'reports.inventory', 'reports.finance'],
+  },
+  {
+    key: 'notifications',
+    label: 'Мэдэгдэл',
+    icon: Bell,
+    path: '/notifications',
+    roles: ['ADMIN', 'MANAGER', 'OPERATOR'],
   },
   {
     key: 'users',
     label: 'Хэрэглэгчид',
     icon: Users,
     path: '/users',
+    end: true,
     perm: 'users.manage',
   },
   {
@@ -136,6 +167,7 @@ export const NAV_ITEMS = [
     path: '/activity-log',
     perm: 'activity_log.view',
   },
+  // Тохиргоо sidebar-ын доод хэсэгт тогтмол байдаг (AppShell)
 ]
 
 /** Хэрэглэгчид харагдах цэсүүд — permission эсвэл role-оор шүүнэ */
