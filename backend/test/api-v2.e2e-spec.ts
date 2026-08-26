@@ -969,6 +969,48 @@ describe('ursGAL v2 API (e2e)', () => {
         .expect(200);
     });
 
+    it('manager-аас эрх хасах → 403, буцаах → эрх сэргэнэ (V3-18)', async () => {
+      const users = await api()
+        .get('/api/users')
+        .set(auth(tok.admin))
+        .expect(200);
+      const managerId = users.body.find(
+        (u: { username: string }) => u.username === 'manager@ursgal.mn',
+      ).id;
+
+      // Хасахаас ӨМНӨ: guard нь param validation-аас түрүүнд тул
+      // санамсаргүй uuid-тэй ч 403 БИШ (404 Захиалга олдсонгүй)
+      const FAKE = '00000000-0000-4000-8000-000000000000';
+      await api()
+        .patch(`/api/orders/${FAKE}/assign-driver`)
+        .set(auth(tok.manager))
+        .send({ driverId: FAKE })
+        .expect(404);
+
+      await api()
+        .put(`/api/users/${managerId}/permissions`)
+        .set(auth(tok.admin))
+        .send({ changes: [{ key: 'orders.assign_driver', allowed: false }] })
+        .expect(200);
+      await api()
+        .patch(`/api/orders/${FAKE}/assign-driver`)
+        .set(auth(tok.manager))
+        .send({ driverId: FAKE })
+        .expect(403);
+
+      // Default руу буцаахад дахин нэвтэрнэ
+      await api()
+        .put(`/api/users/${managerId}/permissions`)
+        .set(auth(tok.admin))
+        .send({ changes: [{ key: 'orders.assign_driver', allowed: null }] })
+        .expect(200);
+      await api()
+        .patch(`/api/orders/${FAKE}/assign-driver`)
+        .set(auth(tok.manager))
+        .send({ driverId: FAKE })
+        .expect(404);
+    });
+
     it('ADMIN-ий permission өөрчлөх → 400; буруу түлхүүр → 400', async () => {
       const me = await api().get('/api/auth/me').set(auth(tok.admin));
       const res = await api()

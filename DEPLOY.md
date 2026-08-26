@@ -88,3 +88,32 @@ Cron-д суулгах: `crontab -e` →
 | UPLOADS_DIR | backend/.env | Баталгаажуулах зургууд кодоос гадуур (ж: /var/lib/ursgal/uploads) |
 | CORS_ORIGIN | backend/.env | Зөвхөн frontend тусдаа домэйнд байвал |
 | Seed нууц үгс | UI | admin/manager/operator/driver 4 хэрэглэгчийн нууц үгийг солих |
+
+## 7. v3 модулиуд (2026-08 өргөтгөл)
+
+v3-д нэмэгдсэн зүйлс байршуулалтад нэмэлт тохиргоо шаарддаггүй —
+бүгд `prisma migrate deploy`-оор автоматаар суудаг. Товч бүтэц:
+
+| Модуль | Юу хийдэг | Хамгаалалт |
+|---|---|---|
+| permissions | Role default + хэрэглэгч тус бүрийн override (Permission Panel: /users/:id/permissions) | permissions.manage |
+| finance | Орлого/зарлагын гүйлгээ, DELIVERED болмогц авто орлого, жолоочийн цалингийн тооцоо (payroll) | finance.* |
+| notifications | Хонхны мэдэгдэл (хуваарилалт, бага үлдэгдэл, амжилтгүй хүргэлт, онлайн захиалга, статус) | өөрийн л |
+| activity-log | Бүх амжилттай POST/PATCH/PUT/DELETE-ийн түүх (interceptor) | activity_log.view |
+| delivery-ops | Хүргэлтийн самбар + жолоочийн маршрутын дараалал (routeOrder, mapUrl) | orders.view+drivers.view |
+| portal | CUSTOMER бүртгэл (/api/auth/register), өөрийн захиалга/tracking/нэхэмжлэх, цуцлалт | role CUSTOMER |
+| customers | Бүртгэлтэй + утасны захиалгаас бүлэглэсэн харилцагчид | customers.* |
+| settings | companyName, companyPhone, allowCustomerCancel — DB-д (Setting хүснэгт), UI: /settings | settings.edit |
+| analytics | Борлуулалт/TOP бараа/жолооч/харилцагчийн аналитик | analytics.view |
+| reports | CSV тайлан (UTF-8 BOM — Excel-д кирилл зөв) | reports.* |
+
+Тэмдэглэл:
+
+- **Эрх 5 болсон**: ADMIN, MANAGER, OPERATOR, DRIVER, CUSTOMER.
+  Effective permission = хэрэглэгчийн override ?? role default
+  (`backend/src/permissions/permission-keys.ts` — нэг л эх сурвалж).
+  ADMIN-ий эрхийг хэн ч хасаж чадахгүй.
+- **allowCustomerCancel** зэрэг тохиргоо .env биш DB-ийн Setting
+  хүснэгтэд — UI-ийн /settings хуудаснаас удирдана.
+- Smoke: `bash backend/scripts/smoke-test-v3.sh` (v1: smoke-test.sh,
+  v2: smoke-test-v2.sh).
