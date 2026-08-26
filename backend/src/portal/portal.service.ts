@@ -10,6 +10,7 @@ import { OrderStatus, Prisma } from '../generated/prisma/client';
 import { formatFullAddress } from '../orders/address.util';
 import { OrdersService } from '../orders/orders.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { SettingsService } from '../settings/settings.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 
 /** Харилцагчид харагдах хязгаарлагдмал талбарууд */
@@ -50,16 +51,18 @@ const PORTAL_ORDER_SELECT = {
   assignedDriver: { select: { fullName: true } },
 } satisfies Prisma.OrderSelect;
 
-/** Бүлэг 6-д жинхэнэ Settings ирнэ — одоохондоо env-ээс (default false) */
-const allowCustomerCancel = () =>
-  process.env.ALLOW_CUSTOMER_CANCEL === 'true';
-
 @Injectable()
 export class PortalService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly ordersService: OrdersService,
+    private readonly settings: SettingsService,
   ) {}
+
+  /** Settings-ийн allowCustomerCancel түлхүүрээс уншина */
+  private allowCustomerCancel() {
+    return this.settings.isEnabled('allowCustomerCancel');
+  }
 
   async myOrders(
     userId: string,
@@ -104,7 +107,9 @@ export class PortalService {
       ...order,
       fullAddress: formatFullAddress(order),
       // Frontend [Цуцлах] товчоо үүгээр харуулна
-      canCancel: allowCustomerCancel() && order.orderStatus === OrderStatus.NEW,
+      canCancel:
+        order.orderStatus === OrderStatus.NEW &&
+        (await this.allowCustomerCancel()),
     };
   }
 
@@ -189,7 +194,7 @@ export class PortalService {
 
   /** Зөвхөн NEW статустай ӨӨРИЙН захиалгыг, тохиргоо нээлттэй үед */
   async cancelOrder(user: AuthUser, id: string) {
-    if (!allowCustomerCancel()) {
+    if (!(await this.allowCustomerCancel())) {
       throw new ForbiddenException('Захиалга цуцлах боломж хаагдсан байна');
     }
     const order = await this.prisma.order.findUnique({

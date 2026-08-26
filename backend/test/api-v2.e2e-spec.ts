@@ -160,6 +160,12 @@ describe('ursGAL v2 API (e2e)', () => {
     await prisma.activityLog.deleteMany({
       where: { createdAt: { gte: testStartedAt } },
     });
+    // Тестийн тохиргоонуудыг цэвэрлэнэ
+    await prisma.setting.deleteMany({
+      where: {
+        key: { in: ['companyName', 'companyPhone', 'allowCustomerCancel'] },
+      },
+    });
     if (e2eDriverId) {
       await prisma.driverProfile.deleteMany({ where: { userId: e2eDriverId } });
       await prisma.user.deleteMany({ where: { id: e2eDriverId } });
@@ -1668,7 +1674,12 @@ describe('ursGAL v2 API (e2e)', () => {
     });
 
     it('цуцлалт: хаалттай үед 403; нээлттэй үед зөвхөн NEW, үлдэгдэл буцна', async () => {
-      delete process.env.ALLOW_CUSTOMER_CANCEL;
+      // Тохиргоо Settings-ээс уншигдана (V3-16)
+      await api()
+        .put('/api/settings')
+        .set(auth(tok.admin))
+        .send({ allowCustomerCancel: 'false' })
+        .expect(200);
       const ord2 = await api()
         .post('/api/orders')
         .set(auth(custToken))
@@ -1681,7 +1692,11 @@ describe('ursGAL v2 API (e2e)', () => {
         .set(auth(custToken))
         .expect(403);
 
-      process.env.ALLOW_CUSTOMER_CANCEL = 'true';
+      await api()
+        .put('/api/settings')
+        .set(auth(tok.admin))
+        .send({ allowCustomerCancel: 'true' })
+        .expect(200);
       // CONFIRMED захиалга цуцлагдахгүй
       await api()
         .patch(`/api/portal/orders/${custOrderId}/cancel`)
@@ -1702,7 +1717,133 @@ describe('ursGAL v2 API (e2e)', () => {
         .set(auth(tok.manager))
         .expect(200);
       expect(after.body.stockQty).toBe(before.body.stockQty + 1);
-      delete process.env.ALLOW_CUSTOMER_CANCEL;
+      await api()
+        .put('/api/settings')
+        .set(auth(tok.admin))
+        .send({ allowCustomerCancel: 'false' })
+        .expect(200);
+    });
+  });
+
+  // ────────────────────────────────────────────── SETTINGS + ANALYTICS + REPORTS (V3)
+  describe('V3: Settings + Analytics + Reports ⭐', () => {
+    it('settings: public унших, edit эрхтэйд л, буруу утга 400', async () => {
+      const pub = await api()
+        .get('/api/settings')
+        .set(auth(tok.operator))
+        .expect(200);
+      expect(pub.body).toHaveProperty('companyName');
+      expect(pub.body.allowCustomerCancel).toBe('false');
+
+      await api()
+        .put('/api/settings')
+        .set(auth(tok.manager))
+        .send({ companyName: 'X' })
+        .expect(403);
+
+      const upd = await api()
+        .put('/api/settings')
+        .set(auth(tok.admin))
+        .send({ companyName: 'Э2Э Компани', companyPhone: '70001111' })
+        .expect(200);
+      expect(upd.body.companyName).toBe('Э2Э Компани');
+
+      const pub2 = await api()
+        .get('/api/settings')
+        .set(auth(tok.driver))
+        .expect(200);
+      expect(pub2.body.companyName).toBe('Э2Э Компани');
+
+      await api()
+        .put('/api/settings')
+        .set(auth(tok.admin))
+        .send({ huurmagKey: 'x' })
+        .expect(400);
+      await api()
+        .put('/api/settings')
+        .set(auth(tok.admin))
+        .send({ allowCustomerCancel: 'maybe' })
+        .expect(400);
+    });
+
+    it('analytics: manager нэвтэрнэ, operator 403, тоонууд зөв', async () => {
+      await api()
+        .get('/api/analytics/sales')
+        .set(auth(tok.operator))
+        .expect(403);
+
+      const sales = await api()
+        .get('/api/analytics/sales?groupBy=day')
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(sales.body.totals.count).toBeGreaterThanOrEqual(1);
+      expect(sales.body.rows.length).toBeGreaterThanOrEqual(1);
+      const week = await api()
+        .get('/api/analytics/sales?groupBy=week')
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(week.body.groupBy).toBe('week');
+
+      const top = await api()
+        .get('/api/analytics/top-products?limit=50')
+        .set(auth(tok.manager))
+        .expect(200);
+      const mine = top.body.find(
+        (p: { productId: string }) => p.productId === productId,
+      );
+      expect(mine.qty).toBeGreaterThanOrEqual(1);
+
+      const drivers = await api()
+        .get('/api/analytics/drivers')
+        .set(auth(tok.manager))
+        .expect(200);
+      const d = drivers.body.find(
+        (x: { id: string }) => x.id === e2eDriverId,
+      );
+      expect(d.delivered).toBeGreaterThanOrEqual(1);
+      expect(Number(d.earnings)).toBe(d.delivered * 1800);
+
+      const cust = await api()
+        .get('/api/analytics/customers')
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(cust.body.topCustomers.length).toBeGreaterThanOrEqual(1);
+      expect(
+        cust.body.newCustomers + cust.body.repeatCustomers,
+      ).toBeGreaterThanOrEqual(1);
+    });
+
+    it('reports: BOM-той CSV, монгол багана, permission ялгаа', async () => {
+      const res = await api()
+        .get('/api/reports/delivery.csv')
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(res.headers['content-type']).toContain('text/csv');
+      expect(res.headers['content-disposition']).toContain('attachment');
+      expect(res.text.charCodeAt(0)).toBe(0xfeff); // UTF-8 BOM
+      expect(res.text).toContain('Захиалгын дугаар');
+      expect(res.text).toContain('ХУД, 11-р хороо');
+
+      await api()
+        .get('/api/reports/inventory.csv')
+        .set(auth(tok.manager))
+        .expect(200);
+
+      // manager-т reports.finance байхгүй
+      await api()
+        .get('/api/reports/finance.csv')
+        .set(auth(tok.manager))
+        .expect(403);
+      const fin = await api()
+        .get('/api/reports/finance.csv')
+        .set(auth(tok.admin))
+        .expect(200);
+      expect(fin.text).toContain('Ангилал');
+
+      await api()
+        .get('/api/reports/delivery.csv')
+        .set(auth(tok.operator))
+        .expect(403);
     });
   });
 });

@@ -86,6 +86,12 @@ model Notification {
   @@index([userId, isRead])
 }
 
+/// Системийн тохиргоо (key-value)
+model Setting {
+  key   String @id
+  value String
+}
+
 /// Үйлдлийн түүх — амжилттай өөрчлөлт бүр (interceptor бичнэ)
 model ActivityLog {
   id        String   @id @default(uuid())
