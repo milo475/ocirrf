@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router'
 import { LogOut, PanelLeft, PanelLeftClose, Settings } from 'lucide-react'
-import { navForRole } from '../../config/nav'
+import { navFor } from '../../config/nav'
 import { useAuth } from '../../context/AuthContext'
 import { useLang } from '../../context/LanguageContext'
 import ThemeToggle from './ThemeToggle'
@@ -18,7 +18,7 @@ const ROLE_LABELS = {
  * mobile дээр sidebar-ын оронд доод tab bar (жолоочийн mobile-first хэвээр).
  */
 export default function AppShell() {
-  const { user, logout } = useAuth()
+  const { user, logout, hasPerm } = useAuth()
   const { t } = useLang()
   const navigate = useNavigate()
   const [collapsed, setCollapsed] = useState(
@@ -35,7 +35,7 @@ export default function AppShell() {
     }
   }, [user])
 
-  const items = navForRole(user?.role)
+  const items = navFor(user, hasPerm)
 
   function toggleSidebar() {
     setCollapsed((c) => {

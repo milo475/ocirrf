@@ -89,6 +89,7 @@ export class PermissionsService {
 
     return {
       role: user.role,
+      name: user.fullName,
       groups: PERM_GROUPS.map((g) => ({
         group: g.group,
         items: g.keys.map((key) => {

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useNavigate } from 'react-router'
 import Button from '../components/ui/Button'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import EmptyState from '../components/ui/EmptyState'
@@ -264,6 +265,7 @@ export default function Users() {
   const { user: me } = useAuth()
   const toast = useToast()
   const { t } = useLang()
+  const navigate = useNavigate()
 
   const [users, setUsers] = useState(null)
   const [error, setError] = useState(null)
@@ -359,13 +361,22 @@ export default function Users() {
       key: '_edit',
       header: '',
       render: (u) => (
-        <button
-          type="button"
-          onClick={() => setEditing(u)}
-          className="text-xs text-ink-muted hover:text-ink"
-        >
-          {t('Засах')}
-        </button>
+        <span className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setEditing(u)}
+            className="text-xs text-ink-muted hover:text-ink"
+          >
+            {t('Засах')}
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate(`/users/${u.id}/permissions`)}
+            className="text-xs text-accent hover:underline underline-offset-2"
+          >
+            {t('Эрхүүд')}
+          </button>
+        </span>
       ),
     },
     {

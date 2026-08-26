@@ -7,6 +7,7 @@ import EmptyState from '../components/ui/EmptyState'
 import Input from '../components/ui/Input'
 import Spinner from '../components/ui/Spinner'
 import Table from '../components/ui/Table'
+import { useAuth } from '../context/AuthContext'
 import { useLang } from '../context/LanguageContext'
 import { api } from '../lib/api'
 import { formatDateTime, formatMoney } from '../lib/format'
@@ -25,6 +26,7 @@ const STATUS_TABS = ['', 'NEW', 'CONFIRMED', 'PREPARING', 'READY', 'COMPLETED', 
 export default function Orders() {
   const navigate = useNavigate()
   const { t } = useLang()
+  const { hasPerm } = useAuth()
 
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
@@ -130,7 +132,11 @@ export default function Orders() {
     <div>
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <h1 className="font-serif text-4xl font-medium">{t('Захиалга')}</h1>
-        <Button onClick={() => navigate('/orders/new')}>{t('+ Шинэ захиалга')}</Button>
+        {hasPerm('orders.create') && (
+          <Button onClick={() => navigate('/orders/new')}>
+            {t('+ Шинэ захиалга')}
+          </Button>
+        )}
       </div>
 
       {/* Статусын tab-ууд */}

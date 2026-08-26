@@ -43,8 +43,15 @@ export function AuthProvider({ children }) {
     setUser(null)
   }, [])
 
+  // Effective permission шалгалт — backend login/refresh/me-гээс ирдэг массив.
+  // ADMIN-д бүх түлхүүр ирдэг тул includes() хангалттай.
+  const hasPerm = useCallback(
+    (key) => !!user?.permissions?.includes(key),
+    [user],
+  )
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, hasPerm }}>
       {children}
     </AuthContext.Provider>
   )

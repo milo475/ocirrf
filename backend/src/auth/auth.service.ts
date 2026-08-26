@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import type { User } from '../generated/prisma/client';
+import { PermissionsService } from '../permissions/permissions.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
@@ -13,6 +14,7 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
+    private readonly permissionsService: PermissionsService,
   ) {}
 
   async login(dto: LoginDto) {
@@ -70,6 +72,12 @@ export class AuthService {
       }),
     ]);
 
+    // Frontend цэс/товчоо effective permission-оор нуудаг
+    const permissions = await this.permissionsService.getEffectivePermissions(
+      user.id,
+      user.role,
+    );
+
     return {
       accessToken,
       refreshToken,
@@ -78,6 +86,7 @@ export class AuthService {
         email: user.username,
         name: user.fullName,
         role: user.role,
+        permissions: [...permissions],
       },
     };
   }

@@ -27,7 +27,7 @@ function InfoItem({ label, value }) {
 export default function OrderDetail() {
   const { id } = useParams()
   const toast = useToast()
-  const { user } = useAuth()
+  const { user, hasPerm } = useAuth()
   const { t } = useLang()
 
   const [order, setOrder] = useState(null)
@@ -85,14 +85,16 @@ export default function OrderDetail() {
   }
 
   // Frontend талд зөвхөн харагдах товчнууд — жинхэнэ шалгалт backend-д.
-  // OPERATOR зөвхөн өөрийн шивсэн захиалгыг удирдана.
+  // OPERATOR-ийн "зөвхөн өөрийн захиалга" ownership шалгалт хэвээр,
+  // бусад нь effective permission-оор.
   const canManage =
-    user?.role !== 'OPERATOR' || order.createdBy?.id === user?.id
+    hasPerm('orders.change_status') &&
+    (user?.role !== 'OPERATOR' || order.createdBy?.id === user?.id)
   const nextStatuses = canManage ? (TRANSITIONS[order.orderStatus] ?? []) : []
   const forward = nextStatuses.filter((s) => s !== 'CANCELLED')
   const canCancel = nextStatuses.includes('CANCELLED')
   const canAssign =
-    (user?.role === 'ADMIN' || user?.role === 'MANAGER') &&
+    hasPerm('orders.assign_driver') &&
     (order.orderStatus === 'CONFIRMED' || order.orderStatus === 'PREPARING')
 
   return (

@@ -223,6 +223,18 @@ const DICT = {
     'Цэс хумих': 'Collapse menu',
     'Цэс дэлгэх': 'Expand menu',
 
+    // — Permission Panel (V3-05) —
+    'Эрхүүд': 'Permissions',
+    '← Хэрэглэгчид': '← Users',
+    'Эрхийн тохиргоо хадгалагдлаа': 'Permissions saved',
+    'Default руу буцаах': 'Reset to default',
+    'Админд бүх эрх үргэлж нээлттэй — өөрчлөх боломжгүй.':
+      'Admins always have every permission — cannot be changed.',
+    '{n} өөрчлөлт': '{n} change(s)',
+    'Санхүү': 'Finance',
+    'Тайлан': 'Reports',
+    'Систем': 'System',
+
     // — Үлдэгдлийн хөдөлгөөн —
     'Үлдэгдлийн хөдөлгөөн': 'Stock movements',
     'Бүх бараа': 'All products',

@@ -35,8 +35,8 @@ function StockCell({ qty, limit, t }) {
 }
 
 export default function Products() {
-  const { user } = useAuth()
-  const canEdit = user?.role === 'ADMIN' || user?.role === 'MANAGER'
+  const { hasPerm } = useAuth()
+  const canEdit = hasPerm('inventory.adjustment')
   const toast = useToast()
   const { t } = useLang()
 

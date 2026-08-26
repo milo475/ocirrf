@@ -15,6 +15,7 @@ import Orders from './pages/Orders'
 import Products from './pages/Products'
 import Settings from './pages/Settings'
 import Stock from './pages/Stock'
+import UserPermissions from './pages/UserPermissions'
 import Users from './pages/Users'
 
 function App() {
@@ -54,6 +55,10 @@ function App() {
                     {/* Хэрэглэгчид — зөвхөн ADMIN */}
                     <Route element={<RoleRoute roles={['ADMIN']} />}>
                       <Route path="/users" element={<Users />} />
+                      <Route
+                        path="/users/:id/permissions"
+                        element={<UserPermissions />}
+                      />
                     </Route>
 
                     {/* Хүргэлт — зөвхөн DRIVER */}
