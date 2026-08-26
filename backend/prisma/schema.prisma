@@ -38,6 +38,16 @@ enum DeliveryStatus {
   FAILED
 }
 
+enum FinanceType {
+  INCOME
+  EXPENSE
+}
+
+enum PayoutStatus {
+  PENDING
+  PAID
+}
+
 model User {
   id           String   @id @default(uuid())
   username     String   @unique
@@ -52,6 +62,44 @@ model User {
   assignedOrders Order[]         @relation("AssignedOrders")
   driverProfile  DriverProfile?
   permissions    UserPermission[]
+  financeEntries FinanceEntry[]  @relation("FinanceEntries")
+  driverPayouts  DriverPayout[]  @relation("DriverPayouts")
+  payoutsCreated DriverPayout[]  @relation("PayoutsCreated")
+}
+
+/// Санхүүгийн гүйлгээ — гараар бүртгэсэн эсвэл системээс автомат (category "ORDER")
+model FinanceEntry {
+  id          String      @id @default(uuid())
+  type        FinanceType
+  category    String
+  amount      Decimal     @db.Decimal(12, 2)
+  note        String?
+  refOrderId  String? // автомат орлогод — эх захиалга
+  createdById String
+  createdBy   User        @relation("FinanceEntries", fields: [createdById], references: [id])
+  entryDate   DateTime    @default(now())
+
+  @@index([type, entryDate])
+  @@index([refOrderId])
+}
+
+/// Жолоочийн цалингийн тооцоо (нэг хугацааны багц)
+model DriverPayout {
+  id             String       @id @default(uuid())
+  driverId       String
+  driver         User         @relation("DriverPayouts", fields: [driverId], references: [id])
+  periodStart    DateTime
+  periodEnd      DateTime
+  deliveredCount Int
+  feePerDelivery Decimal      @db.Decimal(12, 2)
+  totalAmount    Decimal      @db.Decimal(12, 2)
+  status         PayoutStatus @default(PENDING)
+  paidAt         DateTime?
+  createdById    String
+  createdBy      User         @relation("PayoutsCreated", fields: [createdById], references: [id])
+  orders         Order[]      @relation("PayoutOrders")
+
+  @@index([driverId])
 }
 
 /// Хэрэглэгч тус бүрийн permission override.
@@ -131,8 +179,12 @@ model Order {
   deliveryProofUrl String? // баталгаажуулах зургийн зам
   deliveryNote     String? // жолоочийн тэмдэглэл (амжилтгүй бол шалтгаан)
 
-  createdBy      User        @relation("CreatedOrders", fields: [createdById], references: [id])
-  assignedDriver User?       @relation("AssignedOrders", fields: [assignedDriverId], references: [id])
+  // Санхүү (v3): аль цалингийн тооцоонд орсныг тэмдэглэнэ
+  payoutId String?
+
+  createdBy      User          @relation("CreatedOrders", fields: [createdById], references: [id])
+  assignedDriver User?         @relation("AssignedOrders", fields: [assignedDriverId], references: [id])
+  payout         DriverPayout? @relation("PayoutOrders", fields: [payoutId], references: [id])
   items          OrderItem[]
 
   @@index([orderStatus])

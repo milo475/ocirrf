@@ -83,6 +83,8 @@ describe('ursGAL v2 API (e2e)', () => {
   let e2eDriverToken: string;
   let permUserId: string; // permission panel-ын тестийн оператор
   let permUserToken: string;
+  let financeOrderId: string; // гараар COMPLETED болгох санхүүгийн тест
+  const financeEntryIds: string[] = []; // гараар бүртгэсэн гүйлгээнүүд
   const proofFiles: string[] = [];
 
   const api = () => request(http);
@@ -110,7 +112,14 @@ describe('ursGAL v2 API (e2e)', () => {
 
   afterAll(async () => {
     // Тестийн бүх ул мөрийг цэвэрлэнэ
-    const orderIds = [orderId, order2Id, adminOrderId].filter(Boolean);
+    const orderIds = [orderId, order2Id, adminOrderId, financeOrderId].filter(
+      Boolean,
+    );
+    await prisma.financeEntry.deleteMany({
+      where: {
+        OR: [{ id: { in: financeEntryIds } }, { refOrderId: { in: orderIds } }],
+      },
+    });
     await prisma.stockMovement.deleteMany({
       where: { OR: [{ productId }, { refId: { in: orderIds } }] },
     });
@@ -917,6 +926,122 @@ describe('ursGAL v2 API (e2e)', () => {
         .set(auth(tok.admin))
         .send({ changes: [{ key: 'huurmag.key', allowed: false }] })
         .expect(400);
+    });
+  });
+
+  // ────────────────────────────────────────────── FINANCE (V3)
+  describe('V3: Finance ⭐', () => {
+    it('эрхгүй хандалт: driver жагсаалт → 403, operator бүртгэх → 403', async () => {
+      await api()
+        .get('/api/finance/entries')
+        .set(auth(tok.driver))
+        .expect(403);
+      await api()
+        .post('/api/finance/entries')
+        .set(auth(tok.operator))
+        .send({ type: 'INCOME', category: 'Бусад', amount: '100.00' })
+        .expect(403);
+    });
+
+    it('manager орлого/зарлага бүртгэнэ', async () => {
+      const inc = await api()
+        .post('/api/finance/entries')
+        .set(auth(tok.manager))
+        .send({ type: 'INCOME', category: 'Бусад орлого', amount: '5000.00' })
+        .expect(201);
+      financeEntryIds.push(inc.body.id);
+      expect(inc.body.amount).toBe('5000');
+
+      const exp = await api()
+        .post('/api/finance/entries')
+        .set(auth(tok.manager))
+        .send({
+          type: 'EXPENSE',
+          category: 'Түрээс',
+          amount: '3000.50',
+          note: 'Э2Э зарлага',
+        })
+        .expect(201);
+      financeEntryIds.push(exp.body.id);
+      expect(exp.body.type).toBe('EXPENSE');
+      expect(exp.body.createdBy.fullName).toBeTruthy();
+    });
+
+    it('жагсаалт type шүүлтүүртэй', async () => {
+      const res = await api()
+        .get('/api/finance/entries?type=EXPENSE&limit=50')
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(
+        res.body.items.some(
+          (e: { id: string }) => e.id === financeEntryIds[1],
+        ),
+      ).toBe(true);
+      expect(
+        res.body.items.every((e: { type: string }) => e.type === 'EXPENSE'),
+      ).toBe(true);
+    });
+
+    it('DELIVERED мөчид авто INCOME (category ORDER), давхардахгүй', async () => {
+      const res = await api()
+        .get('/api/finance/entries?type=INCOME&limit=100')
+        .set(auth(tok.admin))
+        .expect(200);
+      const auto = res.body.items.filter(
+        (e: { refOrderId: string | null }) => e.refOrderId === orderId,
+      );
+      expect(auto).toHaveLength(1);
+      expect(auto[0].category).toBe('ORDER');
+      expect(auto[0].amount).toBe('4000');
+    });
+
+    it('гараар COMPLETED болгоход ч авто орлого бүртгэгдэнэ', async () => {
+      const ord = await api()
+        .post('/api/orders')
+        .set(auth(tok.operator))
+        .send({
+          customerName: `Э2Э-Санхүү-${T}`,
+          customerPhone: `7${T}`,
+          ...UB_ADDR,
+          items: [{ productId, qty: 1 }],
+        })
+        .expect(201);
+      financeOrderId = ord.body.id;
+      for (const s of ['CONFIRMED', 'PREPARING', 'READY', 'COMPLETED']) {
+        await api()
+          .patch(`/api/orders/${financeOrderId}/status`)
+          .set(auth(tok.operator))
+          .send({ status: s })
+          .expect(200);
+      }
+      const res = await api()
+        .get('/api/finance/entries?type=INCOME&limit=100')
+        .set(auth(tok.admin))
+        .expect(200);
+      const auto = res.body.items.filter(
+        (e: { refOrderId: string | null }) => e.refOrderId === financeOrderId,
+      );
+      expect(auto).toHaveLength(1);
+      expect(auto[0].amount).toBe('1000');
+    });
+
+    it('summary: өдөр тутмын мөрүүд + нийлбэрүүд', async () => {
+      const res = await api()
+        .get('/api/finance/summary?days=1')
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(res.body.byDay).toHaveLength(1);
+      // Өнөөдрийн тестийн гүйлгээнүүд: 5000 + авто 4000 + 1000 орлого, 3000.5 зарлага
+      expect(Number(res.body.income)).toBeGreaterThanOrEqual(10000);
+      expect(Number(res.body.expense)).toBeGreaterThanOrEqual(3000.5);
+      expect(Number(res.body.net)).toBe(
+        Number(res.body.income) - Number(res.body.expense),
+      );
+      // operator-т summary хаалттай
+      await api()
+        .get('/api/finance/summary')
+        .set(auth(tok.operator))
+        .expect(403);
     });
   });
 

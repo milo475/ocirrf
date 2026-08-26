@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { FinanceService } from '../finance/finance.service';
 import {
   DeliveryStatus,
   OrderStatus,
@@ -21,7 +22,10 @@ const DRIVER_SELECT = {
 
 @Injectable()
 export class DeliveryService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly financeService: FinanceService,
+  ) {}
 
   /**
    * Жолооч хуваарилах.
@@ -136,15 +140,20 @@ export class DeliveryService {
       if (!file) {
         throw new BadRequestException('Баталгаажуулах зураг заавал хэрэгтэй');
       }
-      return this.prisma.order.update({
-        where: { id: orderId },
-        data: {
-          orderStatus: OrderStatus.COMPLETED,
-          deliveryStatus: DeliveryStatus.DELIVERED,
-          deliveredAt: new Date(),
-          deliveryProofUrl: proofUrl,
-          deliveryNote: dto.note?.trim() || null,
-        },
+      // DELIVERED мөчид авто орлого — нэг transaction
+      return this.prisma.$transaction(async (tx) => {
+        const delivered = await tx.order.update({
+          where: { id: orderId },
+          data: {
+            orderStatus: OrderStatus.COMPLETED,
+            deliveryStatus: DeliveryStatus.DELIVERED,
+            deliveredAt: new Date(),
+            deliveryProofUrl: proofUrl,
+            deliveryNote: dto.note?.trim() || null,
+          },
+        });
+        await this.financeService.recordOrderIncome(tx, delivered, driverId);
+        return delivered;
       });
     }
 

@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { AuthUser } from '../auth/decorators/current-user.decorator';
+import { FinanceService } from '../finance/finance.service';
 import { OrderStatus, Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { formatFullAddress, formatShortAddress } from './address.util';
@@ -40,7 +41,10 @@ const CREATED_BY_SELECT = {
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly financeService: FinanceService,
+  ) {}
 
   /**
    * Захиалга үүсгэх — бүх өөрчлөлт нэг transaction дотор.
@@ -241,6 +245,19 @@ export class OrdersService {
         }
 
         return cancelled;
+      });
+    }
+
+    // Дууссан: статус + авто орлогын бүртгэл — нэг transaction
+    if (status === OrderStatus.COMPLETED) {
+      return this.prisma.$transaction(async (tx) => {
+        const completed = await tx.order.update({
+          where: { id },
+          data: { orderStatus: OrderStatus.COMPLETED },
+          include: { items: true, createdBy: CREATED_BY_SELECT },
+        });
+        await this.financeService.recordOrderIncome(tx, completed, user.id);
+        return completed;
       });
     }
 

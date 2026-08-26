@@ -10,6 +10,7 @@ import { CategoriesModule } from './categories/categories.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { DeliveryModule } from './delivery/delivery.module';
+import { FinanceModule } from './finance/finance.module';
 import { OrdersModule } from './orders/orders.module';
 import { PermissionsGuard } from './permissions/permissions.guard';
 import { PermissionsModule } from './permissions/permissions.module';
@@ -43,6 +44,7 @@ import { UsersModule } from './users/users.module';
     OrdersModule,
     DashboardModule,
     DeliveryModule,
+    FinanceModule,
     UsersModule,
   ],
   controllers: [AppController],
