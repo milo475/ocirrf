@@ -37,9 +37,13 @@ export class CreateOrderDto {
   @MinLength(2, { message: 'Хүлээн авагчийн нэр хамгийн багадаа 2 тэмдэгт' })
   customerName?: string;
 
-  /** Хүлээн авагчийн утас — заавал, 8 оронтой */
+  /**
+   * Хүлээн авагчийн утас, 8 оронтой. CUSTOMER орхивол профайлын утас
+   * default болно; staff-д заавал (service дотор шалгана).
+   */
+  @IsOptional()
   @Matches(/^\d{8}$/, { message: 'Утасны дугаар 8 оронтой тоо байна' })
-  customerPhone: string;
+  customerPhone?: string;
 
   /** Нэмэлт (захиалагчийн) утас */
   @IsOptional()

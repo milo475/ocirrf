@@ -22,10 +22,13 @@ export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
   /** Захиалга шивэх — зөвхөн ADMIN, OPERATOR (эрхийн матриц v2) */
+  /**
+   * Permission статик биш: CUSTOMER role-оороо зөвшөөрөгдөнө, бусад нь
+   * orders.create — OrdersService дотор динамикаар шалгагдана.
+   */
   @Post()
-  @RequirePermission(PERM.ORDERS_CREATE)
   create(@Body() dto: CreateOrderDto, @CurrentUser() user: AuthUser) {
-    return this.ordersService.create(dto, user.id);
+    return this.ordersService.create(dto, user);
   }
 
   /** DRIVER бүх захиалга харахгүй — өөрийн хүргэлтээ delivery module-ээр авна */

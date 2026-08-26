@@ -53,6 +53,7 @@ model User {
   username     String   @unique
   passwordHash String
   fullName     String
+  phone        String? // CUSTOMER-ийн үндсэн утас (захиалгын default)
   role         Role     @default(OPERATOR)
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
@@ -66,6 +67,7 @@ model User {
   driverPayouts  DriverPayout[]  @relation("DriverPayouts")
   payoutsCreated DriverPayout[]  @relation("PayoutsCreated")
   notifications  Notification[]
+  customerOrders Order[]         @relation("CustomerOrders")
 }
 
 /// Хэрэглэгчийн мэдэгдэл (хонх)
@@ -215,9 +217,13 @@ model Order {
   // Жолоочийн маршрутын дараалал (1..n, тухайн жолоочийн идэвхтэй хүргэлтэд)
   routeOrder Int?
 
+  // Portal (v3): CUSTOMER хэрэглэгч өөрөө үүсгэсэн бол
+  customerId String?
+
   createdBy      User          @relation("CreatedOrders", fields: [createdById], references: [id])
   assignedDriver User?         @relation("AssignedOrders", fields: [assignedDriverId], references: [id])
   payout         DriverPayout? @relation("PayoutOrders", fields: [payoutId], references: [id])
+  customerUser   User?         @relation("CustomerOrders", fields: [customerId], references: [id])
   items          OrderItem[]
 
   @@index([orderStatus])

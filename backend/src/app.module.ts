@@ -17,6 +17,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { OrdersModule } from './orders/orders.module';
 import { PermissionsGuard } from './permissions/permissions.guard';
 import { PermissionsModule } from './permissions/permissions.module';
+import { PortalModule } from './portal/portal.module';
 import { ProductsModule } from './products/products.module';
 import { StockModule } from './stock/stock.module';
 import { UPLOADS_DIR } from './uploads.config';
@@ -50,6 +51,7 @@ import { UsersModule } from './users/users.module';
     FinanceModule,
     NotificationsModule,
     ActivityLogModule,
+    PortalModule,
     UsersModule,
   ],
   controllers: [AppController],

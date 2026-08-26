@@ -313,8 +313,8 @@ export class DeliveryService {
         throw new BadRequestException('Баталгаажуулах зураг заавал хэрэгтэй');
       }
       // DELIVERED мөчид авто орлого — нэг transaction
-      return this.prisma.$transaction(async (tx) => {
-        const delivered = await tx.order.update({
+      const delivered = await this.prisma.$transaction(async (tx) => {
+        const row = await tx.order.update({
           where: { id: orderId },
           data: {
             orderStatus: OrderStatus.COMPLETED,
@@ -324,9 +324,16 @@ export class DeliveryService {
             deliveryNote: dto.note?.trim() || null,
           },
         });
-        await this.financeService.recordOrderIncome(tx, delivered, driverId);
-        return delivered;
+        await this.financeService.recordOrderIncome(tx, row, driverId);
+        return row;
       });
+      if (delivered.customerId) {
+        await this.notifications.notifyOrderStatus(
+          delivered.customerId,
+          delivered,
+        );
+      }
+      return delivered;
     }
 
     if (!dto.note?.trim()) {

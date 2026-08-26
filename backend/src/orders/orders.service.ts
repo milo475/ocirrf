@@ -8,6 +8,8 @@ import type { AuthUser } from '../auth/decorators/current-user.decorator';
 import { FinanceService } from '../finance/finance.service';
 import { OrderStatus, Prisma } from '../generated/prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
+import { PERM } from '../permissions/permission-keys';
+import { PermissionsService } from '../permissions/permissions.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { formatFullAddress, formatShortAddress } from './address.util';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -46,6 +48,7 @@ export class OrdersService {
     private readonly prisma: PrismaService,
     private readonly financeService: FinanceService,
     private readonly notifications: NotificationsService,
+    private readonly permissions: PermissionsService,
   ) {}
 
   /**
@@ -57,7 +60,36 @@ export class OrdersService {
    * түүнийг 3 хүртэл удаа retry хийнэ. Тусдаа counter хүснэгт шаардахгүй,
    * зөв байдлыг нь DB-ийн constraint өөрөө баталгаажуулдаг тул энэ аргыг сонгосон.
    */
-  async create(dto: CreateOrderDto, userId: string) {
+  async create(dto: CreateOrderDto, user: AuthUser) {
+    // CUSTOMER тусгай зам: permission биш role-оор зөвшөөрөгдөнө,
+    // бусад нь orders.create permission шаардана
+    const isCustomer = user.role === 'CUSTOMER';
+    if (!isCustomer) {
+      const allowed = await this.permissions.has(
+        user.id,
+        user.role,
+        PERM.ORDERS_CREATE,
+      );
+      if (!allowed) {
+        throw new ForbiddenException('Хандах эрх байхгүй');
+      }
+    }
+
+    // Утас: customer орхивол профайлын утас default
+    let phone = dto.customerPhone ?? null;
+    let customerName = dto.customerName ?? null;
+    if (isCustomer && (!phone || !customerName)) {
+      const profile = await this.prisma.user.findUnique({
+        where: { id: user.id },
+        select: { phone: true, fullName: true },
+      });
+      phone = phone ?? profile?.phone ?? null;
+      customerName = customerName ?? profile?.fullName ?? null;
+    }
+    if (!phone) {
+      throw new BadRequestException('Утасны дугаар заавал');
+    }
+
     const ids = dto.items.map((i) => i.productId);
     if (new Set(ids).size !== ids.length) {
       throw new BadRequestException('Нэг бараа давхардаж орсон байна');
@@ -68,12 +100,18 @@ export class OrdersService {
       try {
         const { order, lowStockCrossed } = await this.createInTransaction(
           dto,
-          userId,
+          user.id,
           ids,
+          phone,
+          customerName,
+          isCustomer ? user.id : null,
         );
         // Transaction амжилттай болсны ДАРАА мэдэгдэнэ (rollback-д илгээхгүй)
         for (const p of lowStockCrossed) {
           await this.notifications.notifyLowStock(p);
+        }
+        if (isCustomer) {
+          await this.notifications.notifyCustomerOrder(order);
         }
         return order;
       } catch (e) {
@@ -89,6 +127,9 @@ export class OrdersService {
     dto: CreateOrderDto,
     userId: string,
     ids: string[],
+    phone: string,
+    customerName: string | null,
+    customerId: string | null,
   ) {
     const lowStockCrossed: {
       id: string;
@@ -159,8 +200,9 @@ export class OrdersService {
       const order = await tx.order.create({
         data: {
           orderNo,
-          customerName: dto.customerName ?? null,
-          phone: dto.customerPhone,
+          customerName,
+          phone,
+          customerId,
           extraPhone: dto.extraPhone ?? null,
           region: dto.region,
           district: isUB ? dto.district : null,
@@ -241,7 +283,7 @@ export class OrdersService {
 
     // Цуцлалт: статус + үлдэгдэл буцаах + movement — нэг transaction
     if (status === OrderStatus.CANCELLED) {
-      return this.prisma.$transaction(async (tx) => {
+      const cancelled = await this.prisma.$transaction(async (tx) => {
         const cancelled = await tx.order.update({
           where: { id },
           data: {
@@ -271,27 +313,42 @@ export class OrdersService {
 
         return cancelled;
       });
+      await this.notifyCustomerStatus(order.customerId, cancelled);
+      return cancelled;
     }
 
     // Дууссан: статус + авто орлогын бүртгэл — нэг transaction
     if (status === OrderStatus.COMPLETED) {
-      return this.prisma.$transaction(async (tx) => {
-        const completed = await tx.order.update({
+      const completed = await this.prisma.$transaction(async (tx) => {
+        const row = await tx.order.update({
           where: { id },
           data: { orderStatus: OrderStatus.COMPLETED },
           include: { items: true, createdBy: CREATED_BY_SELECT },
         });
-        await this.financeService.recordOrderIncome(tx, completed, user.id);
-        return completed;
+        await this.financeService.recordOrderIncome(tx, row, user.id);
+        return row;
       });
+      await this.notifyCustomerStatus(order.customerId, completed);
+      return completed;
     }
 
     // Бусад шилжилт — зөвхөн статус update
-    return this.prisma.order.update({
+    const updated = await this.prisma.order.update({
       where: { id },
       data: { orderStatus: status },
       include: { items: true, createdBy: CREATED_BY_SELECT },
     });
+    await this.notifyCustomerStatus(order.customerId, updated);
+    return updated;
+  }
+
+  /** Онлайн захиалагчид статусын өөрчлөлтөө мэдэгдэнэ */
+  private async notifyCustomerStatus(
+    customerId: string | null,
+    order: { id: string; orderNo: string; orderStatus: OrderStatus },
+  ) {
+    if (!customerId) return;
+    await this.notifications.notifyOrderStatus(customerId, order);
   }
 
   async findOne(id: string) {

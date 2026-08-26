@@ -88,6 +88,10 @@ describe('ursGAL v2 API (e2e)', () => {
   let payoutId: string; // жолоочийн цалингийн тооцоо
   let roA: string; // маршрутын дарааллын тест захиалгууд
   let roB: string;
+  let custUserId: string; // portal-ын тест харилцагч
+  let custToken: string;
+  let custOrderId: string;
+  let custOrder2Id: string;
   const testStartedAt = new Date(); // ActivityLog цэвэрлэгээнд
   const proofFiles: string[] = [];
 
@@ -123,6 +127,8 @@ describe('ursGAL v2 API (e2e)', () => {
       financeOrderId,
       roA,
       roB,
+      custOrderId,
+      custOrder2Id,
     ].filter(Boolean);
     await prisma.financeEntry.deleteMany({
       where: {
@@ -161,6 +167,10 @@ describe('ursGAL v2 API (e2e)', () => {
     if (permUserId) {
       // UserPermission-ууд cascade-аар устна
       await prisma.user.deleteMany({ where: { id: permUserId } });
+    }
+    if (custUserId) {
+      // Захиалгууд нь дээр устсан, мэдэгдэл cascade-аар устна
+      await prisma.user.deleteMany({ where: { id: custUserId } });
     }
     for (const f of proofFiles) {
       try {
@@ -233,10 +243,19 @@ describe('ursGAL v2 API (e2e)', () => {
         .set(auth(tok.operator))
         .send({ sku: 'X', name: 'X', price: '1' })
         .expect(403);
+      // Permission шалгалт service дотор (V3-13) тул body нь DTO-ийн
+      // хувьд хүчинтэй байж гэмээ нь 403-ыг харна
       await api()
         .post('/api/orders')
         .set(auth(tok.manager))
-        .send({ customerName: 'X', customerPhone: '1', address: 'x', items: [] })
+        .send({
+          customerName: 'Хориотой',
+          customerPhone: '99000000',
+          ...UB_ADDR,
+          items: [
+            { productId: '00000000-0000-4000-8000-000000000000', qty: 1 },
+          ],
+        })
         .expect(403);
     });
   });
@@ -885,11 +904,16 @@ describe('ursGAL v2 API (e2e)', () => {
         effective: false,
       });
 
-      // Guard нь validation-аас ӨМНӨ ажилладаг: эрхгүй бол хоосон body ч 403
+      // Permission шалгалт service-ийн эхэнд — хүчинтэй body-той ч 403
+      const probeBody = {
+        customerPhone: '99000001',
+        ...UB_ADDR,
+        items: [{ productId: '00000000-0000-4000-8000-000000000000', qty: 1 }],
+      };
       await api()
         .post('/api/orders')
         .set(auth(permUserToken))
-        .send({})
+        .send(probeBody)
         .expect(403);
 
       const restored = await api()
@@ -1489,6 +1513,196 @@ describe('ursGAL v2 API (e2e)', () => {
           .send({ status: 'CANCELLED' })
           .expect(200);
       }
+    });
+  });
+
+  // ────────────────────────────────────────────── CUSTOMER PORTAL (V3)
+  describe('V3: Customer Portal ⭐', () => {
+    it('бүртгэл: CUSTOMER үүсч токен авна; давхардсан имэйл → 409', async () => {
+      const reg = await api()
+        .post('/api/auth/register')
+        .send({
+          name: 'Э2Э Портал Харилцагч',
+          email: `e2e-cust-${T}@mail.mn`,
+          phone: '99887700',
+          password: 'custpass1',
+        })
+        .expect(201);
+      custUserId = reg.body.user.id;
+      custToken = reg.body.accessToken;
+      expect(reg.body.user.role).toBe('CUSTOMER');
+      expect(reg.body.user.permissions).toEqual([]);
+
+      await api()
+        .post('/api/auth/register')
+        .send({
+          name: 'Давхар',
+          email: `e2e-cust-${T}@mail.mn`,
+          phone: '99887701',
+          password: 'custpass2',
+        })
+        .expect(409);
+    });
+
+    it('customer staff API-д хандахгүй (бүгд 403)', async () => {
+      for (const path of ['/api/orders', '/api/products', '/api/users']) {
+        await api().get(path).set(auth(custToken)).expect(403);
+      }
+    });
+
+    it('захиалга үүсгэнэ: утас/нэр профайлоос, staff-тай ижил transaction', async () => {
+      const before = await api()
+        .get(`/api/products/${productId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+
+      const ord = await api()
+        .post('/api/orders')
+        .set(auth(custToken))
+        .send({ ...UB_ADDR, items: [{ productId, qty: 1 }] })
+        .expect(201);
+      custOrderId = ord.body.id;
+      expect(ord.body.customerId).toBe(custUserId);
+      expect(ord.body.phone).toBe('99887700'); // профайлын утас
+      expect(ord.body.customerName).toBe('Э2Э Портал Харилцагч');
+
+      const after = await api()
+        .get(`/api/products/${productId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(after.body.stockQty).toBe(before.body.stockQty - 1);
+
+      // operator-т онлайн захиалгын мэдэгдэл очсон
+      const notifs = await api()
+        .get('/api/notifications?limit=50')
+        .set(auth(tok.operator))
+        .expect(200);
+      const mine = notifs.body.items.find(
+        (n: { type: string; refId: string | null }) =>
+          n.type === 'CUSTOMER_ORDER' && n.refId === custOrderId,
+      );
+      expect(mine.title).toContain('Шинэ онлайн захиалга');
+    });
+
+    it('portal: жагсаалт, дэлгэрэнгүй (хязгаарлагдмал), бусдынх 403', async () => {
+      const list = await api()
+        .get('/api/portal/orders')
+        .set(auth(custToken))
+        .expect(200);
+      expect(
+        list.body.items.some((o: { id: string }) => o.id === custOrderId),
+      ).toBe(true);
+
+      // Статус ахиулахад customer-т мэдэгдэл очно
+      await api()
+        .patch(`/api/orders/${custOrderId}/status`)
+        .set(auth(tok.admin))
+        .send({ status: 'CONFIRMED' })
+        .expect(200);
+      const notifs = await api()
+        .get('/api/notifications?limit=20')
+        .set(auth(custToken))
+        .expect(200);
+      expect(
+        notifs.body.items.some(
+          (n: { type: string; title: string }) =>
+            n.type === 'ORDER_STATUS' && n.title.includes('Баталгаажсан'),
+        ),
+      ).toBe(true);
+
+      const detail = await api()
+        .get(`/api/portal/orders/${custOrderId}`)
+        .set(auth(custToken))
+        .expect(200);
+      expect(detail.body.orderStatus).toBe('CONFIRMED');
+      expect(detail.body.items).toHaveLength(1);
+      expect(detail.body.fullAddress).toBe(UB_FULL);
+      expect(detail.body).not.toHaveProperty('createdById');
+      expect(detail.body.assignedDriver).toBeNull();
+
+      // Бусдын захиалга → 403; staff portal-д хандахгүй → 403
+      await api()
+        .get(`/api/portal/orders/${orderId}`)
+        .set(auth(custToken))
+        .expect(403);
+      await api()
+        .get('/api/portal/orders')
+        .set(auth(tok.admin))
+        .expect(403);
+    });
+
+    it('portal dashboard: тоонууд зөв', async () => {
+      const res = await api()
+        .get('/api/portal/dashboard')
+        .set(auth(custToken))
+        .expect(200);
+      expect(res.body.totalOrders).toBe(1);
+      expect(res.body.activeOrders).toBe(1);
+      expect(res.body.recentOrders[0].id).toBe(custOrderId);
+    });
+
+    it('profile: нэр/утас/нууц үг солино (имэйл хэвээр)', async () => {
+      const res = await api()
+        .patch('/api/portal/profile')
+        .set(auth(custToken))
+        .send({ name: 'Шинэ Нэр', phone: '99887711' })
+        .expect(200);
+      expect(res.body.name).toBe('Шинэ Нэр');
+      expect(res.body.phone).toBe('99887711');
+      expect(res.body.email).toBe(`e2e-cust-${T}@mail.mn`);
+
+      await api()
+        .patch('/api/portal/profile')
+        .set(auth(custToken))
+        .send({ password: 'newpass99' })
+        .expect(200);
+      await api()
+        .post('/api/auth/login')
+        .send({ email: `e2e-cust-${T}@mail.mn`, password: 'custpass1' })
+        .expect(401);
+      const relogin = await api()
+        .post('/api/auth/login')
+        .send({ email: `e2e-cust-${T}@mail.mn`, password: 'newpass99' })
+        .expect(200);
+      custToken = relogin.body.accessToken;
+    });
+
+    it('цуцлалт: хаалттай үед 403; нээлттэй үед зөвхөн NEW, үлдэгдэл буцна', async () => {
+      delete process.env.ALLOW_CUSTOMER_CANCEL;
+      const ord2 = await api()
+        .post('/api/orders')
+        .set(auth(custToken))
+        .send({ ...UB_ADDR, items: [{ productId, qty: 1 }] })
+        .expect(201);
+      custOrder2Id = ord2.body.id;
+
+      await api()
+        .patch(`/api/portal/orders/${custOrder2Id}/cancel`)
+        .set(auth(custToken))
+        .expect(403);
+
+      process.env.ALLOW_CUSTOMER_CANCEL = 'true';
+      // CONFIRMED захиалга цуцлагдахгүй
+      await api()
+        .patch(`/api/portal/orders/${custOrderId}/cancel`)
+        .set(auth(custToken))
+        .expect(400);
+
+      const before = await api()
+        .get(`/api/products/${productId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      const res = await api()
+        .patch(`/api/portal/orders/${custOrder2Id}/cancel`)
+        .set(auth(custToken))
+        .expect(200);
+      expect(res.body.orderStatus).toBe('CANCELLED');
+      const after = await api()
+        .get(`/api/products/${productId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(after.body.stockQty).toBe(before.body.stockQty + 1);
+      delete process.env.ALLOW_CUSTOMER_CANCEL;
     });
   });
 });

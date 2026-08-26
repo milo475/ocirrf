@@ -1,11 +1,17 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { Role } from '../generated/prisma/client';
 import type { User } from '../generated/prisma/client';
 import { PermissionsService } from '../permissions/permissions.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
+import { RegisterDto } from './dto/register.dto';
 
 export type JwtPayload = { sub: string; role: string };
 
@@ -35,6 +41,26 @@ export class AuthService {
       throw invalid;
     }
 
+    return this.issueTokens(user);
+  }
+
+  /** Харилцагчийн өөрийн бүртгэл — үргэлж CUSTOMER эрхтэй */
+  async register(dto: RegisterDto) {
+    const exists = await this.prisma.user.findUnique({
+      where: { username: dto.email },
+    });
+    if (exists) {
+      throw new ConflictException('Энэ имэйл аль хэдийн бүртгэлтэй байна');
+    }
+    const user = await this.prisma.user.create({
+      data: {
+        username: dto.email,
+        fullName: dto.name.trim(),
+        phone: dto.phone,
+        passwordHash: await bcrypt.hash(dto.password, 10),
+        role: Role.CUSTOMER,
+      },
+    });
     return this.issueTokens(user);
   }
 
