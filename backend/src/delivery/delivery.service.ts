@@ -141,7 +141,25 @@ export class DeliveryService {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const [orders, drivers, activeGroups, todayGroups] = await Promise.all([
+    const BOARD_SELECT = {
+      id: true,
+      orderNo: true,
+      customerName: true,
+      phone: true,
+      region: true,
+      district: true,
+      khoroo: true,
+      province: true,
+      soum: true,
+      totalAmount: true,
+      orderStatus: true,
+      deliveryStatus: true,
+      routeOrder: true,
+      assignedAt: true,
+      assignedDriver: DRIVER_SELECT,
+    };
+    const [orders, deliveredToday, drivers, activeGroups, todayGroups] =
+      await Promise.all([
       this.prisma.order.findMany({
         where: {
           deliveryStatus: {
@@ -156,24 +174,16 @@ export class DeliveryService {
             notIn: [OrderStatus.CANCELLED, OrderStatus.COMPLETED, OrderStatus.NEW],
           },
         },
-        select: {
-          id: true,
-          orderNo: true,
-          customerName: true,
-          phone: true,
-          region: true,
-          district: true,
-          khoroo: true,
-          province: true,
-          soum: true,
-          totalAmount: true,
-          orderStatus: true,
-          deliveryStatus: true,
-          routeOrder: true,
-          assignedAt: true,
-          assignedDriver: DRIVER_SELECT,
-        },
+        select: BOARD_SELECT,
         orderBy: { createdAt: 'asc' },
+      }),
+      this.prisma.order.findMany({
+        where: {
+          deliveryStatus: DeliveryStatus.DELIVERED,
+          deliveredAt: { gte: today },
+        },
+        select: BOARD_SELECT,
+        orderBy: { deliveredAt: 'desc' },
       }),
       this.prisma.user.findMany({
         where: { role: 'DRIVER', isActive: true },
@@ -209,9 +219,16 @@ export class DeliveryService {
       ASSIGNED: [],
       ON_THE_WAY: [],
       FAILED: [],
+      DELIVERED_TODAY: [],
     };
     for (const o of orders) {
       board[o.deliveryStatus].push({
+        ...o,
+        shortAddress: formatShortAddress(o),
+      });
+    }
+    for (const o of deliveredToday) {
+      board.DELIVERED_TODAY.push({
         ...o,
         shortAddress: formatShortAddress(o),
       });

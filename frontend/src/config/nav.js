@@ -3,6 +3,7 @@ import {
   ClipboardList,
   HandCoins,
   Home,
+  Map,
   Package,
   ScrollText,
   Truck,
@@ -53,6 +54,15 @@ export const NAV_ITEMS = [
     path: '/stock',
     // v2-ын харагдац (ADMIN+MANAGER)-тай ижил — adjust хийдэг хүнд л цэс
     perm: 'inventory.adjustment',
+  },
+  {
+    key: 'delivery-ops',
+    label: 'Хүргэлтийн удирдлага',
+    icon: Map,
+    path: '/delivery-ops',
+    // board нь orders.view+drivers.view хоёуланг шаарддаг — цэсэнд
+    // илүү хязгаарлагч drivers.view-г ашиглана
+    perm: 'drivers.view',
   },
   {
     key: 'finance',

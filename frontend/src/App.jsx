@@ -8,6 +8,7 @@ import { LanguageProvider } from './context/LanguageContext'
 import { ThemeProvider } from './context/ThemeContext'
 import ActivityLog from './pages/ActivityLog'
 import Dashboard from './pages/Dashboard'
+import DeliveryOps from './pages/DeliveryOps'
 import Finance from './pages/Finance'
 import Login from './pages/Login'
 import Notifications from './pages/Notifications'
@@ -57,6 +58,7 @@ function App() {
                     <Route element={<RoleRoute roles={['ADMIN', 'MANAGER']} />}>
                       <Route path="/finance" element={<Finance />} />
                       <Route path="/finance/payroll" element={<Payroll />} />
+                      <Route path="/delivery-ops" element={<DeliveryOps />} />
                     </Route>
 
                     <Route element={<RoleRoute roles={['ADMIN', 'OPERATOR']} />}>

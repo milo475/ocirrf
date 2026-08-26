@@ -304,6 +304,18 @@ const DICT = {
     'action.permission': 'Permission change',
     'Эрхийн тохиргоо': 'Permissions',
 
+    // — Хүргэлтийн удирдлага + маршрут (V3-12) —
+    'Хүргэлтийн удирдлага': 'Delivery operations',
+    'Өнөөдөр дууссан': 'Delivered today',
+    'Жолоочид': 'Drivers',
+    'Жолоочгүй': 'Unassigned',
+    'Маршрутын дараалал': 'Route order',
+    'Дараалал хадгалах': 'Save order',
+    'Дараалал хадгалагдлаа': 'Route order saved',
+    'Идэвхтэй хүргэлт алга': 'No active deliveries',
+    'Замын зураг': 'Map',
+    'Миний маршрут': 'My route',
+
     // — Үлдэгдлийн хөдөлгөөн —
     'Үлдэгдлийн хөдөлгөөн': 'Stock movements',
     'Бүх бараа': 'All products',

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { List, Map as MapIcon, LayoutList } from 'lucide-react'
 import Button from '../components/ui/Button'
 import EmptyState from '../components/ui/EmptyState'
 import Spinner from '../components/ui/Spinner'
@@ -18,6 +19,7 @@ export default function MyDeliveries() {
   const [deliveries, setDeliveries] = useState(null)
   const [error, setError] = useState(null)
   const [sheet, setSheet] = useState(null) // баталгаажуулж буй захиалга
+  const [routeView, setRouteView] = useState(false) // Миний маршрут хураангуй
 
   const load = useCallback(() => {
     setError(null)
@@ -50,22 +52,72 @@ export default function MyDeliveries() {
 
   return (
     <div className="max-w-md mx-auto">
-      <h1 className="font-serif text-3xl font-medium">{t('Миний хүргэлт')}</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="font-serif text-3xl font-medium">
+          {t(routeView ? 'Миний маршрут' : 'Миний хүргэлт')}
+        </h1>
+        {deliveries.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setRouteView((v) => !v)}
+            className="flex items-center gap-1.5 border border-rule rounded px-3 py-2 text-sm text-ink-muted hover:text-ink transition-colors"
+          >
+            {routeView ? <LayoutList size={16} /> : <List size={16} />}
+            {t(routeView ? 'Дэлгэрэнгүй' : 'Миний маршрут')}
+          </button>
+        )}
+      </div>
 
       {deliveries.length === 0 ? (
         <div className="mt-8">
           <EmptyState title={t('Одоогоор хуваарилагдсан хүргэлт алга')} />
         </div>
+      ) : routeView ? (
+        /* Хураангуй маршрут — явцад хурдан харах */
+        <ol className="mt-6 divide-y divide-rule border-y border-rule">
+          {deliveries.map((d, i) => (
+            <li key={d.id} className="py-3 flex items-start gap-3">
+              <span className="font-mono text-xl text-accent tabular-nums w-7 shrink-0">
+                {i + 1}
+              </span>
+              <span className="flex-1 min-w-0">
+                <span className="block text-base font-medium leading-snug">
+                  {d.fullAddress || d.orderNo}
+                </span>
+                <a
+                  href={`tel:${d.phone}`}
+                  className="font-mono text-base text-accent underline underline-offset-2"
+                >
+                  {d.phone}
+                </a>
+              </span>
+              <a
+                href={d.mapUrl}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={t('Замын зураг')}
+                className="p-2 text-ink-muted hover:text-accent shrink-0"
+              >
+                <MapIcon size={20} />
+              </a>
+            </li>
+          ))}
+        </ol>
       ) : (
         <div className="mt-6 space-y-4">
-          {deliveries.map((d) => (
+          {deliveries.map((d, i) => (
             <div
               key={d.id}
               className="bg-surface border border-rule rounded-lg p-5"
             >
               <div className="flex items-baseline justify-between gap-3">
-                <span className="font-mono text-sm text-ink-muted">
-                  {d.orderNo}
+                <span className="flex items-baseline gap-2">
+                  <span className="font-mono text-lg text-accent tabular-nums">
+                    №{i + 1}
+                  </span>
+                  <span className="font-mono text-sm text-ink-muted">
+                    {d.orderNo}
+                  </span>
                 </span>
                 <span className="font-mono text-lg tabular-nums">
                   {formatMoney(d.totalAmount)}
@@ -114,9 +166,18 @@ export default function MyDeliveries() {
                 </p>
               )}
 
+              <a
+                href={d.mapUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-4 flex items-center justify-center gap-2 w-full border border-rule rounded px-4 py-2.5 text-base text-ink-muted hover:text-ink hover:border-ink-muted transition-colors"
+              >
+                <MapIcon size={18} />
+                {t('Замын зураг')}
+              </a>
               <Button
                 onClick={() => setSheet(d)}
-                className="w-full mt-4 py-3.5 text-lg"
+                className="w-full mt-2 py-3.5 text-lg"
               >
                 {t('Баталгаажуулах')}
               </Button>
