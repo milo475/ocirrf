@@ -17,6 +17,8 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../generated/prisma/client';
+import { PERM } from '../permissions/permission-keys';
+import { RequirePermission } from '../permissions/require-permission.decorator';
 import { UPLOADS_DIR } from '../uploads.config';
 import { DeliveryService } from './delivery.service';
 import { AssignDriverDto } from './dto/assign-driver.dto';
@@ -43,7 +45,7 @@ export class DeliveryController {
 
   /** Жолооч хуваарилах — MANAGER-ийн гол үйлдэл */
   @Patch('orders/:id/assign-driver')
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @RequirePermission(PERM.ORDERS_ASSIGN_DRIVER)
   assignDriver(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: AssignDriverDto,

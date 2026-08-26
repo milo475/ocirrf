@@ -1,8 +1,8 @@
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../auth/decorators/current-user.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { Role } from '../generated/prisma/client';
+import { PERM } from '../permissions/permission-keys';
+import { RequirePermission } from '../permissions/require-permission.decorator';
 import { AdjustStockDto } from './dto/adjust-stock.dto';
 import {
   QueryMovementsDto,
@@ -16,20 +16,20 @@ export class StockController {
 
   /** Орлого/зарлага — MANAGER-ийн гол хэрэгсэл */
   @Post('adjust')
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @RequirePermission(PERM.INVENTORY_ADJUSTMENT)
   adjust(@Body() dto: AdjustStockDto, @CurrentUser() user: AuthUser) {
     return this.stockService.adjust(dto, user.id);
   }
 
   @Get('movements')
-  @Roles(Role.ADMIN, Role.MANAGER, Role.OPERATOR)
+  @RequirePermission(PERM.INVENTORY_VIEW)
   movements(@Query() query: QueryMovementsDto) {
     return this.stockService.movements(query);
   }
 
   /** Өдөр тутмын орлого/зарлагын нийлбэр — manager dashboard */
   @Get('summary')
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @RequirePermission(PERM.REPORTS_INVENTORY)
   summary(@Query() query: QuerySummaryDto) {
     return this.stockService.summary(query.days);
   }

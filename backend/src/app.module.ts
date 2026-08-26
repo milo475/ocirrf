@@ -11,6 +11,8 @@ import { PrismaModule } from './prisma/prisma.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { DeliveryModule } from './delivery/delivery.module';
 import { OrdersModule } from './orders/orders.module';
+import { PermissionsGuard } from './permissions/permissions.guard';
+import { PermissionsModule } from './permissions/permissions.module';
 import { ProductsModule } from './products/products.module';
 import { StockModule } from './stock/stock.module';
 import { UPLOADS_DIR } from './uploads.config';
@@ -33,6 +35,7 @@ import { UsersModule } from './users/users.module';
       },
     ),
     PrismaModule,
+    PermissionsModule,
     AuthModule,
     CategoriesModule,
     ProductsModule,
@@ -44,9 +47,11 @@ import { UsersModule } from './users/users.module';
   ],
   controllers: [AppController],
   providers: [
-    // Дараалал чухал: эхлээд JWT (Public-ийг үл хамааруулна), дараа нь Roles
+    // Дараалал чухал: эхлээд JWT (Public-ийг үл хамааруулна), дараа нь Roles,
+    // сүүлд Permissions (@RequirePermission заасан route дээр л оролцоно)
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    { provide: APP_GUARD, useClass: PermissionsGuard },
   ],
 })
 export class AppModule {}

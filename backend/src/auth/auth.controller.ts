@@ -1,4 +1,5 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { PermissionsService } from '../permissions/permissions.service';
 import { AuthService } from './auth.service';
 import { CurrentUser } from './decorators/current-user.decorator';
 import type { AuthUser } from './decorators/current-user.decorator';
@@ -8,7 +9,10 @@ import { RefreshDto } from './dto/refresh.dto';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly permissionsService: PermissionsService,
+  ) {}
 
   @Public()
   @Post('login')
@@ -25,7 +29,12 @@ export class AuthController {
   }
 
   @Get('me')
-  me(@CurrentUser() user: AuthUser) {
-    return user;
+  async me(@CurrentUser() user: AuthUser) {
+    // Frontend permissions массиваар товч/цэс нуух шийдвэрээ гаргана
+    const permissions = await this.permissionsService.getEffectivePermissions(
+      user.id,
+      user.role,
+    );
+    return { ...user, permissions: [...permissions] };
   }
 }

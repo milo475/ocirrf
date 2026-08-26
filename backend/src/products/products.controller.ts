@@ -9,8 +9,8 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { Role } from '../generated/prisma/client';
+import { PERM } from '../permissions/permission-keys';
+import { RequirePermission } from '../permissions/require-permission.decorator';
 import { CreateProductDto } from './dto/create-product.dto';
 import { QueryProductsDto } from './dto/query-products.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -22,25 +22,25 @@ export class ProductsController {
 
   /** DRIVER бараа харахгүй — эрхийн матрицын дагуу */
   @Get()
-  @Roles(Role.ADMIN, Role.MANAGER, Role.OPERATOR)
+  @RequirePermission(PERM.INVENTORY_VIEW)
   findAll(@Query() query: QueryProductsDto) {
     return this.productsService.findAll(query);
   }
 
   @Get(':id')
-  @Roles(Role.ADMIN, Role.MANAGER, Role.OPERATOR)
+  @RequirePermission(PERM.INVENTORY_VIEW)
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.productsService.findOne(id);
   }
 
   @Post()
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @RequirePermission(PERM.INVENTORY_ADJUSTMENT)
   create(@Body() dto: CreateProductDto) {
     return this.productsService.create(dto);
   }
 
   @Patch(':id')
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @RequirePermission(PERM.INVENTORY_ADJUSTMENT)
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateProductDto,
@@ -49,7 +49,7 @@ export class ProductsController {
   }
 
   @Delete(':id')
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @RequirePermission(PERM.INVENTORY_ADJUSTMENT)
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.productsService.remove(id);
   }

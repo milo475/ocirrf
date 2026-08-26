@@ -10,16 +10,16 @@ import {
 } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../auth/decorators/current-user.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { Role } from '../generated/prisma/client';
+import { PERM } from '../permissions/permission-keys';
+import { RequirePermission } from '../permissions/require-permission.decorator';
 import { CreateUserDto } from './dto/create-user.dto';
 import { QueryUsersDto } from './dto/query-users.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UsersService } from './users.service';
 
-/** Бүх үйлдэл зөвхөн ADMIN */
+/** Бүх үйлдэл users.manage permission (default: зөвхөн ADMIN) */
 @Controller('users')
-@Roles(Role.ADMIN)
+@RequirePermission(PERM.USERS_MANAGE)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 

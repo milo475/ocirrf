@@ -10,8 +10,8 @@ import {
 } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../auth/decorators/current-user.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { Role } from '../generated/prisma/client';
+import { PERM } from '../permissions/permission-keys';
+import { RequirePermission } from '../permissions/require-permission.decorator';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { QueryOrdersDto } from './dto/query-orders.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
@@ -23,27 +23,27 @@ export class OrdersController {
 
   /** Захиалга шивэх — зөвхөн ADMIN, OPERATOR (эрхийн матриц v2) */
   @Post()
-  @Roles(Role.ADMIN, Role.OPERATOR)
+  @RequirePermission(PERM.ORDERS_CREATE)
   create(@Body() dto: CreateOrderDto, @CurrentUser() user: AuthUser) {
     return this.ordersService.create(dto, user.id);
   }
 
   /** DRIVER бүх захиалга харахгүй — өөрийн хүргэлтээ delivery module-ээр авна */
   @Get()
-  @Roles(Role.ADMIN, Role.MANAGER, Role.OPERATOR)
+  @RequirePermission(PERM.ORDERS_VIEW)
   findAll(@Query() query: QueryOrdersDto) {
     return this.ordersService.findAll(query);
   }
 
   @Get(':id')
-  @Roles(Role.ADMIN, Role.MANAGER, Role.OPERATOR)
+  @RequirePermission(PERM.ORDERS_VIEW)
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.ordersService.findOne(id);
   }
 
   /** DRIVER статус өөрчлөхгүй — хүргэлтээ delivery module-ээр баталгаажуулна */
   @Patch(':id/status')
-  @Roles(Role.ADMIN, Role.MANAGER, Role.OPERATOR)
+  @RequirePermission(PERM.ORDERS_CHANGE_STATUS)
   updateStatus(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateOrderStatusDto,
