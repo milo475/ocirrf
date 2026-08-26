@@ -7,7 +7,9 @@ import { AuthProvider } from './context/AuthContext'
 import { LanguageProvider } from './context/LanguageContext'
 import { ThemeProvider } from './context/ThemeContext'
 import Dashboard from './pages/Dashboard'
+import Finance from './pages/Finance'
 import Login from './pages/Login'
+import Payroll from './pages/Payroll'
 import MyDeliveries from './pages/MyDeliveries'
 import OrderDetail from './pages/OrderDetail'
 import OrderNew from './pages/OrderNew'
@@ -48,6 +50,12 @@ function App() {
                     </Route>
 
                     {/* Захиалга шивэх — зөвхөн ADMIN, OPERATOR */}
+                    {/* Санхүү — permission-ээр нарийн, RoleRoute давхар хамгаалалт */}
+                    <Route element={<RoleRoute roles={['ADMIN', 'MANAGER']} />}>
+                      <Route path="/finance" element={<Finance />} />
+                      <Route path="/finance/payroll" element={<Payroll />} />
+                    </Route>
+
                     <Route element={<RoleRoute roles={['ADMIN', 'OPERATOR']} />}>
                       <Route path="/orders/new" element={<OrderNew />} />
                     </Route>

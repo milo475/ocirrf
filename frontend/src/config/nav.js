@@ -1,4 +1,13 @@
-import { Boxes, ClipboardList, Home, Package, Truck, Users } from 'lucide-react'
+import {
+  Boxes,
+  ClipboardList,
+  HandCoins,
+  Home,
+  Package,
+  Truck,
+  Users,
+  Wallet,
+} from 'lucide-react'
 
 /**
  * Sidebar-ын цэсийн нэгдсэн config.
@@ -45,6 +54,22 @@ export const NAV_ITEMS = [
     perm: 'inventory.adjustment',
   },
   {
+    key: 'finance',
+    label: 'Санхүү',
+    icon: Wallet,
+    path: '/finance',
+    end: true,
+    // Орлого эсвэл зарлагын аль нэгийг харж чаддаг бол цэс гарна
+    anyPerm: ['finance.view_income', 'finance.view_expense'],
+  },
+  {
+    key: 'payroll',
+    label: 'Жолоочийн цалин',
+    icon: HandCoins,
+    path: '/finance/payroll',
+    perm: 'finance.driver_payroll',
+  },
+  {
     key: 'users',
     label: 'Хэрэглэгчид',
     icon: Users,
@@ -58,6 +83,7 @@ export function navFor(user, hasPerm) {
   if (!user) return []
   return NAV_ITEMS.filter((item) => {
     if (item.roles) return item.roles.includes(user.role)
+    if (item.anyPerm) return item.anyPerm.some(hasPerm)
     if (item.perm) return hasPerm(item.perm)
     return true
   })

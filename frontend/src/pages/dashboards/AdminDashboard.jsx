@@ -5,6 +5,7 @@ import Rise from '../../components/dashboard/Rise'
 import { useLang } from '../../context/LanguageContext'
 import { DashError, DashSkeleton } from '../../components/dashboard/DashStates'
 import { useDashboard } from '../../hooks/useDashboard'
+import { formatMoney } from '../../lib/format'
 
 export default function AdminDashboard() {
   const { t } = useLang()
@@ -33,7 +34,12 @@ export default function AdminDashboard() {
       {/* MetricCard ×4 */}
       <Rise delay={60}>
         <section className="mt-16 border-t border-rule pt-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 md:divide-x divide-rule">
+          <div className="grid grid-cols-2 md:grid-cols-5 md:divide-x divide-rule">
+            {/* FinanceEntry-ийн INCOME нийлбэр (авто ORDER + гар бүртгэл) */}
+            <MetricCard
+              label={t('Нийт орлого')}
+              value={formatMoney(data.totalIncome)}
+            />
             <MetricCard
               label={t('Нийт харилцагч')}
               value={String(data.totalCustomers)}

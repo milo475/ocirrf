@@ -61,6 +61,7 @@ export class DashboardService {
       assignedGroups,
       deliveredGroups,
       driverUsers,
+      incomeAgg,
     ] = await Promise.all([
       this.prisma.order.groupBy({ by: ['phone'] }),
       this.prisma.user.count({ where: { role: 'DRIVER', isActive: true } }),
@@ -98,6 +99,11 @@ export class DashboardService {
       this.prisma.user.findMany({
         where: { role: 'DRIVER' },
         select: { id: true, fullName: true },
+      }),
+      // Нийт орлого — FinanceEntry-ээс (авто ORDER + гар бүртгэл хоёул)
+      this.prisma.financeEntry.aggregate({
+        _sum: { amount: true },
+        where: { type: 'INCOME' },
       }),
     ]);
 
@@ -143,6 +149,7 @@ export class DashboardService {
       totalDrivers,
       deliveriesInProgress,
       deliveredTotal,
+      totalIncome: incomeAgg._sum.amount ?? 0,
       last7Days: [...days.values()],
       topDrivers,
     };

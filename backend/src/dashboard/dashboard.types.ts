@@ -9,6 +9,7 @@ export type AdminDashboard = {
   totalDrivers: number; // идэвхтэй DRIVER тоо
   deliveriesInProgress: number; // ASSIGNED + ON_THE_WAY
   deliveredTotal: number;
+  totalIncome: unknown; // Decimal — FinanceEntry INCOME нийлбэр
   last7Days: { date: string; ordersCreated: number; delivered: number }[];
   /** DR = delivered/assigned, багадаа 1 хуваарилалттай жолооч, TOP-3 */
   topDrivers: {

@@ -26,6 +26,7 @@ export const mockAdminDashboard = {
   totalDrivers: 4,
   deliveriesInProgress: 6,
   deliveredTotal: 128,
+  totalIncome: '2450000.00',
   last7Days: DATES.map((date, i) => ({
     date,
     ordersCreated: [5, 8, 6, 9, 4, 7, 10][i],

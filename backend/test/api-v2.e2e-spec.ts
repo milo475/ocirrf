@@ -1176,6 +1176,7 @@ describe('ursGAL v2 API (e2e)', () => {
         'totalDrivers',
         'deliveriesInProgress',
         'deliveredTotal',
+        'totalIncome',
         'last7Days',
         'topDrivers',
       ]) {

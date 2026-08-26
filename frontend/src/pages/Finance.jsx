@@ -1,0 +1,404 @@
+import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router'
+import MetricCard from '../components/dashboard/MetricCard'
+import Button from '../components/ui/Button'
+import EmptyState from '../components/ui/EmptyState'
+import Input from '../components/ui/Input'
+import Modal from '../components/ui/Modal'
+import Select from '../components/ui/Select'
+import Spinner from '../components/ui/Spinner'
+import Table from '../components/ui/Table'
+import { useToast } from '../components/ui/Toast'
+import { useAuth } from '../context/AuthContext'
+import { useLang } from '../context/LanguageContext'
+import { api } from '../lib/api'
+import { formatDateTime, formatMoney } from '../lib/format'
+
+const LIMIT = 20
+const CATEGORIES = {
+  INCOME: ['Борлуулалт', 'Урьдчилгаа', 'Бусад орлого'],
+  EXPENSE: ['Түрээс', 'Тээвэр', 'Хангамж', 'Цалин', 'Бусад зарлага'],
+}
+/** Системийн авто ангиллуудын харагдах нэр */
+const AUTO_CATEGORY = {
+  ORDER: 'Захиалга (авто)',
+  DRIVER_PAYROLL: 'Жолоочийн цалин',
+}
+
+/** 30 хоногийн орлого/зарлагын хос багана */
+function DualBars({ byDay, t }) {
+  const H = 110
+  const max = Math.max(
+    1,
+    ...byDay.map((d) => Math.max(Number(d.income), Number(d.expense))),
+  )
+  const W = byDay.length * 16
+  return (
+    <div>
+      <svg
+        viewBox={`0 0 ${W} ${H + 14}`}
+        className="w-full"
+        style={{ maxHeight: 150 }}
+        role="img"
+        aria-label={t('30 хоногийн орлого, зарлага')}
+      >
+        {byDay.map((d, i) => {
+          const hi = (Number(d.income) / max) * H
+          const he = (Number(d.expense) / max) * H
+          return (
+            <g key={d.date}>
+              <rect
+                x={i * 16}
+                y={H - hi}
+                width={6}
+                height={Math.max(hi, Number(d.income) > 0 ? 2 : 0.5)}
+                style={{ fill: 'var(--color-accent)' }}
+              />
+              <rect
+                x={i * 16 + 7}
+                y={H - he}
+                width={6}
+                height={Math.max(he, Number(d.expense) > 0 ? 2 : 0.5)}
+                style={{ fill: 'var(--color-alarm)', opacity: 0.75 }}
+              />
+              {(i === 0 || i === byDay.length - 1) && (
+                <text
+                  x={i * 16 + 6}
+                  y={H + 11}
+                  textAnchor="middle"
+                  className="fill-ink-muted"
+                  style={{ fontSize: 7, fontFamily: 'monospace' }}
+                >
+                  {d.date.slice(5)}
+                </text>
+              )}
+            </g>
+          )
+        })}
+      </svg>
+      <p className="mt-2 flex items-center gap-4 text-xs text-ink-muted">
+        <span className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-sm bg-accent inline-block" />
+          {t('finance.income')}
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-sm bg-alarm/75 inline-block" />
+          {t('finance.expense')}
+        </span>
+      </p>
+    </div>
+  )
+}
+
+export default function Finance() {
+  const { t } = useLang()
+  const { hasPerm } = useAuth()
+  const toast = useToast()
+
+  const tabs = [
+    ...(hasPerm('finance.view_income') ? ['INCOME'] : []),
+    ...(hasPerm('finance.view_expense') ? ['EXPENSE'] : []),
+  ]
+  const [tab, setTab] = useState(tabs[0])
+  const [summary, setSummary] = useState(null)
+  const [data, setData] = useState(null)
+  const [page, setPage] = useState(1)
+  const [error, setError] = useState(null)
+  const [formOpen, setFormOpen] = useState(false)
+
+  const canViewBoth =
+    hasPerm('finance.view_income') && hasPerm('finance.view_expense')
+  const canCreate = hasPerm(
+    tab === 'INCOME' ? 'finance.create_income' : 'finance.create_expense',
+  )
+
+  const loadSummary = useCallback(() => {
+    if (!canViewBoth) return
+    api('/finance/summary?days=30').then(setSummary).catch(() => {})
+  }, [canViewBoth])
+
+  const loadEntries = useCallback(() => {
+    setError(null)
+    api(`/finance/entries?type=${tab}&page=${page}&limit=${LIMIT}`)
+      .then(setData)
+      .catch((e) => setError(e))
+  }, [tab, page])
+
+  useEffect(() => {
+    loadSummary()
+  }, [loadSummary])
+  useEffect(() => {
+    loadEntries()
+  }, [loadEntries])
+
+  const columns = [
+    {
+      key: 'entryDate',
+      header: t('Огноо'),
+      render: (e) => (
+        <span className="font-mono text-xs text-ink-muted tabular-nums">
+          {formatDateTime(e.entryDate)}
+        </span>
+      ),
+    },
+    {
+      key: 'category',
+      header: t('Ангилал'),
+      render: (e) => (
+        <span
+          className={`inline-flex font-mono text-[10px] uppercase tracking-wide border rounded px-1 py-0.5 ${
+            AUTO_CATEGORY[e.category]
+              ? 'text-accent border-accent/40 bg-accent/10'
+              : 'text-ink-muted border-rule'
+          }`}
+        >
+          {t(AUTO_CATEGORY[e.category] ?? e.category)}
+        </span>
+      ),
+    },
+    {
+      key: 'amount',
+      header: t('Дүн'),
+      align: 'right',
+      render: (e) => (
+        <span className="font-mono tabular-nums">{formatMoney(e.amount)}</span>
+      ),
+    },
+    {
+      key: 'note',
+      header: t('Тэмдэглэл'),
+      render: (e) => (
+        <span className="text-sm text-ink-muted">{e.note ?? '—'}</span>
+      ),
+    },
+    {
+      key: 'ref',
+      header: '',
+      render: (e) =>
+        e.category === 'ORDER' && e.refOrderId ? (
+          <Link
+            to={`/orders/${e.refOrderId}`}
+            className="text-xs text-accent hover:underline underline-offset-2"
+          >
+            {t('Захиалга харах')}
+          </Link>
+        ) : e.category === 'DRIVER_PAYROLL' ? (
+          <Link
+            to="/finance/payroll"
+            className="text-xs text-accent hover:underline underline-offset-2"
+          >
+            {t('Тооцоо харах')}
+          </Link>
+        ) : null,
+    },
+    {
+      key: 'createdBy',
+      header: t('Бүртгэсэн'),
+      render: (e) => (
+        <span className="text-ink-muted text-sm">
+          {e.createdBy?.fullName ?? '—'}
+        </span>
+      ),
+    },
+  ]
+
+  return (
+    <div>
+      <h1 className="font-serif text-4xl font-medium">{t('Санхүү')}</h1>
+
+      {/* 30 хоногийн тойм */}
+      {canViewBoth && summary && (
+        <section className="mt-8 border-t border-rule pt-6">
+          <div className="grid md:grid-cols-[auto_1fr] gap-8 items-start">
+            <div className="flex md:divide-x divide-rule">
+              <MetricCard
+                label={t('Нийт орлого')}
+                value={formatMoney(summary.income)}
+              />
+              <MetricCard
+                label={t('Нийт зарлага')}
+                value={formatMoney(summary.expense)}
+              />
+              <MetricCard label={t('Зөрүү')} value={formatMoney(summary.net)} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs uppercase tracking-wide text-ink-muted mb-2">
+                {t('Сүүлийн 30 хоног')}
+              </p>
+              <DualBars byDay={summary.byDay} t={t} />
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Табууд + нэмэх */}
+      <div className="mt-10 flex items-center gap-1 border-b border-rule pb-3">
+        {tabs.map((ty) => (
+          <button
+            key={ty}
+            type="button"
+            onClick={() => {
+              setTab(ty)
+              setPage(1)
+            }}
+            className={`px-3 py-1.5 rounded text-sm transition-colors ${
+              tab === ty ? 'bg-surface text-ink' : 'text-ink-muted hover:text-ink'
+            }`}
+          >
+            {t(ty === 'INCOME' ? 'finance.income' : 'finance.expense')}
+          </button>
+        ))}
+        {canCreate && (
+          <Button onClick={() => setFormOpen(true)} className="ml-auto">
+            {t('+ Гүйлгээ нэмэх')}
+          </Button>
+        )}
+      </div>
+
+      <div className="mt-6">
+        {error ? (
+          <EmptyState
+            title={t('Жагсаалт ачаалж чадсангүй')}
+            note={error.message}
+            action={<Button onClick={loadEntries}>{t('Дахин оролдох')}</Button>}
+          />
+        ) : !data ? (
+          <div className="py-16 text-center">
+            <Spinner size={22} />
+          </div>
+        ) : (
+          <Table
+            columns={columns}
+            rows={data.items}
+            page={data.page}
+            limit={data.limit}
+            total={data.total}
+            onPageChange={setPage}
+            empty={t('Гүйлгээ олдсонгүй')}
+          />
+        )}
+      </div>
+
+      {formOpen && (
+        <EntryForm
+          type={tab}
+          onClose={() => setFormOpen(false)}
+          onDone={() => {
+            setFormOpen(false)
+            loadEntries()
+            loadSummary()
+          }}
+          t={t}
+          toast={toast}
+        />
+      )}
+    </div>
+  )
+}
+
+/** Гараар гүйлгээ бүртгэх modal */
+function EntryForm({ type, onClose, onDone, t, toast }) {
+  const [category, setCategory] = useState(CATEGORIES[type][0])
+  const [customCategory, setCustomCategory] = useState('')
+  const [amount, setAmount] = useState('')
+  const [entryDate, setEntryDate] = useState('')
+  const [note, setNote] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState(null)
+
+  const isOther = category === '__other'
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setSubmitting(true)
+    setError(null)
+    try {
+      await api('/finance/entries', {
+        method: 'POST',
+        body: {
+          type,
+          category: isOther ? customCategory.trim() : category,
+          amount: amount.trim(),
+          ...(note.trim() ? { note: note.trim() } : {}),
+          ...(entryDate ? { entryDate: new Date(entryDate).toISOString() } : {}),
+        },
+      })
+      toast.show(t('Гүйлгээ нэмэгдлээ'))
+      onDone()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={t(type === 'INCOME' ? 'Шинэ орлого' : 'Шинэ зарлага')}
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <Select
+          id="fe-category"
+          label={t('Ангилал')}
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+        >
+          {CATEGORIES[type].map((c) => (
+            <option key={c} value={c}>
+              {t(c)}
+            </option>
+          ))}
+          <option value="__other">{t('Өөр ангилал…')}</option>
+        </Select>
+        {isOther && (
+          <Input
+            id="fe-custom"
+            label={t('Ангиллын нэр')}
+            required
+            value={customCategory}
+            onChange={(e) => setCustomCategory(e.target.value)}
+          />
+        )}
+        <Input
+          id="fe-amount"
+          label={t('Дүн')}
+          required
+          inputMode="decimal"
+          pattern="\d{1,10}(\.\d{1,2})?"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          placeholder="50000"
+          className="font-mono"
+        />
+        <Input
+          id="fe-date"
+          label={t('Огноо')}
+          type="date"
+          value={entryDate}
+          onChange={(e) => setEntryDate(e.target.value)}
+        />
+        <Input
+          id="fe-note"
+          label={t('Тэмдэглэл')}
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+        />
+        {error && (
+          <p className="text-sm text-alarm border border-alarm rounded px-3 py-2">
+            {error}
+          </p>
+        )}
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="ghost" onClick={onClose} disabled={submitting}>
+            {t('Болих')}
+          </Button>
+          <Button type="submit" loading={submitting}>
+            {t('Хадгалах')}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
