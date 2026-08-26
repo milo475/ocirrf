@@ -286,6 +286,30 @@ const DICT = {
     '{name} — {n} хүргэлт, {amt}. Тооцоо хаах уу?':
       '{name} — {n} deliveries, {amt}. Close this settlement?',
 
+    // — Customer portal (V3-14) —
+    'Шинэ харилцагч уу?': 'New customer?',
+    'Бүртгүүлэх': 'Sign up',
+    'Бүртгэлтэй юу?': 'Already have an account?',
+    'Харилцагчийн бүртгэл': 'Customer sign-up',
+    'Нууц үг давтах': 'Repeat password',
+    'Нууц үг таарахгүй байна': 'Passwords do not match',
+    'Бүртгэж байна…': 'Signing up…',
+    'Миний самбар': 'My dashboard',
+    'Миний захиалгууд': 'My orders',
+    'Профайл': 'Profile',
+    'Нийт {n} захиалга · {m} идэвхтэй': '{n} orders total · {m} active',
+    'Сүүлийн захиалгууд': 'Recent orders',
+    'Захиалга алга': 'No orders yet',
+    'Эхний захиалгаа өгөөрэй!': 'Place your first order!',
+    'Профайл хадгалагдлаа': 'Profile saved',
+    'Шинэ нууц үг': 'New password',
+    '(солих бол)': '(if changing)',
+    '(солих бол шинэ дугаар)': '(new number if changing)',
+    'Тун удахгүй': 'Coming soon',
+    'Онлайн захиалгын хэсэг дараагийн шатанд нээгдэнэ':
+      'Online ordering opens in the next stage',
+    '← Миний самбар': '← My dashboard',
+
     // — Мэдэгдэл + Үйлдлийн түүх (V3-10) —
     'Мэдэгдэл': 'Notifications',
     'Мэдэгдэл алга': 'No notifications',

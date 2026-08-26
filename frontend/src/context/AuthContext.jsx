@@ -38,6 +38,14 @@ export function AuthProvider({ children }) {
     return data.user
   }, [])
 
+  /** Харилцагчийн бүртгэл — амжилтад шууд нэвтэрнэ */
+  const register = useCallback(async (payload) => {
+    const data = await api('/auth/register', { method: 'POST', body: payload })
+    setTokens(data)
+    setUser(data.user)
+    return data.user
+  }, [])
+
   const logout = useCallback(() => {
     clearTokens()
     setUser(null)
@@ -51,7 +59,9 @@ export function AuthProvider({ children }) {
   )
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, hasPerm }}>
+    <AuthContext.Provider
+      value={{ user, loading, login, register, logout, hasPerm }}
+    >
       {children}
     </AuthContext.Provider>
   )

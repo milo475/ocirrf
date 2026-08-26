@@ -13,6 +13,11 @@ import Finance from './pages/Finance'
 import Login from './pages/Login'
 import Notifications from './pages/Notifications'
 import Payroll from './pages/Payroll'
+import PortalHome from './pages/portal/PortalHome'
+import PortalNew from './pages/portal/PortalNew'
+import PortalOrders from './pages/portal/PortalOrders'
+import PortalProfile from './pages/portal/PortalProfile'
+import Register from './pages/Register'
 import MyDeliveries from './pages/MyDeliveries'
 import OrderDetail from './pages/OrderDetail'
 import OrderNew from './pages/OrderNew'
@@ -33,6 +38,7 @@ function App() {
               <Routes>
                 {/* Login — nav-гүй, хамгаалалтгүй */}
                 <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
 
                 <Route element={<ProtectedRoute />}>
                   <Route element={<AppShell />}>
@@ -76,6 +82,17 @@ function App() {
                     </Route>
 
                     {/* Хүргэлт — зөвхөн DRIVER */}
+                    {/* CUSTOMER portal */}
+                    <Route element={<RoleRoute roles={['CUSTOMER']} />}>
+                      <Route path="/portal" element={<PortalHome />} />
+                      <Route path="/portal/new" element={<PortalNew />} />
+                      <Route path="/portal/orders" element={<PortalOrders />} />
+                      <Route
+                        path="/portal/profile"
+                        element={<PortalProfile />}
+                      />
+                    </Route>
+
                     <Route element={<RoleRoute roles={['DRIVER']} />}>
                       <Route path="/deliveries" element={<MyDeliveries />} />
                     </Route>

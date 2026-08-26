@@ -13,6 +13,7 @@ const ROLE_LABELS = {
   MANAGER: 'Менежер',
   OPERATOR: 'Оператор',
   DRIVER: 'Жолооч',
+  CUSTOMER: 'Харилцагч',
 }
 
 /**

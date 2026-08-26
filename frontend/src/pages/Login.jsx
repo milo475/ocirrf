@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Navigate, useNavigate } from 'react-router'
+import { Link, Navigate, useNavigate } from 'react-router'
 import { homeFor } from '../components/auth/RoleRoute'
 import { useAuth } from '../context/AuthContext'
 import { useLang } from '../context/LanguageContext'
@@ -104,6 +104,16 @@ export default function Login() {
               {submitting ? t('Нэвтэрч байна…') : t('Нэвтрэх')}
             </button>
           </form>
+
+          <p className="mt-5 text-center text-sm text-ink-muted">
+            {t('Шинэ харилцагч уу?')}{' '}
+            <Link
+              to="/register"
+              className="text-accent underline underline-offset-2"
+            >
+              {t('Бүртгүүлэх')}
+            </Link>
+          </p>
         </div>
       </div>
     </main>

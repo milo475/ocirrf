@@ -1,3 +1,4 @@
+import { Navigate } from 'react-router'
 import { useAuth } from '../context/AuthContext'
 import AdminDashboard from './dashboards/AdminDashboard'
 import DriverDashboard from './dashboards/DriverDashboard'
@@ -18,6 +19,8 @@ export default function Dashboard() {
       return <OperatorDashboard />
     case 'DRIVER':
       return <DriverDashboard />
+    case 'CUSTOMER':
+      return <Navigate to="/portal" replace />
     default:
       // Аюулгүйн fallback — танигдаагүй эрхэд хуучин нөөцийн самбар
       return <StockHealthDashboard />
