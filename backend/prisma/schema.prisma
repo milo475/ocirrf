@@ -65,6 +65,36 @@ model User {
   financeEntries FinanceEntry[]  @relation("FinanceEntries")
   driverPayouts  DriverPayout[]  @relation("DriverPayouts")
   payoutsCreated DriverPayout[]  @relation("PayoutsCreated")
+  notifications  Notification[]
+}
+
+/// Хэрэглэгчийн мэдэгдэл (хонх)
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String // DELIVERY_ASSIGNED / LOW_STOCK / DELIVERY_FAILED ...
+  title     String
+  body      String?
+  refType   String? // order / product / payout ...
+  refId     String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
+}
+
+/// Үйлдлийн түүх — амжилттай өөрчлөлт бүр (interceptor бичнэ)
+model ActivityLog {
+  id        String   @id @default(uuid())
+  userId    String
+  action    String // жишээ: "POST /api/orders", "permission_change"
+  entity    String // orders / products / permissions ...
+  entityId  String?
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  @@index([entity, createdAt])
 }
 
 /// Санхүүгийн гүйлгээ — гараар бүртгэсэн эсвэл системээс автомат (category "ORDER")

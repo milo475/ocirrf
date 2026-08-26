@@ -86,6 +86,7 @@ describe('ursGAL v2 API (e2e)', () => {
   let financeOrderId: string; // гараар COMPLETED болгох санхүүгийн тест
   const financeEntryIds: string[] = []; // гараар бүртгэсэн гүйлгээнүүд
   let payoutId: string; // жолоочийн цалингийн тооцоо
+  const testStartedAt = new Date(); // ActivityLog цэвэрлэгээнд
   const proofFiles: string[] = [];
 
   const api = () => request(http);
@@ -139,6 +140,13 @@ describe('ursGAL v2 API (e2e)', () => {
       // Захиалгууд дээр устсан тул FK-гүй
       await prisma.driverPayout.deleteMany({ where: { id: payoutId } });
     }
+    // Тестийн үеэр үүссэн мэдэгдэл (бодит admin/manager-т очсон) + үйлдлийн түүх
+    await prisma.notification.deleteMany({
+      where: { refId: { in: [...orderIds, productId].filter(Boolean) } },
+    });
+    await prisma.activityLog.deleteMany({
+      where: { createdAt: { gte: testStartedAt } },
+    });
     if (e2eDriverId) {
       await prisma.driverProfile.deleteMany({ where: { userId: e2eDriverId } });
       await prisma.user.deleteMany({ where: { id: e2eDriverId } });
@@ -1236,6 +1244,137 @@ describe('ursGAL v2 API (e2e)', () => {
       expect(Number(a.body.earnings.paidTotal)).toBe(
         Number(b.body.earnings.paidTotal),
       );
+    });
+  });
+
+  // ────────────────────────────────────────────── NOTIFICATIONS + ACTIVITY LOG (V3)
+  describe('V3: Notifications + ActivityLog ⭐', () => {
+    it('жолоочид DELIVERY_ASSIGNED очсон; унших урсгал', async () => {
+      const res = await api()
+        .get('/api/notifications?limit=50')
+        .set(auth(e2eDriverToken))
+        .expect(200);
+      const assigned = res.body.items.filter(
+        (n: { type: string }) => n.type === 'DELIVERY_ASSIGNED',
+      );
+      expect(assigned.length).toBeGreaterThanOrEqual(1);
+      expect(assigned[0].title).toContain('Шинэ хүргэлт');
+      expect(assigned[0].refType).toBe('order');
+
+      const before = await api()
+        .get('/api/notifications/unread-count')
+        .set(auth(e2eDriverToken))
+        .expect(200);
+      expect(before.body.count).toBeGreaterThanOrEqual(1);
+
+      const read = await api()
+        .patch(`/api/notifications/${assigned[0].id}/read`)
+        .set(auth(e2eDriverToken))
+        .expect(200);
+      expect(read.body.isRead).toBe(true);
+
+      await api()
+        .post('/api/notifications/read-all')
+        .set(auth(e2eDriverToken))
+        .expect(201);
+      const after = await api()
+        .get('/api/notifications/unread-count')
+        .set(auth(e2eDriverToken))
+        .expect(200);
+      expect(after.body.count).toBe(0);
+
+      // Бусдын мэдэгдэл унших → 404
+      await api()
+        .patch(`/api/notifications/${assigned[0].id}/read`)
+        .set(auth(tok.admin))
+        .expect(404);
+    });
+
+    it('LOW_STOCK: лимит давах МӨЧИД нэг л удаа, өдөрт давхардахгүй', async () => {
+      const mine = async () => {
+        const res = await api()
+          .get('/api/notifications?limit=100')
+          .set(auth(tok.admin))
+          .expect(200);
+        return res.body.items.filter(
+          (n: { type: string; refId: string | null }) =>
+            n.type === 'LOW_STOCK' && n.refId === productId,
+        );
+      };
+      // Dashboards тестийн −4 зарлага лимит давсан мөчид 1 мэдэгдэл үүсгэсэн
+      expect(await mine()).toHaveLength(1);
+
+      // Лимитээс доош байхад дахин хасах → шинэ мэдэгдэл ҮГҮЙ
+      await api()
+        .post('/api/stock/adjust')
+        .set(auth(tok.manager))
+        .send({ productId, qtyChange: -1, reason: 'MANUAL_OUT' })
+        .expect(201);
+      expect(await mine()).toHaveLength(1);
+
+      // Дээш гаргаад дахин доош — өдөрт 1 дүрмээр мөн л нэмэгдэхгүй
+      await api()
+        .post('/api/stock/adjust')
+        .set(auth(tok.manager))
+        .send({ productId, qtyChange: 10, reason: 'PURCHASE_IN' })
+        .expect(201);
+      await api()
+        .post('/api/stock/adjust')
+        .set(auth(tok.manager))
+        .send({ productId, qtyChange: -9, reason: 'MANUAL_OUT' })
+        .expect(201);
+      expect(await mine()).toHaveLength(1);
+    });
+
+    it('DELIVERY_FAILED: ADMIN/MANAGER-үүдэд очсон', async () => {
+      const res = await api()
+        .get('/api/notifications?limit=100')
+        .set(auth(tok.manager))
+        .expect(200);
+      const failed = res.body.items.find(
+        (n: { type: string; refId: string | null }) =>
+          n.type === 'DELIVERY_FAILED' && n.refId === order2Id,
+      );
+      expect(failed).toBeDefined();
+      expect(failed.body).toBe('Хаалгаа нээсэнгүй');
+    });
+
+    it('activity-log: бичилтүүд + permission_change + эрхийн шалгалт', async () => {
+      // operator-т эрх байхгүй
+      await api()
+        .get('/api/activity-log')
+        .set(auth(tok.operator))
+        .expect(403);
+
+      const orders = await api()
+        .get('/api/activity-log?entity=orders&limit=100')
+        .set(auth(tok.admin))
+        .expect(200);
+      expect(
+        orders.body.items.some((i: { action: string }) =>
+          i.action.startsWith('POST'),
+        ),
+      ).toBe(true);
+      expect(orders.body.items[0].userName).toBeTruthy();
+
+      const perms = await api()
+        .get('/api/activity-log?entity=permissions&limit=100')
+        .set(auth(tok.admin))
+        .expect(200);
+      const change = perms.body.items.find(
+        (i: { action: string; meta: { permKey?: string } | null }) =>
+          i.action === 'permission_change' &&
+          i.meta?.permKey === 'orders.create',
+      );
+      expect(change).toBeDefined();
+      expect(change.entityId).toBe(permUserId);
+
+      // auth хүсэлтүүд бичигдээгүй
+      const auth0 = await api()
+        .get('/api/activity-log?entity=auth')
+        .set(auth(tok.admin))
+        .expect(200);
+      expect(auth0.body.total).toBe(0);
     });
   });
 });

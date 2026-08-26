@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { Prisma } from '../generated/prisma/client';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AdjustStockDto } from './dto/adjust-stock.dto';
 import { QueryMovementsDto } from './dto/query-movements.dto';
@@ -12,7 +13,10 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 @Injectable()
 export class StockService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   /**
    * Орлого/зарлага/залруулга. Transaction дотор атом increment —
@@ -20,7 +24,7 @@ export class StockService {
    * Шалтгааны утга чиглэлтэйгээ таарах ёстой:
    * PURCHASE_IN зөвхөн +, MANUAL_OUT зөвхөн −, CORRECTION аль ч байж болно.
    */
-  adjust(dto: AdjustStockDto, userId: string) {
+  async adjust(dto: AdjustStockDto, userId: string) {
     if (dto.reason === 'PURCHASE_IN' && dto.qtyChange < 0) {
       throw new BadRequestException('PURCHASE_IN (орлого) эерэг тоотой байна');
     }
@@ -28,7 +32,7 @@ export class StockService {
       throw new BadRequestException('MANUAL_OUT (зарлага) сөрөг тоотой байна');
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const exists = await tx.product.findUnique({
         where: { id: dto.productId },
         select: { id: true },
@@ -62,6 +66,17 @@ export class StockService {
 
       return { product, movement };
     });
+
+    // Лимитээс доош ОРОХ МӨЧИД мэдэгдэнэ (transaction амжилттайн дараа)
+    const p = result.product;
+    if (
+      dto.qtyChange < 0 &&
+      p.stockQty < p.lowStockLimit &&
+      p.stockQty - dto.qtyChange >= p.lowStockLimit
+    ) {
+      await this.notifications.notifyLowStock(p);
+    }
+    return result;
   }
 
   async movements(query: QueryMovementsDto) {

@@ -164,15 +164,23 @@ export class PermissionsService {
     return this.getPanel(targetId);
   }
 
-  /** Бүлэг 3-д ActivityLog хүснэгт рүү бичигдэнэ — одоохондоо console.log */
+  /** Permission өөрчлөлт бүр ActivityLog-д бичигдэнэ (fire-and-forget) */
   private logChange(
     actorId: string,
     targetId: string,
     permKey: PermKey,
     allowed: boolean | null,
   ): void {
-    console.log(
-      `[activity] permission_change key=${permKey} allowed=${String(allowed)} target=${targetId} by=${actorId}`,
-    );
+    void this.prisma.activityLog
+      .create({
+        data: {
+          userId: actorId,
+          action: 'permission_change',
+          entity: 'permissions',
+          entityId: targetId,
+          meta: { permKey, allowed },
+        },
+      })
+      .catch(() => {});
   }
 }

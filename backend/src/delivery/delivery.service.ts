@@ -10,6 +10,7 @@ import {
   OrderStatus,
   Prisma,
 } from '../generated/prisma/client';
+import { NotificationsService } from '../notifications/notifications.service';
 import { formatFullAddress } from '../orders/address.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { CompleteDeliveryDto } from './dto/complete-delivery.dto';
@@ -25,6 +26,7 @@ export class DeliveryService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly financeService: FinanceService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   /**
@@ -66,7 +68,7 @@ export class DeliveryService {
       );
     }
 
-    return this.prisma.order.update({
+    const assigned = await this.prisma.order.update({
       where: { id: orderId },
       data: {
         assignedDriverId: driverId,
@@ -75,6 +77,8 @@ export class DeliveryService {
       },
       include: { assignedDriver: DRIVER_SELECT },
     });
+    await this.notifications.notifyDriverAssigned(driverId, assigned);
+    return assigned;
   }
 
   /** Жолоочийн өөрийн дуусаагүй хүргэлтүүд (fullAddress-тэй) */
@@ -160,7 +164,7 @@ export class DeliveryService {
     if (!dto.note?.trim()) {
       throw new BadRequestException('Шалтгаан бичнэ үү');
     }
-    return this.prisma.order.update({
+    const failed = await this.prisma.order.update({
       where: { id: orderId },
       data: {
         deliveryStatus: DeliveryStatus.FAILED,
@@ -168,6 +172,8 @@ export class DeliveryService {
         ...(proofUrl ? { deliveryProofUrl: proofUrl } : {}),
       },
     });
+    await this.notifications.notifyDeliveryFailed(failed, dto.note.trim());
+    return failed;
   }
 
   /** Жолоочийн гүйцэтгэл + цалин */

@@ -1,7 +1,9 @@
 import { join } from 'node:path';
 import { Module } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ServeStaticModule } from '@nestjs/serve-static';
+import { ActivityLogInterceptor } from './activity-log/activity-log.interceptor';
+import { ActivityLogModule } from './activity-log/activity-log.module';
 import { AppController } from './app.controller';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
@@ -11,6 +13,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { DeliveryModule } from './delivery/delivery.module';
 import { FinanceModule } from './finance/finance.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { OrdersModule } from './orders/orders.module';
 import { PermissionsGuard } from './permissions/permissions.guard';
 import { PermissionsModule } from './permissions/permissions.module';
@@ -45,6 +48,8 @@ import { UsersModule } from './users/users.module';
     DashboardModule,
     DeliveryModule,
     FinanceModule,
+    NotificationsModule,
+    ActivityLogModule,
     UsersModule,
   ],
   controllers: [AppController],
@@ -54,6 +59,8 @@ import { UsersModule } from './users/users.module';
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
+    // Амжилттай өөрчлөлт бүрийг ActivityLog-д бичнэ
+    { provide: APP_INTERCEPTOR, useClass: ActivityLogInterceptor },
   ],
 })
 export class AppModule {}

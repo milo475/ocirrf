@@ -7,6 +7,7 @@ import {
 import type { AuthUser } from '../auth/decorators/current-user.decorator';
 import { FinanceService } from '../finance/finance.service';
 import { OrderStatus, Prisma } from '../generated/prisma/client';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { formatFullAddress, formatShortAddress } from './address.util';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -44,6 +45,7 @@ export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly financeService: FinanceService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   /**
@@ -64,7 +66,16 @@ export class OrdersService {
     const MAX_ATTEMPTS = 3;
     for (let attempt = 1; ; attempt++) {
       try {
-        return await this.createInTransaction(dto, userId, ids);
+        const { order, lowStockCrossed } = await this.createInTransaction(
+          dto,
+          userId,
+          ids,
+        );
+        // Transaction амжилттай болсны ДАРАА мэдэгдэнэ (rollback-д илгээхгүй)
+        for (const p of lowStockCrossed) {
+          await this.notifications.notifyLowStock(p);
+        }
+        return order;
       } catch (e) {
         if (isUniqueViolation(e) && attempt < MAX_ATTEMPTS) {
           continue; // orderNo мөргөлдсөн — дахин оролдоно
@@ -74,12 +85,18 @@ export class OrdersService {
     }
   }
 
-  private createInTransaction(
+  private async createInTransaction(
     dto: CreateOrderDto,
     userId: string,
     ids: string[],
   ) {
-    return this.prisma.$transaction(async (tx) => {
+    const lowStockCrossed: {
+      id: string;
+      name: string;
+      stockQty: number;
+      lowStockLimit: number;
+    }[] = [];
+    const order = await this.prisma.$transaction(async (tx) => {
       // 1. Бүх барааг нэг мөсөн авч шалгана
       const products = await tx.product.findMany({
         where: { id: { in: ids } },
@@ -177,6 +194,13 @@ export class OrdersService {
             `«${updated.name}» үлдэгдэл хүрэлцэхгүй`,
           );
         }
+        // Лимитээс доош ОРОХ МӨЧ: өмнө нь ≥ лимит, одоо < лимит
+        if (
+          updated.stockQty < updated.lowStockLimit &&
+          updated.stockQty + item.qty >= updated.lowStockLimit
+        ) {
+          lowStockCrossed.push(updated);
+        }
         await tx.stockMovement.create({
           data: {
             productId: item.productId,
@@ -190,6 +214,7 @@ export class OrdersService {
 
       return order;
     });
+    return { order, lowStockCrossed };
   }
 
   async updateStatus(id: string, status: OrderStatus, user: AuthUser) {
