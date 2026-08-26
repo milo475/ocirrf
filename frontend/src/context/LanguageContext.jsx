@@ -219,6 +219,10 @@ const DICT = {
     'УБ': 'UB',
     'Тээвэрт гаргах': 'Send by freight',
 
+    // — Sidebar (V3-01) —
+    'Цэс хумих': 'Collapse menu',
+    'Цэс дэлгэх': 'Expand menu',
+
     // — Үлдэгдлийн хөдөлгөөн —
     'Үлдэгдлийн хөдөлгөөн': 'Stock movements',
     'Бүх бараа': 'All products',
