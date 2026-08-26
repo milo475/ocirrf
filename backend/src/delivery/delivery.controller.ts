@@ -23,6 +23,7 @@ import { UPLOADS_DIR } from '../uploads.config';
 import { DeliveryService } from './delivery.service';
 import { AssignDriverDto } from './dto/assign-driver.dto';
 import { CompleteDeliveryDto } from './dto/complete-delivery.dto';
+import { RouteOrderDto } from './dto/route-order.dto';
 
 const ALLOWED_MIME: Record<string, string> = {
   'image/jpeg': '.jpg',
@@ -51,6 +52,20 @@ export class DeliveryController {
     @Body() dto: AssignDriverDto,
   ) {
     return this.deliveryService.assignDriver(id, dto.driverId);
+  }
+
+  /** Хүргэлтийн ops самбар — статус бүрээр бүлэглэсэн + жолоочдын ачаалал */
+  @Get('delivery-ops/board')
+  @RequirePermission(PERM.ORDERS_VIEW, PERM.DRIVERS_VIEW)
+  opsBoard() {
+    return this.deliveryService.opsBoard();
+  }
+
+  /** Жолоочийн маршрутын дараалал тавих */
+  @Patch('deliveries/route-order')
+  @RequirePermission(PERM.DRIVERS_ASSIGN)
+  setRouteOrder(@Body() dto: RouteOrderDto) {
+    return this.deliveryService.setRouteOrder(dto.driverId, dto.orderIds);
   }
 
   /** Жолоочийн өөрийн дуусаагүй хүргэлтүүд */

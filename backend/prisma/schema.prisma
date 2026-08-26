@@ -212,6 +212,9 @@ model Order {
   // Санхүү (v3): аль цалингийн тооцоонд орсныг тэмдэглэнэ
   payoutId String?
 
+  // Жолоочийн маршрутын дараалал (1..n, тухайн жолоочийн идэвхтэй хүргэлтэд)
+  routeOrder Int?
+
   createdBy      User          @relation("CreatedOrders", fields: [createdById], references: [id])
   assignedDriver User?         @relation("AssignedOrders", fields: [assignedDriverId], references: [id])
   payout         DriverPayout? @relation("PayoutOrders", fields: [payoutId], references: [id])

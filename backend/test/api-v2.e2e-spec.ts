@@ -86,6 +86,8 @@ describe('ursGAL v2 API (e2e)', () => {
   let financeOrderId: string; // гараар COMPLETED болгох санхүүгийн тест
   const financeEntryIds: string[] = []; // гараар бүртгэсэн гүйлгээнүүд
   let payoutId: string; // жолоочийн цалингийн тооцоо
+  let roA: string; // маршрутын дарааллын тест захиалгууд
+  let roB: string;
   const testStartedAt = new Date(); // ActivityLog цэвэрлэгээнд
   const proofFiles: string[] = [];
 
@@ -114,9 +116,14 @@ describe('ursGAL v2 API (e2e)', () => {
 
   afterAll(async () => {
     // Тестийн бүх ул мөрийг цэвэрлэнэ
-    const orderIds = [orderId, order2Id, adminOrderId, financeOrderId].filter(
-      Boolean,
-    );
+    const orderIds = [
+      orderId,
+      order2Id,
+      adminOrderId,
+      financeOrderId,
+      roA,
+      roB,
+    ].filter(Boolean);
     await prisma.financeEntry.deleteMany({
       where: {
         OR: [
@@ -1375,6 +1382,113 @@ describe('ursGAL v2 API (e2e)', () => {
         .set(auth(tok.admin))
         .expect(200);
       expect(auth0.body.total).toBe(0);
+    });
+  });
+
+  // ────────────────────────────────────────────── DELIVERY OPS + ROUTE (V3)
+  describe('V3: Delivery Ops + маршрут ⭐', () => {
+    it('operator board харах → 403 (drivers.view байхгүй)', async () => {
+      await api()
+        .get('/api/delivery-ops/board')
+        .set(auth(tok.operator))
+        .expect(403);
+    });
+
+    it('2 хүргэлт бэлдэж board дээр бүлэглэгдэнэ', async () => {
+      // Үлдэгдэл нэмээд 2 захиалга үүсгэж e2e жолоочид хуваарилна
+      await api()
+        .post('/api/stock/adjust')
+        .set(auth(tok.manager))
+        .send({ productId, qtyChange: 5, reason: 'PURCHASE_IN' })
+        .expect(201);
+      for (const which of ['A', 'B']) {
+        const ord = await api()
+          .post('/api/orders')
+          .set(auth(tok.operator))
+          .send({
+            customerName: `Э2Э-Маршрут-${which}-${T}`,
+            customerPhone: `6${T}`,
+            ...UB_ADDR,
+            items: [{ productId, qty: 1 }],
+          })
+          .expect(201);
+        if (which === 'A') roA = ord.body.id;
+        else roB = ord.body.id;
+        await api()
+          .patch(`/api/orders/${ord.body.id}/status`)
+          .set(auth(tok.operator))
+          .send({ status: 'CONFIRMED' })
+          .expect(200);
+        await api()
+          .patch(`/api/orders/${ord.body.id}/assign-driver`)
+          .set(auth(tok.manager))
+          .send({ driverId: e2eDriverId })
+          .expect(200);
+      }
+
+      const res = await api()
+        .get('/api/delivery-ops/board')
+        .set(auth(tok.manager))
+        .expect(200);
+      const assignedIds = res.body.board.ASSIGNED.map(
+        (o: { id: string }) => o.id,
+      );
+      expect(assignedIds).toEqual(expect.arrayContaining([roA, roB]));
+      const rowA = res.body.board.ASSIGNED.find(
+        (o: { id: string }) => o.id === roA,
+      );
+      expect(rowA.shortAddress).toBe('ХУД, 11-р хороо');
+      expect(rowA.assignedDriver.id).toBe(e2eDriverId);
+
+      const drv = res.body.drivers.find(
+        (d: { id: string }) => d.id === e2eDriverId,
+      );
+      expect(drv.active).toBe(2);
+      expect(drv).toHaveProperty('deliveredToday');
+    });
+
+    it('route-order: дараалал тавьж my/deliveries эрэмбэлэгдэнэ + mapUrl', async () => {
+      // B-г эхэнд тавина
+      await api()
+        .patch('/api/deliveries/route-order')
+        .set(auth(tok.manager))
+        .send({ driverId: e2eDriverId, orderIds: [roB, roA] })
+        .expect(200);
+
+      const res = await api()
+        .get('/api/deliveries/my')
+        .set(auth(e2eDriverToken))
+        .expect(200);
+      expect(res.body[0].id).toBe(roB);
+      expect(res.body[0].routeOrder).toBe(1);
+      expect(res.body[1].id).toBe(roA);
+      expect(res.body[1].routeOrder).toBe(2);
+      expect(res.body[0].mapUrl).toBe(
+        'https://www.google.com/maps/search/?api=1&query=' +
+          encodeURIComponent(res.body[0].fullAddress),
+      );
+    });
+
+    it('идэвхтэй биш захиалга оруулбал → 400; цэвэрлэгээ', async () => {
+      await api()
+        .patch('/api/deliveries/route-order')
+        .set(auth(tok.manager))
+        .send({ driverId: e2eDriverId, orderIds: [roB, orderId] })
+        .expect(400);
+      // operator drivers.assign байхгүй → 403
+      await api()
+        .patch('/api/deliveries/route-order')
+        .set(auth(tok.operator))
+        .send({ driverId: e2eDriverId, orderIds: [roB] })
+        .expect(403);
+      // цуцалж үлдэгдэл буцаана
+      for (const id of [roA, roB]) {
+        await api()
+          .patch(`/api/orders/${id}/status`)
+          .set(auth(tok.manager))
+          .send({ status: 'CANCELLED' })
+          .expect(200);
+      }
     });
   });
 });

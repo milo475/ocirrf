@@ -11,7 +11,7 @@ import {
   Prisma,
 } from '../generated/prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
-import { formatFullAddress } from '../orders/address.util';
+import { formatFullAddress, formatShortAddress } from '../orders/address.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { CompleteDeliveryDto } from './dto/complete-delivery.dto';
 
@@ -81,7 +81,7 @@ export class DeliveryService {
     return assigned;
   }
 
-  /** Жолоочийн өөрийн дуусаагүй хүргэлтүүд (fullAddress-тэй) */
+  /** Жолоочийн өөрийн дуусаагүй хүргэлтүүд — маршрутын дарааллаар */
   async myDeliveries(driverId: string) {
     const rows = await this.prisma.order.findMany({
       where: {
@@ -91,6 +91,7 @@ export class DeliveryService {
         },
       },
       select: {
+        routeOrder: true,
         id: true,
         orderNo: true,
         customerName: true,
@@ -113,9 +114,159 @@ export class DeliveryService {
         assignedAt: true,
         items: { select: { productName: true, qty: true } },
       },
-      orderBy: { assignedAt: 'asc' },
+      // Маршрут заасан нь эхэндээ (1..n), заагаагүй нь хуваарилагдсан дарааллаар
+      orderBy: [
+        { routeOrder: { sort: 'asc', nulls: 'last' } },
+        { assignedAt: 'asc' },
+      ],
     });
-    return rows.map((r) => ({ ...r, fullAddress: formatFullAddress(r) }));
+    return rows.map((r) => {
+      const fullAddress = formatFullAddress(r);
+      return {
+        ...r,
+        fullAddress,
+        // Гадны API биш — зүгээр л газрын зургийн хайлтын линк
+        mapUrl:
+          'https://www.google.com/maps/search/?api=1&query=' +
+          encodeURIComponent(fullAddress),
+      };
+    });
+  }
+
+  /**
+   * Хүргэлтийн ops самбар: идэвхтэй хүргэлтүүд deliveryStatus бүрээр +
+   * жолооч бүрийн өнөөдрийн ачаалал — нэг хүсэлтээр.
+   */
+  async opsBoard() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const [orders, drivers, activeGroups, todayGroups] = await Promise.all([
+      this.prisma.order.findMany({
+        where: {
+          deliveryStatus: {
+            in: [
+              DeliveryStatus.PENDING,
+              DeliveryStatus.ASSIGNED,
+              DeliveryStatus.ON_THE_WAY,
+              DeliveryStatus.FAILED,
+            ],
+          },
+          orderStatus: {
+            notIn: [OrderStatus.CANCELLED, OrderStatus.COMPLETED, OrderStatus.NEW],
+          },
+        },
+        select: {
+          id: true,
+          orderNo: true,
+          customerName: true,
+          phone: true,
+          region: true,
+          district: true,
+          khoroo: true,
+          province: true,
+          soum: true,
+          totalAmount: true,
+          orderStatus: true,
+          deliveryStatus: true,
+          routeOrder: true,
+          assignedAt: true,
+          assignedDriver: DRIVER_SELECT,
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
+      this.prisma.user.findMany({
+        where: { role: 'DRIVER', isActive: true },
+        select: {
+          id: true,
+          fullName: true,
+          driverProfile: { select: { isAvailable: true } },
+        },
+      }),
+      this.prisma.order.groupBy({
+        by: ['assignedDriverId'],
+        where: {
+          assignedDriverId: { not: null },
+          deliveryStatus: {
+            in: [DeliveryStatus.ASSIGNED, DeliveryStatus.ON_THE_WAY],
+          },
+        },
+        _count: { _all: true },
+      }),
+      this.prisma.order.groupBy({
+        by: ['assignedDriverId'],
+        where: {
+          assignedDriverId: { not: null },
+          deliveryStatus: DeliveryStatus.DELIVERED,
+          deliveredAt: { gte: today },
+        },
+        _count: { _all: true },
+      }),
+    ]);
+
+    const board: Record<string, unknown[]> = {
+      PENDING: [],
+      ASSIGNED: [],
+      ON_THE_WAY: [],
+      FAILED: [],
+    };
+    for (const o of orders) {
+      board[o.deliveryStatus].push({
+        ...o,
+        shortAddress: formatShortAddress(o),
+      });
+    }
+
+    const activeById = new Map(
+      activeGroups.map((g) => [g.assignedDriverId, g._count._all]),
+    );
+    const todayById = new Map(
+      todayGroups.map((g) => [g.assignedDriverId, g._count._all]),
+    );
+
+    return {
+      board,
+      drivers: drivers.map((d) => ({
+        id: d.id,
+        name: d.fullName,
+        isAvailable: d.driverProfile?.isAvailable ?? null,
+        active: activeById.get(d.id) ?? 0,
+        deliveredToday: todayById.get(d.id) ?? 0,
+      })),
+    };
+  }
+
+  /** Жолоочийн маршрутын дараалал тавих: orderIds[i] → routeOrder i+1 */
+  async setRouteOrder(driverId: string, orderIds: string[]) {
+    if (new Set(orderIds).size !== orderIds.length) {
+      throw new BadRequestException('Захиалга давхардсан байна');
+    }
+    const active = await this.prisma.order.findMany({
+      where: {
+        assignedDriverId: driverId,
+        deliveryStatus: {
+          in: [DeliveryStatus.ASSIGNED, DeliveryStatus.ON_THE_WAY],
+        },
+      },
+      select: { id: true },
+    });
+    const activeSet = new Set(active.map((o) => o.id));
+    for (const id of orderIds) {
+      if (!activeSet.has(id)) {
+        throw new BadRequestException(
+          'Зөвхөн тухайн жолоочийн идэвхтэй хүргэлтүүд байх ёстой',
+        );
+      }
+    }
+    await this.prisma.$transaction(
+      orderIds.map((id, i) =>
+        this.prisma.order.update({
+          where: { id },
+          data: { routeOrder: i + 1 },
+        }),
+      ),
+    );
+    return { ok: true, count: orderIds.length };
   }
 
   /** Хүргэлт баталгаажуулах (зурагтай) эсвэл амжилтгүй гэж тэмдэглэх */
