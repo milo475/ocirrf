@@ -85,7 +85,8 @@ check403 "driver бараа үүсгэх" -X POST $API/products -H "Authorizatio
 check403 "driver бараа харах" $API/products -H "Authorization: Bearer $TOK_driver"
 check403 "driver бүх захиалга харах" $API/orders -H "Authorization: Bearer $TOK_driver"
 check403 "operator stock adjust" -X POST $API/stock/adjust -H "Authorization: Bearer $TOK_operator" -H "$H" -d "{\"productId\":\"$PID\",\"qtyChange\":1,\"reason\":\"CORRECTION\"}"
-check403 "manager захиалга үүсгэх" -X POST $API/orders -H "Authorization: Bearer $TOK_manager" -H "$H" -d '{"customerName":"X","customerPhone":"1","address":"x","items":[]}'
+# manager захиалга үүсгэх эрх Permission Panel-аас олгогдож болдог тул
+# (v3) энд default-ыг шалгахаа больсон — e2e-д тусгай хэрэглэгчээр шалгагдана
 check403 "operator хэрэглэгчид харах" $API/users -H "Authorization: Bearer $TOK_operator"
 check403 "manager admin dashboard" $API/dashboard/admin -H "Authorization: Bearer $TOK_manager"
 check403 "admin driver dashboard" $API/dashboard/driver -H "Authorization: Bearer $TOK_admin"

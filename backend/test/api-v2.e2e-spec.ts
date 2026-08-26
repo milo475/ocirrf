@@ -88,6 +88,7 @@ describe('ursGAL v2 API (e2e)', () => {
   let payoutId: string; // жолоочийн цалингийн тооцоо
   let roA: string; // маршрутын дарааллын тест захиалгууд
   let roB: string;
+  let e2eMgrId: string; // default матрицын шалгалтын менежер
   let custUserId: string; // portal-ын тест харилцагч
   let custToken: string;
   let custOrderId: string;
@@ -178,6 +179,9 @@ describe('ursGAL v2 API (e2e)', () => {
       // Захиалгууд нь дээр устсан, мэдэгдэл cascade-аар устна
       await prisma.user.deleteMany({ where: { id: custUserId } });
     }
+    if (e2eMgrId) {
+      await prisma.user.deleteMany({ where: { id: e2eMgrId } });
+    }
     for (const f of proofFiles) {
       try {
         unlinkSync(join(UPLOADS_DIR, f));
@@ -250,10 +254,27 @@ describe('ursGAL v2 API (e2e)', () => {
         .send({ sku: 'X', name: 'X', price: '1' })
         .expect(403);
       // Permission шалгалт service дотор (V3-13) тул body нь DTO-ийн
-      // хувьд хүчинтэй байж гэмээ нь 403-ыг харна
+      // хувьд хүчинтэй байж гэмээ нь 403-ыг харна.
+      // Бодит manager-т Permission Panel-аас orders.create олгогдсон байж
+      // болох тул DEFAULT матрицыг шинээр үүсгэсэн MANAGER-ээр шалгана.
+      const mgr = await api()
+        .post('/api/users')
+        .set(auth(tok.admin))
+        .send({
+          email: `e2e-mgr-${T}@ursgal.mn`,
+          name: `Э2Э Менежер ${T}`,
+          password: 'e2epass123',
+          role: 'MANAGER',
+        })
+        .expect(201);
+      e2eMgrId = mgr.body.id;
+      const login = await api()
+        .post('/api/auth/login')
+        .send({ email: `e2e-mgr-${T}@ursgal.mn`, password: 'e2epass123' })
+        .expect(200);
       await api()
         .post('/api/orders')
-        .set(auth(tok.manager))
+        .set(auth(login.body.accessToken))
         .send({
           customerName: 'Хориотой',
           customerPhone: '99000000',

@@ -1,4 +1,5 @@
 import { BrowserRouter, Route, Routes } from 'react-router'
+import PermRoute from './components/auth/PermRoute'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import RoleRoute from './components/auth/RoleRoute'
 import AppShell from './components/layout/AppShell'
@@ -51,40 +52,71 @@ function App() {
                     <Route path="/settings" element={<Settings />} />
                     <Route path="/notifications" element={<Notifications />} />
 
-                    {/* Эрхийн матриц: харах эрхтэй гурав */}
-                    <Route
-                      element={
-                        <RoleRoute roles={['ADMIN', 'MANAGER', 'OPERATOR']} />
-                      }
-                    >
-                      <Route path="/products" element={<Products />} />
+                    {/*
+                     * Staff хуудсууд — effective PERMISSION-ээр (Permission
+                     * Panel-аас олгосон/хассан эрх шууд үйлчилнэ; backend
+                     * мөн ижил permission-ээ давхар шалгадаг).
+                     */}
+                    <Route element={<PermRoute perm="orders.view" />}>
                       <Route path="/orders" element={<Orders />} />
                       <Route path="/orders/:id" element={<OrderDetail />} />
-                      <Route path="/stock" element={<Stock />} />
                     </Route>
-
-                    {/* Захиалга шивэх — зөвхөн ADMIN, OPERATOR */}
-                    {/* Санхүү — permission-ээр нарийн, RoleRoute давхар хамгаалалт */}
-                    <Route element={<RoleRoute roles={['ADMIN', 'MANAGER']} />}>
-                      <Route path="/finance" element={<Finance />} />
-                      <Route path="/finance/payroll" element={<Payroll />} />
-                      <Route path="/delivery-ops" element={<DeliveryOps />} />
-                      <Route path="/analytics" element={<Analytics />} />
-                      <Route path="/reports" element={<Reports />} />
-                      <Route path="/customers" element={<Customers />} />
-                    </Route>
-
-                    <Route element={<RoleRoute roles={['ADMIN', 'OPERATOR']} />}>
+                    <Route element={<PermRoute perm="orders.create" />}>
                       <Route path="/orders/new" element={<OrderNew />} />
                     </Route>
-
-                    {/* Хэрэглэгчид — зөвхөн ADMIN */}
-                    <Route element={<RoleRoute roles={['ADMIN']} />}>
+                    <Route element={<PermRoute perm="inventory.view" />}>
+                      <Route path="/products" element={<Products />} />
+                      <Route path="/stock" element={<Stock />} />
+                    </Route>
+                    <Route
+                      element={
+                        <PermRoute
+                          anyOf={[
+                            'finance.view_income',
+                            'finance.view_expense',
+                          ]}
+                        />
+                      }
+                    >
+                      <Route path="/finance" element={<Finance />} />
+                    </Route>
+                    <Route
+                      element={<PermRoute perm="finance.driver_payroll" />}
+                    >
+                      <Route path="/finance/payroll" element={<Payroll />} />
+                    </Route>
+                    <Route element={<PermRoute perm="drivers.view" />}>
+                      <Route path="/delivery-ops" element={<DeliveryOps />} />
+                    </Route>
+                    <Route element={<PermRoute perm="analytics.view" />}>
+                      <Route path="/analytics" element={<Analytics />} />
+                    </Route>
+                    <Route
+                      element={
+                        <PermRoute
+                          anyOf={[
+                            'reports.delivery',
+                            'reports.inventory',
+                            'reports.finance',
+                          ]}
+                        />
+                      }
+                    >
+                      <Route path="/reports" element={<Reports />} />
+                    </Route>
+                    <Route element={<PermRoute perm="customers.view" />}>
+                      <Route path="/customers" element={<Customers />} />
+                    </Route>
+                    <Route element={<PermRoute perm="users.manage" />}>
                       <Route path="/users" element={<Users />} />
+                    </Route>
+                    <Route element={<PermRoute perm="permissions.manage" />}>
                       <Route
                         path="/users/:id/permissions"
                         element={<UserPermissions />}
                       />
+                    </Route>
+                    <Route element={<PermRoute perm="activity_log.view" />}>
                       <Route path="/activity-log" element={<ActivityLog />} />
                     </Route>
 
