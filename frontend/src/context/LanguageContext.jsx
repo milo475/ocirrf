@@ -14,6 +14,10 @@ const DICT = {
     'table.range': '{from}–{to} / нийт {total}',
     'finance.income': 'Орлого',
     'finance.expense': 'Зарлага',
+    'action.create': 'Үүсгэсэн',
+    'action.update': 'Зассан',
+    'action.delete': 'Устгасан',
+    'action.permission': 'Эрх өөрчилсөн',
   },
   en: {
     // — Нэвтрэлт, бүрхүүл —
@@ -281,6 +285,24 @@ const DICT = {
     'Хугацаа': 'Period',
     '{name} — {n} хүргэлт, {amt}. Тооцоо хаах уу?':
       '{name} — {n} deliveries, {amt}. Close this settlement?',
+
+    // — Мэдэгдэл + Үйлдлийн түүх (V3-10) —
+    'Мэдэгдэл': 'Notifications',
+    'Мэдэгдэл алга': 'No notifications',
+    'Бүгдийг харах': 'View all',
+    'Бүгдийг уншсан болгох': 'Mark all as read',
+    'Үйлдлийн түүх': 'Activity log',
+    'Үйлдэл': 'Action',
+    'Объект': 'Entity',
+    'Дэлгэрэнгүй': 'Details',
+    'Эхлэх': 'From',
+    'Дуусах': 'To',
+    'Бичилт олдсонгүй': 'No records found',
+    'action.create': 'Created',
+    'action.update': 'Updated',
+    'action.delete': 'Deleted',
+    'action.permission': 'Permission change',
+    'Эрхийн тохиргоо': 'Permissions',
 
     // — Үлдэгдлийн хөдөлгөөн —
     'Үлдэгдлийн хөдөлгөөн': 'Stock movements',

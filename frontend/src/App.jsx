@@ -6,9 +6,11 @@ import { ToastProvider } from './components/ui/Toast'
 import { AuthProvider } from './context/AuthContext'
 import { LanguageProvider } from './context/LanguageContext'
 import { ThemeProvider } from './context/ThemeContext'
+import ActivityLog from './pages/ActivityLog'
 import Dashboard from './pages/Dashboard'
 import Finance from './pages/Finance'
 import Login from './pages/Login'
+import Notifications from './pages/Notifications'
 import Payroll from './pages/Payroll'
 import MyDeliveries from './pages/MyDeliveries'
 import OrderDetail from './pages/OrderDetail'
@@ -36,6 +38,7 @@ function App() {
                     {/* Бүх эрхэд нээлттэй (dashboard эрхээрээ өөр агуулгатай) */}
                     <Route path="/" element={<Dashboard />} />
                     <Route path="/settings" element={<Settings />} />
+                    <Route path="/notifications" element={<Notifications />} />
 
                     {/* Эрхийн матриц: харах эрхтэй гурав */}
                     <Route
@@ -67,6 +70,7 @@ function App() {
                         path="/users/:id/permissions"
                         element={<UserPermissions />}
                       />
+                      <Route path="/activity-log" element={<ActivityLog />} />
                     </Route>
 
                     {/* Хүргэлт — зөвхөн DRIVER */}

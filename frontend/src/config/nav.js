@@ -4,6 +4,7 @@ import {
   HandCoins,
   Home,
   Package,
+  ScrollText,
   Truck,
   Users,
   Wallet,
@@ -75,6 +76,13 @@ export const NAV_ITEMS = [
     icon: Users,
     path: '/users',
     perm: 'users.manage',
+  },
+  {
+    key: 'activity',
+    label: 'Үйлдлийн түүх',
+    icon: ScrollText,
+    path: '/activity-log',
+    perm: 'activity_log.view',
   },
 ]
 

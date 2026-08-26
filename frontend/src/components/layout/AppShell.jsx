@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router'
-import { LogOut, PanelLeft, PanelLeftClose, Settings } from 'lucide-react'
+import { Bell, LogOut, PanelLeft, PanelLeftClose, Settings } from 'lucide-react'
 import { navFor } from '../../config/nav'
 import { useAuth } from '../../context/AuthContext'
 import { useLang } from '../../context/LanguageContext'
+import { api } from '../../lib/api'
+import NotificationBell from './NotificationBell'
 import ThemeToggle from './ThemeToggle'
 
 const ROLE_LABELS = {
@@ -36,6 +38,24 @@ export default function AppShell() {
   }, [user])
 
   const items = navFor(user, hasPerm)
+
+  // Уншаагүй мэдэгдлийн тоо — 30 сек тутам + read үйлдлийн дараа event-ээр
+  const [unread, setUnread] = useState(0)
+  const refreshUnread = useCallback(() => {
+    api('/notifications/unread-count')
+      .then((d) => setUnread(d.count))
+      .catch(() => {})
+  }, [])
+  useEffect(() => {
+    if (!user) return
+    refreshUnread()
+    const id = setInterval(refreshUnread, 30_000)
+    window.addEventListener('notif:refresh', refreshUnread)
+    return () => {
+      clearInterval(id)
+      window.removeEventListener('notif:refresh', refreshUnread)
+    }
+  }, [user, refreshUnread])
 
   function toggleSidebar() {
     setCollapsed((c) => {
@@ -146,7 +166,7 @@ export default function AppShell() {
             ursGAL
           </NavLink>
           <div className="ml-auto flex items-center gap-2 md:gap-3">
-            {/* Энд notification хонх орно (Бүлэг 4) */}
+            <NotificationBell unread={unread} />
             <ThemeToggle />
             {/* Mobile дээр sidebar байхгүй тул тохиргоо/гарах topbar-т */}
             <NavLink
@@ -186,6 +206,20 @@ export default function AppShell() {
             <span>{t(item.label)}</span>
           </NavLink>
         ))}
+        {/* Жолоочид мэдэгдлийн tab — badge-тэй */}
+        {user?.role === 'DRIVER' && (
+          <NavLink to="/notifications" className={tabLink}>
+            <span className="relative">
+              <Bell size={20} />
+              {unread > 0 && (
+                <span className="absolute -top-1 -right-2 min-w-[15px] h-[15px] px-0.5 rounded-full bg-alarm text-bg font-mono text-[9px] leading-[15px] text-center">
+                  {unread > 99 ? '99+' : unread}
+                </span>
+              )}
+            </span>
+            <span>{t('Мэдэгдэл')}</span>
+          </NavLink>
+        )}
       </nav>
     </div>
   )
