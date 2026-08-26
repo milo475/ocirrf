@@ -4,10 +4,15 @@ import { api } from '../../lib/api'
 import { formatMoney } from '../../lib/format'
 
 /**
- * Бараа хайх combobox: нэр/SKU-гээр /api/products?search= дуудаж,
- * сонгоход onPick(product) дуудагдана. excludeIds — аль хэдийн нэмэгдсэн.
+ * Бараа хайх combobox: нэр/SKU-гээр хайж, сонгоход onPick(product)
+ * дуудагдана. excludeIds — аль хэдийн нэмэгдсэн. endpoint — portal
+ * горимд /portal/products (хязгаарлагдмал талбартай) руу чиглэнэ.
  */
-export default function ProductPicker({ onPick, excludeIds = [] }) {
+export default function ProductPicker({
+  onPick,
+  excludeIds = [],
+  endpoint = '/products',
+}) {
   const { t } = useLang()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
@@ -24,7 +29,7 @@ export default function ProductPicker({ onPick, excludeIds = [] }) {
       return
     }
     const t = setTimeout(() => {
-      api(`/products?search=${encodeURIComponent(q)}&limit=8`)
+      api(`${endpoint}?search=${encodeURIComponent(q)}&limit=8`)
         .then((d) => {
           setResults(d.items)
           setOpen(true)
@@ -33,7 +38,7 @@ export default function ProductPicker({ onPick, excludeIds = [] }) {
         .catch(() => {})
     }, 300)
     return () => clearTimeout(t)
-  }, [query])
+  }, [query, endpoint])
 
   // Гадна дарахад хаагдана
   useEffect(() => {

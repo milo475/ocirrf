@@ -15,6 +15,7 @@ import Notifications from './pages/Notifications'
 import Payroll from './pages/Payroll'
 import PortalHome from './pages/portal/PortalHome'
 import PortalNew from './pages/portal/PortalNew'
+import PortalOrderDetail from './pages/portal/PortalOrderDetail'
 import PortalOrders from './pages/portal/PortalOrders'
 import PortalProfile from './pages/portal/PortalProfile'
 import Register from './pages/Register'
@@ -87,6 +88,10 @@ function App() {
                       <Route path="/portal" element={<PortalHome />} />
                       <Route path="/portal/new" element={<PortalNew />} />
                       <Route path="/portal/orders" element={<PortalOrders />} />
+                      <Route
+                        path="/portal/orders/:id"
+                        element={<PortalOrderDetail />}
+                      />
                       <Route
                         path="/portal/profile"
                         element={<PortalProfile />}

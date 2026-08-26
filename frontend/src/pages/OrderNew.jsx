@@ -6,6 +6,7 @@ import EmptyState from '../components/ui/EmptyState'
 import Input from '../components/ui/Input'
 import Select from '../components/ui/Select'
 import { useToast } from '../components/ui/Toast'
+import { useAuth } from '../context/AuthContext'
 import { useLang } from '../context/LanguageContext'
 import { AIMAGS, DISTRICTS } from '../data/aimags'
 import { formatFullAddress } from '../lib/address'
@@ -90,14 +91,21 @@ function Stepper({ step, onBack, t }) {
   )
 }
 
-export default function OrderNew() {
+export default function OrderNew({ portal = false }) {
   const navigate = useNavigate()
   const toast = useToast()
   const { t } = useLang()
+  const { user } = useAuth()
 
   const [step, setStep] = useState(1)
-  // Нэг state — алхам хооронд болон горим солиход утга алдагдахгүй
-  const [form, setForm] = useState(EMPTY_FORM)
+  // Нэг state — алхам хооронд болон горим солиход утга алдагдахгүй.
+  // Portal горимд хүлээн авагч профайлаас урьдчилан бөглөгдөнө.
+  const [form, setForm] = useState(() => ({
+    ...EMPTY_FORM,
+    ...(portal
+      ? { customerName: user?.name ?? '', customerPhone: user?.phone ?? '' }
+      : {}),
+  }))
   const [errors, setErrors] = useState({})
   const [items, setItems] = useState([])
   const [submitting, setSubmitting] = useState(false)
@@ -200,7 +208,7 @@ export default function OrderNew() {
         },
       })
       toast.show(t('Захиалга {no} үүслээ', { no: order.orderNo }))
-      navigate(`/orders/${order.id}`)
+      navigate(portal ? `/portal/orders/${order.id}` : `/orders/${order.id}`)
     } catch (err) {
       toast.show(err.message, { type: 'error' })
       setStep(stepForError(err.message))
@@ -406,6 +414,7 @@ export default function OrderNew() {
           <ProductPicker
             onPick={addProduct}
             excludeIds={items.map((i) => i.product.id)}
+            endpoint={portal ? '/portal/products' : '/products'}
           />
 
           {items.length === 0 ? (

@@ -305,10 +305,10 @@ const DICT = {
     'Шинэ нууц үг': 'New password',
     '(солих бол)': '(if changing)',
     '(солих бол шинэ дугаар)': '(new number if changing)',
-    'Тун удахгүй': 'Coming soon',
-    'Онлайн захиалгын хэсэг дараагийн шатанд нээгдэнэ':
-      'Online ordering opens in the next stage',
-    '← Миний самбар': '← My dashboard',
+    '← Миний захиалгууд': '← My orders',
+    'Нэхэмжлэх харах': 'View invoice',
+    'Нэхэмжлэх': 'Invoice',
+    'Хэвлэх': 'Print',
 
     // — Мэдэгдэл + Үйлдлийн түүх (V3-10) —
     'Мэдэгдэл': 'Notifications',

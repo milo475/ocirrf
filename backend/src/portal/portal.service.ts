@@ -100,7 +100,40 @@ export class PortalService {
     if (order.customerId !== userId) {
       throw new ForbiddenException('Энэ захиалга таных биш');
     }
-    return { ...order, fullAddress: formatFullAddress(order) };
+    return {
+      ...order,
+      fullAddress: formatFullAddress(order),
+      // Frontend [Цуцлах] товчоо үүгээр харуулна
+      canCancel: allowCustomerCancel() && order.orderStatus === OrderStatus.NEW,
+    };
+  }
+
+  /** Захиалгын wizard-ын барааны хайлт — хязгаарлагдмал талбарууд */
+  async searchProducts(search: string | undefined, limit = 8) {
+    const items = await this.prisma.product.findMany({
+      where: {
+        isActive: true,
+        ...(search
+          ? {
+              OR: [
+                { name: { contains: search, mode: 'insensitive' } },
+                { sku: { contains: search, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
+      },
+      select: {
+        id: true,
+        sku: true,
+        name: true,
+        price: true,
+        stockQty: true,
+        unit: true,
+      },
+      orderBy: { name: 'asc' },
+      take: limit,
+    });
+    return { items };
   }
 
   async dashboard(userId: string) {

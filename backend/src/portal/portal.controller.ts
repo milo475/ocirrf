@@ -16,6 +16,18 @@ import { OrderStatus, Role } from '../generated/prisma/client';
 import { PortalService } from './portal.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 
+class QueryPortalProductsDto {
+  @IsOptional()
+  search?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(20)
+  limit?: number = 8;
+}
+
 class QueryPortalOrdersDto {
   @IsOptional()
   @IsEnum(OrderStatus, { message: 'Статус буруу' })
@@ -40,6 +52,11 @@ class QueryPortalOrdersDto {
 @Roles(Role.CUSTOMER)
 export class PortalController {
   constructor(private readonly portalService: PortalService) {}
+
+  @Get('products')
+  products(@Query() query: QueryPortalProductsDto) {
+    return this.portalService.searchProducts(query.search, query.limit);
+  }
 
   @Get('orders')
   myOrders(

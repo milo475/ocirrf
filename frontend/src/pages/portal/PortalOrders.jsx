@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
 import EmptyState from '../../components/ui/EmptyState'
@@ -6,11 +7,10 @@ import Spinner from '../../components/ui/Spinner'
 import { useLang } from '../../context/LanguageContext'
 import { api } from '../../lib/api'
 import { formatDateTime, formatMoney } from '../../lib/format'
-import { StatusProgress } from './PortalHome'
 
-const LIMIT = 10
+const LIMIT = 15
 
-/** Харилцагчийн бүх захиалга — дэлгэрэнгүй нь дараагийн шатанд өргөжнө */
+/** Харилцагчийн захиалгын жагсаалт — мөр дарвал tracking дэлгэрэнгүй */
 export default function PortalOrders() {
   const { t } = useLang()
 
@@ -59,50 +59,27 @@ export default function PortalOrders() {
           <EmptyState title={t('Захиалга алга')} />
         </div>
       ) : (
-        <div className="mt-8 space-y-4">
+        <ul className="mt-8 divide-y divide-rule border-y border-rule">
           {data.items.map((o) => (
-            <div
-              key={o.id}
-              className="bg-surface border border-rule rounded-lg p-5"
-            >
-              <div className="flex items-center gap-3 flex-wrap">
-                <span className="font-mono tabular-nums">{o.orderNo}</span>
+            <li key={o.id}>
+              <Link
+                to={`/portal/orders/${o.id}`}
+                className="flex items-center gap-3 py-3 px-2 -mx-2 hover:bg-surface transition-colors flex-wrap"
+              >
+                <span className="font-mono text-sm tabular-nums">
+                  {o.orderNo}
+                </span>
                 <Badge status={o.orderStatus} />
-                <Badge status={o.deliveryStatus} />
-                <span className="ml-auto font-mono text-lg tabular-nums">
+                <span className="ml-auto font-mono text-sm tabular-nums">
                   {formatMoney(o.totalAmount)}
                 </span>
-              </div>
-              <p className="mt-1.5 text-sm text-ink-muted">{o.fullAddress}</p>
-              <ul className="mt-3 border-t border-rule pt-3 space-y-1 text-sm">
-                {o.items.map((item) => (
-                  <li key={item.id} className="flex justify-between gap-3">
-                    <span className="truncate">{item.productName}</span>
-                    <span className="font-mono tabular-nums shrink-0">
-                      × {item.qty} · {formatMoney(item.lineTotal)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-              {o.orderStatus !== 'CANCELLED' && (
-                <div className="mt-4">
-                  <StatusProgress status={o.orderStatus} t={t} />
-                </div>
-              )}
-              {o.deliveryProofUrl && (
-                <img
-                  src={o.deliveryProofUrl}
-                  alt={t('Баталгаажуулах зураг')}
-                  className="mt-3 h-24 rounded border border-rule"
-                />
-              )}
-              <p className="mt-3 font-mono text-xs text-ink-muted tabular-nums">
-                {formatDateTime(o.createdAt)}
-                {o.assignedDriver && ` · ${t('Жолооч')}: ${o.assignedDriver.fullName}`}
-              </p>
-            </div>
+                <span className="font-mono text-xs text-ink-muted tabular-nums">
+                  {formatDateTime(o.createdAt)}
+                </span>
+              </Link>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
 
       {totalPages > 1 && (
