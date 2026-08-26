@@ -49,6 +49,97 @@ export type PermKey = (typeof PERM)[keyof typeof PERM];
 /** Бүх түлхүүрийн жагсаалт (permissions.manage UI-д хэрэглэнэ) */
 export const ALL_PERMISSIONS: PermKey[] = Object.values(PERM);
 
+/** Түлхүүр бүрийн монгол нэр — Permission Panel-д харагдана */
+export const PERM_LABELS: Record<PermKey, string> = {
+  [PERM.ORDERS_VIEW]: 'Захиалга харах',
+  [PERM.ORDERS_CREATE]: 'Захиалга үүсгэх',
+  [PERM.ORDERS_EDIT]: 'Захиалга засах',
+  [PERM.ORDERS_DELETE]: 'Захиалга устгах',
+  [PERM.ORDERS_ASSIGN_DRIVER]: 'Жолооч хуваарилах',
+  [PERM.ORDERS_CHANGE_STATUS]: 'Захиалгын статус солих',
+  [PERM.CUSTOMERS_VIEW]: 'Харилцагч харах',
+  [PERM.CUSTOMERS_CREATE]: 'Харилцагч бүртгэх',
+  [PERM.CUSTOMERS_EDIT]: 'Харилцагч засах',
+  [PERM.CUSTOMERS_DELETE]: 'Харилцагч устгах',
+  [PERM.DRIVERS_VIEW]: 'Жолооч харах',
+  [PERM.DRIVERS_ASSIGN]: 'Жолооч томилох',
+  [PERM.INVENTORY_VIEW]: 'Агуулах харах',
+  [PERM.INVENTORY_STOCK_IN]: 'Орлого авах',
+  [PERM.INVENTORY_STOCK_OUT]: 'Зарлага гаргах',
+  [PERM.INVENTORY_ADJUSTMENT]: 'Тохируулга хийх',
+  [PERM.FINANCE_VIEW_INCOME]: 'Орлогын гүйлгээ харах',
+  [PERM.FINANCE_CREATE_INCOME]: 'Орлогын гүйлгээ бүртгэх',
+  [PERM.FINANCE_VIEW_EXPENSE]: 'Зарлагын гүйлгээ харах',
+  [PERM.FINANCE_CREATE_EXPENSE]: 'Зарлагын гүйлгээ бүртгэх',
+  [PERM.FINANCE_DRIVER_PAYROLL]: 'Жолоочийн цалин бодох',
+  [PERM.REPORTS_DELIVERY]: 'Хүргэлтийн тайлан',
+  [PERM.REPORTS_INVENTORY]: 'Агуулахын тайлан',
+  [PERM.REPORTS_FINANCE]: 'Санхүүгийн тайлан',
+  [PERM.USERS_MANAGE]: 'Хэрэглэгч удирдах',
+  [PERM.PERMISSIONS_MANAGE]: 'Эрхийн тохиргоо удирдах',
+  [PERM.SETTINGS_EDIT]: 'Тохиргоо засах',
+  [PERM.ACTIVITY_LOG_VIEW]: 'Үйлдлийн түүх харах',
+  [PERM.ANALYTICS_VIEW]: 'Аналитик харах',
+};
+
+/** Panel-ын бүлэглэлт — дараалал нь UI-ийн дараалал */
+export const PERM_GROUPS: { group: string; keys: PermKey[] }[] = [
+  {
+    group: 'ORDERS',
+    keys: [
+      PERM.ORDERS_VIEW,
+      PERM.ORDERS_CREATE,
+      PERM.ORDERS_EDIT,
+      PERM.ORDERS_DELETE,
+      PERM.ORDERS_ASSIGN_DRIVER,
+      PERM.ORDERS_CHANGE_STATUS,
+    ],
+  },
+  {
+    group: 'CUSTOMERS',
+    keys: [
+      PERM.CUSTOMERS_VIEW,
+      PERM.CUSTOMERS_CREATE,
+      PERM.CUSTOMERS_EDIT,
+      PERM.CUSTOMERS_DELETE,
+    ],
+  },
+  { group: 'DRIVERS', keys: [PERM.DRIVERS_VIEW, PERM.DRIVERS_ASSIGN] },
+  {
+    group: 'INVENTORY',
+    keys: [
+      PERM.INVENTORY_VIEW,
+      PERM.INVENTORY_STOCK_IN,
+      PERM.INVENTORY_STOCK_OUT,
+      PERM.INVENTORY_ADJUSTMENT,
+    ],
+  },
+  {
+    group: 'FINANCE',
+    keys: [
+      PERM.FINANCE_VIEW_INCOME,
+      PERM.FINANCE_CREATE_INCOME,
+      PERM.FINANCE_VIEW_EXPENSE,
+      PERM.FINANCE_CREATE_EXPENSE,
+      PERM.FINANCE_DRIVER_PAYROLL,
+    ],
+  },
+  {
+    group: 'REPORTS',
+    keys: [PERM.REPORTS_DELIVERY, PERM.REPORTS_INVENTORY, PERM.REPORTS_FINANCE],
+  },
+  {
+    group: 'SYSTEM',
+    keys: [
+      PERM.USERS_MANAGE,
+      PERM.PERMISSIONS_MANAGE,
+      PERM.SETTINGS_EDIT,
+      PERM.ACTIVITY_LOG_VIEW,
+      PERM.ANALYTICS_VIEW,
+    ],
+  },
+];
+
 /**
  * Эрх тус бүрийн default матриц — v2-ын зан төлөвтэй ЯГ ижил.
  *

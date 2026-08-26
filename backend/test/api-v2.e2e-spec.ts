@@ -81,6 +81,8 @@ describe('ursGAL v2 API (e2e)', () => {
   let adminOrderId: string; // операторын 403 тест
   let e2eDriverId: string; // тестийн жолооч
   let e2eDriverToken: string;
+  let permUserId: string; // permission panel-ын тестийн оператор
+  let permUserToken: string;
   const proofFiles: string[] = [];
 
   const api = () => request(http);
@@ -122,6 +124,10 @@ describe('ursGAL v2 API (e2e)', () => {
     if (e2eDriverId) {
       await prisma.driverProfile.deleteMany({ where: { userId: e2eDriverId } });
       await prisma.user.deleteMany({ where: { id: e2eDriverId } });
+    }
+    if (permUserId) {
+      // UserPermission-ууд cascade-аар устна
+      await prisma.user.deleteMany({ where: { id: permUserId } });
     }
     for (const f of proofFiles) {
       try {
@@ -764,6 +770,152 @@ describe('ursGAL v2 API (e2e)', () => {
         .patch(`/api/users/${me.body.id}`)
         .set(auth(tok.admin))
         .send({ role: 'OPERATOR' })
+        .expect(400);
+    });
+  });
+
+  // ────────────────────────────────────────────── PERMISSION PANEL (V3)
+  describe('V3: Permission Panel ⭐', () => {
+    it('operator панел харах → 403 (permissions.manage байхгүй)', async () => {
+      await api()
+        .get(`/api/users/${e2eDriverId}/permissions`)
+        .set(auth(tok.operator))
+        .expect(403);
+    });
+
+    it('тестийн оператор үүсгэж, панелын бүтэц зөв', async () => {
+      const res = await api()
+        .post('/api/users')
+        .set(auth(tok.admin))
+        .send({
+          email: `e2e-perm-${T}@ursgal.mn`,
+          name: `Э2Э Перм ${T}`,
+          password: 'e2epass123',
+          role: 'OPERATOR',
+        })
+        .expect(201);
+      permUserId = res.body.id;
+      const login = await api()
+        .post('/api/auth/login')
+        .send({ email: `e2e-perm-${T}@ursgal.mn`, password: 'e2epass123' })
+        .expect(200);
+      permUserToken = login.body.accessToken;
+
+      const panel = await api()
+        .get(`/api/users/${permUserId}/permissions`)
+        .set(auth(tok.admin))
+        .expect(200);
+      expect(panel.body.role).toBe('OPERATOR');
+      expect(panel.body.groups.map((g: { group: string }) => g.group)).toEqual([
+        'ORDERS',
+        'CUSTOMERS',
+        'DRIVERS',
+        'INVENTORY',
+        'FINANCE',
+        'REPORTS',
+        'SYSTEM',
+      ]);
+      type Item = {
+        key: string;
+        label: string;
+        roleDefault: boolean;
+        override: boolean | null;
+        effective: boolean;
+      };
+      const orders: Item[] = panel.body.groups[0].items;
+      expect(orders.find((i) => i.key === 'orders.create')).toMatchObject({
+        label: 'Захиалга үүсгэх',
+        roleDefault: true,
+        override: null,
+        effective: true,
+      });
+      expect(orders.find((i) => i.key === 'orders.delete')?.effective).toBe(
+        false,
+      );
+    });
+
+    it('override хасах → ШУУД 403 (cache invalidate); null → default буцна', async () => {
+      const put = await api()
+        .put(`/api/users/${permUserId}/permissions`)
+        .set(auth(tok.admin))
+        .send({ changes: [{ key: 'orders.create', allowed: false }] })
+        .expect(200);
+      const item = put.body.groups[0].items.find(
+        (i: { key: string }) => i.key === 'orders.create',
+      );
+      expect(item).toMatchObject({
+        roleDefault: true,
+        override: false,
+        effective: false,
+      });
+
+      // Guard нь validation-аас ӨМНӨ ажилладаг: эрхгүй бол хоосон body ч 403
+      await api()
+        .post('/api/orders')
+        .set(auth(permUserToken))
+        .send({})
+        .expect(403);
+
+      const restored = await api()
+        .put(`/api/users/${permUserId}/permissions`)
+        .set(auth(tok.admin))
+        .send({ changes: [{ key: 'orders.create', allowed: null }] })
+        .expect(200);
+      const r = restored.body.groups[0].items.find(
+        (i: { key: string }) => i.key === 'orders.create',
+      );
+      expect(r).toMatchObject({ override: null, effective: true });
+      // Эрх сэргэсэн — одоо validation-д тулна (400, захиалга үүсээгүй)
+      await api()
+        .post('/api/orders')
+        .set(auth(permUserToken))
+        .send({})
+        .expect(400);
+    });
+
+    it('default-д байхгүй эрх олгож болно; өөрийнхөө permissions.manage хасах → 400', async () => {
+      await api()
+        .get(`/api/users/${permUserId}/permissions`)
+        .set(auth(permUserToken))
+        .expect(403);
+      await api()
+        .put(`/api/users/${permUserId}/permissions`)
+        .set(auth(tok.admin))
+        .send({ changes: [{ key: 'permissions.manage', allowed: true }] })
+        .expect(200);
+      await api()
+        .get(`/api/users/${permUserId}/permissions`)
+        .set(auth(permUserToken))
+        .expect(200);
+
+      const res = await api()
+        .put(`/api/users/${permUserId}/permissions`)
+        .set(auth(permUserToken))
+        .send({ changes: [{ key: 'permissions.manage', allowed: false }] })
+        .expect(400);
+      expect(res.body.message).toContain('боломжгүй');
+
+      // цэвэрлэгээ: admin override-ыг буцаана
+      await api()
+        .put(`/api/users/${permUserId}/permissions`)
+        .set(auth(tok.admin))
+        .send({ changes: [{ key: 'permissions.manage', allowed: null }] })
+        .expect(200);
+    });
+
+    it('ADMIN-ий permission өөрчлөх → 400; буруу түлхүүр → 400', async () => {
+      const me = await api().get('/api/auth/me').set(auth(tok.admin));
+      const res = await api()
+        .put(`/api/users/${me.body.id}/permissions`)
+        .set(auth(tok.admin))
+        .send({ changes: [{ key: 'orders.view', allowed: false }] })
+        .expect(400);
+      expect(res.body.message).toBe('Админы эрхийг хязгаарлах боломжгүй');
+
+      await api()
+        .put(`/api/users/${permUserId}/permissions`)
+        .set(auth(tok.admin))
+        .send({ changes: [{ key: 'huurmag.key', allowed: false }] })
         .expect(400);
     });
   });

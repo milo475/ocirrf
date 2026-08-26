@@ -1,11 +1,21 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import type { AuthUser } from '../auth/decorators/current-user.decorator';
 import { Role } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   ALL_PERMISSIONS,
+  PERM,
+  PERM_GROUPS,
+  PERM_LABELS,
   PermKey,
   ROLE_DEFAULTS,
 } from './permission-keys';
+
+export type PermissionChange = { key: PermKey; allowed?: boolean | null };
 
 /** Cache-ийн нэг мөр: тооцсон permission олонлог + дуусах хугацаа */
 type CacheEntry = { perms: Set<PermKey>; expires: number };
@@ -61,5 +71,107 @@ export class PermissionsService {
   /** Override өөрчлөгдөхөд заавал дуудна — cache шинэчлэгдэнэ */
   invalidate(userId: string): void {
     this.cache.delete(userId);
+  }
+
+  /** Permission Panel: бүлэглэсэн бүтэц (role default + override + effective) */
+  async getPanel(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('Хэрэглэгч олдсонгүй');
+    }
+
+    const isAdmin = user.role === Role.ADMIN;
+    const defaults = new Set(ROLE_DEFAULTS[user.role] ?? []);
+    const overrides = await this.prisma.userPermission.findMany({
+      where: { userId },
+    });
+    const ovMap = new Map(overrides.map((o) => [o.permKey, o.allowed]));
+
+    return {
+      role: user.role,
+      groups: PERM_GROUPS.map((g) => ({
+        group: g.group,
+        items: g.keys.map((key) => {
+          // ADMIN үргэлж бүгд ✅ — override харуулахгүй, үл хэрэгсэнэ
+          const roleDefault = isAdmin ? true : defaults.has(key);
+          const override = isAdmin ? null : (ovMap.get(key) ?? null);
+          return {
+            key,
+            label: PERM_LABELS[key],
+            roleDefault,
+            override,
+            effective: isAdmin ? true : (override ?? roleDefault),
+          };
+        }),
+      })),
+    };
+  }
+
+  /**
+   * Override-уудыг transaction-аар хэрэгжүүлнэ.
+   * allowed=null (эсвэл орхисон) → override устгаж default руу буцаана.
+   */
+  async applyChanges(
+    actor: AuthUser,
+    targetId: string,
+    changes: PermissionChange[],
+  ) {
+    const target = await this.prisma.user.findUnique({
+      where: { id: targetId },
+    });
+    if (!target) {
+      throw new NotFoundException('Хэрэглэгч олдсонгүй');
+    }
+    if (target.role === Role.ADMIN) {
+      throw new BadRequestException('Админы эрхийг хязгаарлах боломжгүй');
+    }
+
+    // Өөрийнхөө permissions.manage-ийг хасаж түгжирэхээс хамгаална
+    if (actor.id === targetId) {
+      const defaults = new Set(ROLE_DEFAULTS[target.role] ?? []);
+      for (const c of changes) {
+        if (c.key !== PERM.PERMISSIONS_MANAGE) continue;
+        const wouldHave = c.allowed ?? defaults.has(PERM.PERMISSIONS_MANAGE);
+        if (!wouldHave) {
+          throw new BadRequestException(
+            'Өөрийнхөө эрхийн тохиргооны эрхийг хасах боломжгүй',
+          );
+        }
+      }
+    }
+
+    await this.prisma.$transaction(
+      changes.map((c) =>
+        c.allowed === null || c.allowed === undefined
+          ? this.prisma.userPermission.deleteMany({
+              where: { userId: targetId, permKey: c.key },
+            })
+          : this.prisma.userPermission.upsert({
+              where: {
+                userId_permKey: { userId: targetId, permKey: c.key },
+              },
+              create: { userId: targetId, permKey: c.key, allowed: c.allowed },
+              update: { allowed: c.allowed },
+            }),
+      ),
+    );
+
+    this.invalidate(targetId);
+    for (const c of changes) {
+      this.logChange(actor.id, targetId, c.key, c.allowed ?? null);
+    }
+    return this.getPanel(targetId);
+  }
+
+  /** Бүлэг 3-д ActivityLog хүснэгт рүү бичигдэнэ — одоохондоо console.log */
+  private logChange(
+    actorId: string,
+    targetId: string,
+    permKey: PermKey,
+    allowed: boolean | null,
+  ): void {
+    console.log(
+      `[activity] permission_change key=${permKey} allowed=${String(allowed)} target=${targetId} by=${actorId}`,
+    );
   }
 }
