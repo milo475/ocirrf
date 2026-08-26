@@ -13,6 +13,7 @@ enum Role {
   MANAGER
   OPERATOR
   DRIVER
+  CUSTOMER
 }
 
 enum OrderStatus {
@@ -50,6 +51,19 @@ model User {
   stockMoves     StockMovement[]
   assignedOrders Order[]         @relation("AssignedOrders")
   driverProfile  DriverProfile?
+  permissions    UserPermission[]
+}
+
+/// Хэрэглэгч тус бүрийн permission override.
+/// Effective = override байвал override, үгүй бол ROLE_DEFAULTS.
+model UserPermission {
+  id      String  @id @default(uuid())
+  userId  String
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permKey String
+  allowed Boolean
+
+  @@unique([userId, permKey])
 }
 
 model Category {

@@ -1,0 +1,93 @@
+import { Role } from '../generated/prisma/client';
+
+/**
+ * Бүх permission түлхүүр — системд НЭГ Л ГАЗАР энд тодорхойлогдоно.
+ * Effective permission = UserPermission override байвал түүнийх,
+ * үгүй бол ROLE_DEFAULTS.
+ */
+export const PERM = {
+  // Захиалга
+  ORDERS_VIEW: 'orders.view',
+  ORDERS_CREATE: 'orders.create',
+  ORDERS_EDIT: 'orders.edit',
+  ORDERS_DELETE: 'orders.delete',
+  ORDERS_ASSIGN_DRIVER: 'orders.assign_driver',
+  ORDERS_CHANGE_STATUS: 'orders.change_status',
+  // Харилцагч
+  CUSTOMERS_VIEW: 'customers.view',
+  CUSTOMERS_CREATE: 'customers.create',
+  CUSTOMERS_EDIT: 'customers.edit',
+  CUSTOMERS_DELETE: 'customers.delete',
+  // Жолооч
+  DRIVERS_VIEW: 'drivers.view',
+  DRIVERS_ASSIGN: 'drivers.assign',
+  // Агуулах
+  INVENTORY_VIEW: 'inventory.view',
+  INVENTORY_STOCK_IN: 'inventory.stock_in',
+  INVENTORY_STOCK_OUT: 'inventory.stock_out',
+  INVENTORY_ADJUSTMENT: 'inventory.adjustment',
+  // Санхүү
+  FINANCE_VIEW_INCOME: 'finance.view_income',
+  FINANCE_CREATE_INCOME: 'finance.create_income',
+  FINANCE_VIEW_EXPENSE: 'finance.view_expense',
+  FINANCE_CREATE_EXPENSE: 'finance.create_expense',
+  FINANCE_DRIVER_PAYROLL: 'finance.driver_payroll',
+  // Тайлан
+  REPORTS_DELIVERY: 'reports.delivery',
+  REPORTS_INVENTORY: 'reports.inventory',
+  REPORTS_FINANCE: 'reports.finance',
+  // Систем
+  USERS_MANAGE: 'users.manage',
+  PERMISSIONS_MANAGE: 'permissions.manage',
+  SETTINGS_EDIT: 'settings.edit',
+  ACTIVITY_LOG_VIEW: 'activity_log.view',
+  ANALYTICS_VIEW: 'analytics.view',
+} as const;
+
+export type PermKey = (typeof PERM)[keyof typeof PERM];
+
+/** Бүх түлхүүрийн жагсаалт (permissions.manage UI-д хэрэглэнэ) */
+export const ALL_PERMISSIONS: PermKey[] = Object.values(PERM);
+
+/**
+ * Эрх тус бүрийн default матриц — v2-ын зан төлөвтэй ЯГ ижил.
+ *
+ * - ADMIN: бүгд. Override-аар ХАСАГДАХГҮЙ (permission service үргэлж
+ *   бүгдийг ✅ буцаана) — энэ дүрэм PermissionsService-д хатуу шалгагдана.
+ * - OPERATOR-ийн orders.change_status "зөвхөн өөрийн шивсэн захиалга"
+ *   гэсэн нарийвчлал permission биш — OrdersService доторх ownership
+ *   шалгалт хэвээр хариуцна.
+ * - DRIVER: юу ч биш — /deliveries/* endpoint-ууд permission биш
+ *   @Roles(DRIVER)-оор хэвээр хамгаалагдана.
+ * - CUSTOMER: юу ч биш — portal endpoint-ууд тусдаа (Бүлэг 2).
+ */
+export const ROLE_DEFAULTS: Record<Role, PermKey[]> = {
+  [Role.ADMIN]: ALL_PERMISSIONS,
+  [Role.MANAGER]: [
+    PERM.ORDERS_VIEW,
+    PERM.ORDERS_EDIT,
+    PERM.ORDERS_CHANGE_STATUS,
+    PERM.ORDERS_ASSIGN_DRIVER,
+    PERM.INVENTORY_VIEW,
+    PERM.INVENTORY_STOCK_IN,
+    PERM.INVENTORY_STOCK_OUT,
+    PERM.INVENTORY_ADJUSTMENT,
+    PERM.DRIVERS_VIEW,
+    PERM.DRIVERS_ASSIGN,
+    PERM.FINANCE_VIEW_INCOME,
+    PERM.FINANCE_CREATE_INCOME,
+    PERM.FINANCE_VIEW_EXPENSE,
+    PERM.FINANCE_CREATE_EXPENSE,
+    PERM.FINANCE_DRIVER_PAYROLL,
+    PERM.REPORTS_DELIVERY,
+    PERM.REPORTS_INVENTORY,
+  ],
+  [Role.OPERATOR]: [
+    PERM.ORDERS_VIEW,
+    PERM.ORDERS_CREATE,
+    PERM.ORDERS_CHANGE_STATUS,
+    PERM.INVENTORY_VIEW,
+  ],
+  [Role.DRIVER]: [],
+  [Role.CUSTOMER]: [],
+};
