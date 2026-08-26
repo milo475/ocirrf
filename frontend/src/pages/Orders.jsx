@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
+import RegionBadge from '../components/orders/RegionBadge'
 import Badge, { STATUS_LABELS } from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import EmptyState from '../components/ui/EmptyState'
@@ -67,6 +68,16 @@ export default function Orders() {
       key: 'phone',
       header: t('Утас'),
       render: (o) => <span className="font-mono tabular-nums">{o.phone}</span>,
+    },
+    {
+      key: 'shortAddress',
+      header: t('Хаяг'),
+      render: (o) => (
+        <span className="flex items-center gap-2">
+          <RegionBadge region={o.region} />
+          <span className="text-sm">{o.shortAddress || '—'}</span>
+        </span>
+      ),
     },
     {
       key: 'totalAmount',

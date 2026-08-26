@@ -414,6 +414,13 @@ describe('ursGAL v2 API (e2e)', () => {
         .set(auth(tok.operator))
         .expect(200);
       expect(detail.body.fullAddress).toBe(UB_FULL);
+
+      // GET / жагсаалт — shortAddress богино хэлбэр (N4)
+      const list = await api()
+        .get(`/api/orders?search=${res.body.orderNo}`)
+        .set(auth(tok.operator))
+        .expect(200);
+      expect(list.body.items[0].shortAddress).toBe('ХУД, 11-р хороо');
       expect(res.body.orderNo).toMatch(/^ORD-\d{8}-\d{4}$/);
       expect(Number(res.body.totalAmount)).toBe(4000);
       expect(res.body.deliveryStatus).toBe('PENDING');
@@ -484,6 +491,11 @@ describe('ursGAL v2 API (e2e)', () => {
       expect(admDetail.body.fullAddress).toBe(
         'Архангай, Эрдэнэбулган сум — Тээвэр: Од транс, Захын хойд талд',
       );
+      const admList = await api()
+        .get(`/api/orders?search=${admOrd.body.orderNo}`)
+        .set(auth(tok.admin))
+        .expect(200);
+      expect(admList.body.items[0].shortAddress).toBe('Архангай, Эрдэнэбулган');
       await api()
         .patch(`/api/orders/${adminOrderId}/status`)
         .set(auth(tok.operator))

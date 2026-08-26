@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DeliveryStatus, OrderStatus } from '../generated/prisma/client';
+import { formatShortAddress } from '../orders/address.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { StockService } from '../stock/stock.service';
 import type {
@@ -255,7 +256,10 @@ export class DashboardService {
 
     return {
       stockLast7Days,
-      awaitingAssignment,
+      awaitingAssignment: awaitingAssignment.map((o) => ({
+        ...o,
+        shortAddress: formatShortAddress(o),
+      })),
       driverLoad: drivers.map((d) => ({
         id: d.id,
         name: d.fullName,

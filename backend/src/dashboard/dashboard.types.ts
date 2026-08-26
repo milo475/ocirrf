@@ -48,6 +48,7 @@ export type ManagerDashboard = {
     khoroo: string | null;
     province: string | null;
     soum: string | null;
+    shortAddress: string;
     totalAmount: unknown; // Prisma.Decimal — JSON-д string болно
     orderStatus: string;
     createdAt: Date;

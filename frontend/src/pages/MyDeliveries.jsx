@@ -72,15 +72,30 @@ export default function MyDeliveries() {
                 </span>
               </div>
 
-              <p className="mt-3 text-lg font-medium">{d.customerName}</p>
-              <a
-                href={`tel:${d.phone}`}
-                className="mt-1 inline-block font-mono text-xl text-accent underline underline-offset-4"
-              >
-                📞 {d.phone}
-              </a>
+              {d.customerName && (
+                <p className="mt-3 text-lg font-medium">{d.customerName}</p>
+              )}
+              <div className="mt-1 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+                <a
+                  href={`tel:${d.phone}`}
+                  className="font-mono text-xl text-accent underline underline-offset-4"
+                >
+                  📞 {d.phone}
+                </a>
+                {d.extraPhone && (
+                  <a
+                    href={`tel:${d.extraPhone}`}
+                    className="font-mono text-lg text-accent underline underline-offset-4"
+                  >
+                    📞 {d.extraPhone}
+                  </a>
+                )}
+              </div>
 
-              <p className="mt-3 text-lg leading-snug">{d.address}</p>
+              {/* Backend-ийн угсарсан fullAddress — том үсгээр */}
+              <p className="mt-3 text-xl font-medium leading-snug">
+                {d.fullAddress}
+              </p>
 
               <ul className="mt-3 border-t border-rule pt-3 space-y-1">
                 {d.items.map((item, i) => (
@@ -94,7 +109,7 @@ export default function MyDeliveries() {
               </ul>
 
               {d.note && (
-                <p className="mt-3 text-sm text-ink-muted border-l-2 border-accent/50 pl-3">
+                <p className="mt-3 text-base border border-accent/60 rounded px-3 py-2">
                   {d.note}
                 </p>
               )}

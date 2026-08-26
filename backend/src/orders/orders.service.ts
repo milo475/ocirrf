@@ -7,7 +7,7 @@ import {
 import type { AuthUser } from '../auth/decorators/current-user.decorator';
 import { OrderStatus, Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { formatFullAddress } from './address.util';
+import { formatFullAddress, formatShortAddress } from './address.util';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { QueryOrdersDto } from './dto/query-orders.dto';
 
@@ -308,6 +308,11 @@ export class OrdersService {
       this.prisma.order.count({ where }),
     ]);
 
-    return { items, total, page, limit };
+    return {
+      items: items.map((o) => ({ ...o, shortAddress: formatShortAddress(o) })),
+      total,
+      page,
+      limit,
+    };
   }
 }

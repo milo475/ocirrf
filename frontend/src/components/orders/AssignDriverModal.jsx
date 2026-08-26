@@ -44,11 +44,14 @@ export default function AssignDriverModal({ order, onClose, onDone }) {
     }
   }
 
+  // ОН захиалга ачааны тээврээр явдаг тул текст өөр — үйлдэл адилхан
+  const oronNutag = order.region === 'ORON_NUTAG'
+
   return (
     <Modal
       open={!!order}
       onClose={onClose}
-      title={`${t('Жолооч хуваарилах')} — ${order.orderNo}`}
+      title={`${oronNutag ? t('Тээвэрт гаргах') : t('Жолооч хуваарилах')} — ${order.orderNo}`}
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <Select
@@ -79,7 +82,7 @@ export default function AssignDriverModal({ order, onClose, onDone }) {
             {t('Болих')}
           </Button>
           <Button type="submit" loading={submitting} disabled={!driverId}>
-            {t('Хуваарилах')}
+            {oronNutag ? t('Тээвэрт гаргах') : t('Хуваарилах')}
           </Button>
         </div>
       </form>

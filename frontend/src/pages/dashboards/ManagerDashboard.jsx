@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router'
 import BarMini from '../../components/dashboard/BarMini'
+import RegionBadge from '../../components/orders/RegionBadge'
 import Rise from '../../components/dashboard/Rise'
 import Badge from '../../components/ui/Badge'
 import { useLang } from '../../context/LanguageContext'
@@ -78,9 +79,12 @@ export default function ManagerDashboard() {
                   >
                     <span className="font-mono text-sm shrink-0">{o.orderNo}</span>
                     <span className="flex-1 min-w-0">
-                      <span className="block truncate">{o.customerName}</span>
-                      <span className="block text-xs text-ink-muted truncate">
-                        {o.address}
+                      <span className="block truncate">
+                        {o.customerName ?? o.phone}
+                      </span>
+                      <span className="flex items-center gap-1.5 text-xs text-ink-muted min-w-0">
+                        <RegionBadge region={o.region} />
+                        <span className="truncate">{o.shortAddress}</span>
                       </span>
                     </span>
                     <Badge status={o.orderStatus} />

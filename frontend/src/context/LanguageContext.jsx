@@ -215,6 +215,10 @@ const DICT = {
     'Утасны дугаар 8 оронтой тоо байна': 'Phone must be 8 digits',
     'Нэмэлт утас 8 оронтой тоо байна': 'Extra phone must be 8 digits',
 
+    // — Хаягийн харагдац (N4) —
+    'УБ': 'UB',
+    'Тээвэрт гаргах': 'Send by freight',
+
     // — Үлдэгдлийн хөдөлгөөн —
     'Үлдэгдлийн хөдөлгөөн': 'Stock movements',
     'Бүх бараа': 'All products',

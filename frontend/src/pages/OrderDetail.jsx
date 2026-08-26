@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import AssignDriverModal from '../components/orders/AssignDriverModal'
+import RegionBadge from '../components/orders/RegionBadge'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
@@ -127,8 +128,60 @@ export default function OrderDetail() {
           label={t('Үүсгэсэн')}
           value={order.createdBy?.fullName ?? '—'}
         />
-        {order.address && <InfoItem label={t('Хаяг')} value={order.address} />}
+        {order.extraPhone && (
+          <InfoItem
+            label={t('Нэмэлт утас')}
+            value={
+              <span className="font-mono tabular-nums">{order.extraPhone}</span>
+            }
+          />
+        )}
         {order.note && <InfoItem label={t('Тэмдэглэл')} value={order.note} />}
+      </section>
+
+      {/* Хүргэлтийн хаяг — бүтэцлэгдсэн, талбар тус бүр label-тай */}
+      <section className="mt-10 border-t border-rule pt-6">
+        <p className="text-xs uppercase tracking-wide text-ink-muted mb-2 flex items-center gap-2">
+          {t('Хүргэлтийн хаяг')}
+          <RegionBadge region={order.region} />
+        </p>
+        {/* Backend-ийн угсарсан fullAddress — нэг мөр тойм */}
+        <p className="mb-5 text-base">{order.fullAddress}</p>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-5">
+          {order.region === 'ULAANBAATAR' ? (
+            <>
+              <InfoItem label={t('Дүүрэг')} value={order.district} />
+              <InfoItem label={t('Хороо')} value={order.khoroo} />
+              <InfoItem
+                label={t('Барилга/Хороолол/Хашаа')}
+                value={order.building}
+              />
+              <InfoItem label={t('Орц')} value={order.entrance} />
+              <InfoItem label={t('Давхар')} value={order.floor} />
+              <InfoItem label={t('Хаалга')} value={order.door} />
+            </>
+          ) : (
+            <>
+              <InfoItem label={t('Аймаг')} value={order.province} />
+              <InfoItem label={t('Сум/Суурин газар')} value={order.soum} />
+              {/* Тээвэр тод — жолооч биш ачааны тээврээр явна */}
+              <div>
+                <p className="text-xs uppercase tracking-wide text-accent">
+                  {t('Ачаа явах тээвэр')}
+                </p>
+                <p className="mt-1 text-lg font-medium text-accent">
+                  {order.transport}
+                </p>
+              </div>
+              {order.addressDetail && (
+                <InfoItem
+                  label={t('Хаягийн дэлгэрэнгүй')}
+                  value={order.addressDetail}
+                />
+              )}
+            </>
+          )}
+        </div>
       </section>
 
       {/* Item-ууд — захиалга үүсэх үеийн snapshot утгууд */}
@@ -224,7 +277,10 @@ export default function OrderDetail() {
           ))}
           {canAssign && (
             <Button variant="ghost" onClick={() => setAssignOpen(true)}>
-              {t('Жолооч хуваарилах')}
+              {/* ОН-д ачааны тээврээр явдаг тул текст өөр, үйлдэл адилхан */}
+              {order.region === 'ORON_NUTAG'
+                ? t('Тээвэрт гаргах')
+                : t('Жолооч хуваарилах')}
             </Button>
           )}
           {canCancel && (

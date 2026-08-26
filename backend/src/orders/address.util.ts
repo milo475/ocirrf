@@ -19,6 +19,19 @@ type AddressFields = {
  * УБ:          "ХУД, 11-р хороо, Гоёо хотхон 45-р байр, 2-р орц, 5 давхар, 501 тоот"
  * Орон нутаг:  "Архангай, Эрдэнэбулган сум — Тээвэр: Од транс, <дэлгэрэнгүй>"
  */
+/**
+ * Жагсаалтад зориулсан богино хэлбэр.
+ * УБ:          "ХУД, 11-р хороо"
+ * Орон нутаг:  "Архангай, Эрдэнэбулган"
+ */
+export function formatShortAddress(a: AddressFields): string {
+  const parts =
+    a.region === 'ULAANBAATAR'
+      ? [a.district, a.khoroo ? `${a.khoroo}-р хороо` : null]
+      : [a.province, a.soum];
+  return parts.filter(Boolean).join(', ');
+}
+
 export function formatFullAddress(a: AddressFields): string {
   if (a.region === 'ULAANBAATAR') {
     const parts = [
