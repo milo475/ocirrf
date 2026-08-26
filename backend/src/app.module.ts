@@ -1,3 +1,4 @@
+import type { ServerResponse } from 'node:http';
 import { join } from 'node:path';
 import { Module } from '@nestjs/common';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
@@ -36,6 +37,20 @@ import { UsersModule } from './users/users.module';
       {
         rootPath: join(__dirname, '..', '..', 'frontend', 'dist'),
         exclude: ['/api/{*path}'],
+        serveStaticOptions: {
+          setHeaders: (res: ServerResponse, path: string) => {
+            if (path.endsWith('.html')) {
+              // index.html хэзээ ч cache-лэгдэхгүй — шинэ build шууд очно
+              res.setHeader('Cache-Control', 'no-store');
+            } else if (path.includes('/assets/')) {
+              // hash-тай asset-ууд — урт хугацааны cache
+              res.setHeader(
+                'Cache-Control',
+                'public, max-age=31536000, immutable',
+              );
+            }
+          },
+        },
       },
       {
         rootPath: UPLOADS_DIR, // .env-ийн UPLOADS_DIR эсвэл backend/uploads
