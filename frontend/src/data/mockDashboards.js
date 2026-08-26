@@ -94,5 +94,10 @@ export const mockDriverDashboard = {
   deliveredThisWeek: 8,
   last7Days: DATES.map((date, i) => ({ date, delivered: [1, 2, 0, 2, 1, 1, 1][i] })),
   feePerDelivery: '3000.00',
-  earnings: '114000.00',
+  unpaidCount: 6,
+  earnings: {
+    unpaid: '18000.00',
+    pendingPayout: '24000.00',
+    paidTotal: '72000.00',
+  },
 }

@@ -178,31 +178,51 @@ export class DeliveryService {
 
     const mine: Prisma.OrderWhereInput = { assignedDriverId: driverId };
 
-    const [totalDelivered, assignedThisWeek, deliveredThisWeek, recent, profile] =
-      await Promise.all([
-        this.prisma.order.count({
-          where: { ...mine, deliveryStatus: DeliveryStatus.DELIVERED },
-        }),
-        this.prisma.order.count({
-          where: { ...mine, assignedAt: { gte: weekAgo } },
-        }),
-        this.prisma.order.count({
-          where: {
-            ...mine,
-            deliveryStatus: DeliveryStatus.DELIVERED,
-            deliveredAt: { gte: weekAgo },
-          },
-        }),
-        this.prisma.order.findMany({
-          where: {
-            ...mine,
-            deliveryStatus: DeliveryStatus.DELIVERED,
-            deliveredAt: { gte: weekAgo },
-          },
-          select: { deliveredAt: true },
-        }),
-        this.prisma.driverProfile.findUnique({ where: { userId: driverId } }),
-      ]);
+    const [
+      totalDelivered,
+      assignedThisWeek,
+      deliveredThisWeek,
+      recent,
+      profile,
+      unpaidCount,
+      payoutAgg,
+    ] = await Promise.all([
+      this.prisma.order.count({
+        where: { ...mine, deliveryStatus: DeliveryStatus.DELIVERED },
+      }),
+      this.prisma.order.count({
+        where: { ...mine, assignedAt: { gte: weekAgo } },
+      }),
+      this.prisma.order.count({
+        where: {
+          ...mine,
+          deliveryStatus: DeliveryStatus.DELIVERED,
+          deliveredAt: { gte: weekAgo },
+        },
+      }),
+      this.prisma.order.findMany({
+        where: {
+          ...mine,
+          deliveryStatus: DeliveryStatus.DELIVERED,
+          deliveredAt: { gte: weekAgo },
+        },
+        select: { deliveredAt: true },
+      }),
+      this.prisma.driverProfile.findUnique({ where: { userId: driverId } }),
+      // Тооцоонд ороогүй хүргэлтүүд (payroll V3)
+      this.prisma.order.count({
+        where: {
+          ...mine,
+          deliveryStatus: DeliveryStatus.DELIVERED,
+          payoutId: null,
+        },
+      }),
+      this.prisma.driverPayout.groupBy({
+        by: ['status'],
+        where: { driverId },
+        _sum: { totalAmount: true },
+      }),
+    ]);
 
     const dayKey = (d: Date) =>
       new Date(d.getTime() - d.getTimezoneOffset() * 60_000)
@@ -220,10 +240,13 @@ export class DeliveryService {
       if (row) row.delivered += 1;
     }
 
-    // Цалин = нийт хүргэсэн × хүргэлт тутмын хөлс (Decimal — float биш)
-    const earnings = profile
-      ? profile.feePerDelivery.mul(totalDelivered)
-      : new Prisma.Decimal(0);
+    // Цалингийн задаргаа (Decimal — float биш):
+    // unpaid = тооцоонд ороогүй хүргэлт × одоогийн хөлс,
+    // pendingPayout/paidTotal = хаагдсан тооцоонуудын нийлбэр
+    const fee = profile?.feePerDelivery ?? new Prisma.Decimal(0);
+    const zero = new Prisma.Decimal(0);
+    const sumFor = (status: 'PENDING' | 'PAID') =>
+      payoutAgg.find((g) => g.status === status)?._sum.totalAmount ?? zero;
 
     return {
       totalDelivered,
@@ -231,7 +254,12 @@ export class DeliveryService {
       deliveredThisWeek,
       last7Days: [...byDay.values()],
       feePerDelivery: profile?.feePerDelivery ?? null,
-      earnings,
+      unpaidCount,
+      earnings: {
+        unpaid: fee.mul(unpaidCount),
+        pendingPayout: sumFor('PENDING'),
+        paidTotal: sumFor('PAID'),
+      },
     };
   }
 }

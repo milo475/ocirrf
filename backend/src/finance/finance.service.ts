@@ -1,6 +1,17 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import type { AuthUser } from '../auth/decorators/current-user.decorator';
-import { FinanceType, Prisma } from '../generated/prisma/client';
+import {
+  DeliveryStatus,
+  FinanceType,
+  PayoutStatus,
+  Prisma,
+  Role,
+} from '../generated/prisma/client';
 import { PERM, PermKey } from '../permissions/permission-keys';
 import { PermissionsService } from '../permissions/permissions.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -148,6 +159,143 @@ export class FinanceService {
       net: income.sub(expense),
       byDay: [...byDay.values()],
     };
+  }
+
+  // ── Payroll — жолоочийн цалингийн тооцоо ──
+
+  /** Жолооч бүрээр: тооцоонд ороогүй (payoutId=null) DELIVERED × одоогийн хөлс */
+  async payrollPending() {
+    const groups = await this.prisma.order.groupBy({
+      by: ['assignedDriverId'],
+      where: {
+        deliveryStatus: DeliveryStatus.DELIVERED,
+        payoutId: null,
+        assignedDriverId: { not: null },
+      },
+      _count: { _all: true },
+      _min: { deliveredAt: true },
+      _max: { deliveredAt: true },
+    });
+    const drivers = await this.prisma.user.findMany({
+      where: { id: { in: groups.map((g) => g.assignedDriverId!) } },
+      include: { driverProfile: true },
+    });
+    const byId = new Map(drivers.map((d) => [d.id, d]));
+
+    return groups.map((g) => {
+      const driver = byId.get(g.assignedDriverId!);
+      const fee = driver?.driverProfile?.feePerDelivery ?? new Prisma.Decimal(0);
+      return {
+        driverId: g.assignedDriverId,
+        driverName: driver?.fullName ?? '?',
+        deliveredCount: g._count._all,
+        feePerDelivery: fee,
+        amount: fee.mul(g._count._all),
+        periodStart: g._min.deliveredAt,
+        periodEnd: g._max.deliveredAt,
+      };
+    });
+  }
+
+  /**
+   * Тооцоо хаах: жолоочийн тооцоонд ороогүй бүх DELIVERED захиалгыг
+   * нэг DriverPayout-д багцалж (fee snapshot), захиалгуудад payoutId
+   * тавьж, EXPENSE entry автоматаар бичнэ — бүгд нэг transaction.
+   */
+  async payrollClose(driverId: string, actor: AuthUser) {
+    const driver = await this.prisma.user.findUnique({
+      where: { id: driverId },
+      include: { driverProfile: true },
+    });
+    if (!driver || driver.role !== Role.DRIVER) {
+      throw new NotFoundException('Жолооч олдсонгүй');
+    }
+    if (!driver.driverProfile) {
+      throw new BadRequestException('Жолоочийн хөлс тохируулаагүй байна');
+    }
+    const fee = driver.driverProfile.feePerDelivery;
+
+    return this.prisma.$transaction(async (tx) => {
+      const orders = await tx.order.findMany({
+        where: {
+          assignedDriverId: driverId,
+          deliveryStatus: DeliveryStatus.DELIVERED,
+          payoutId: null,
+        },
+        select: { id: true, deliveredAt: true },
+      });
+      if (orders.length === 0) {
+        throw new BadRequestException('Тооцоо хийх хүргэлт алга');
+      }
+
+      const dates = orders
+        .map((o) => o.deliveredAt)
+        .filter((d): d is Date => !!d)
+        .sort((a, b) => a.getTime() - b.getTime());
+      const totalAmount = fee.mul(orders.length);
+
+      const payout = await tx.driverPayout.create({
+        data: {
+          driverId,
+          periodStart: dates[0] ?? new Date(),
+          periodEnd: dates[dates.length - 1] ?? new Date(),
+          deliveredCount: orders.length,
+          feePerDelivery: fee, // snapshot — хөлс дараа өөрчлөгдсөн ч тооцоо хэвээр
+          totalAmount,
+          createdById: actor.id,
+        },
+        include: { driver: CREATED_BY_SELECT },
+      });
+
+      await tx.order.updateMany({
+        where: { id: { in: orders.map((o) => o.id) } },
+        data: { payoutId: payout.id },
+      });
+
+      // Цалингийн зарлага — refOrderId талбарт payout.id хадгална
+      await tx.financeEntry.create({
+        data: {
+          type: FinanceType.EXPENSE,
+          category: 'DRIVER_PAYROLL',
+          amount: totalAmount,
+          note: `Жолоочийн цалин — ${driver.fullName} (${orders.length} хүргэлт)`,
+          refOrderId: payout.id,
+          createdById: actor.id,
+        },
+      });
+
+      return payout;
+    });
+  }
+
+  /** Тооцоог олгосон болгож тэмдэглэнэ */
+  async payrollPay(id: string) {
+    const payout = await this.prisma.driverPayout.findUnique({
+      where: { id },
+    });
+    if (!payout) {
+      throw new NotFoundException('Тооцоо олдсонгүй');
+    }
+    if (payout.status === PayoutStatus.PAID) {
+      throw new BadRequestException('Энэ тооцоо аль хэдийн олгогдсон');
+    }
+    return this.prisma.driverPayout.update({
+      where: { id },
+      data: { status: PayoutStatus.PAID, paidAt: new Date() },
+      include: { driver: CREATED_BY_SELECT },
+    });
+  }
+
+  /** Тооцооны түүх */
+  async payrollList(query: { driverId?: string; status?: PayoutStatus }) {
+    return this.prisma.driverPayout.findMany({
+      where: {
+        ...(query.driverId ? { driverId: query.driverId } : {}),
+        ...(query.status ? { status: query.status } : {}),
+      },
+      include: { driver: CREATED_BY_SELECT },
+      orderBy: { periodEnd: 'desc' },
+    });
   }
 
   /**

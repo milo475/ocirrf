@@ -1,7 +1,19 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../auth/decorators/current-user.decorator';
+import { PERM } from '../permissions/permission-keys';
+import { RequirePermission } from '../permissions/require-permission.decorator';
 import { CreateFinanceEntryDto } from './dto/create-finance-entry.dto';
+import { ClosePayrollDto, QueryPayrollDto } from './dto/payroll.dto';
 import {
   QueryFinanceEntriesDto,
   QueryFinanceSummaryDto,
@@ -35,5 +47,31 @@ export class FinanceController {
     @CurrentUser() user: AuthUser,
   ) {
     return this.financeService.summary(query.days ?? 30, user);
+  }
+
+  // ── Payroll — finance.driver_payroll permission ──
+
+  @Get('payroll/pending')
+  @RequirePermission(PERM.FINANCE_DRIVER_PAYROLL)
+  payrollPending() {
+    return this.financeService.payrollPending();
+  }
+
+  @Post('payroll/close')
+  @RequirePermission(PERM.FINANCE_DRIVER_PAYROLL)
+  payrollClose(@Body() dto: ClosePayrollDto, @CurrentUser() user: AuthUser) {
+    return this.financeService.payrollClose(dto.driverId, user);
+  }
+
+  @Patch('payroll/:id/pay')
+  @RequirePermission(PERM.FINANCE_DRIVER_PAYROLL)
+  payrollPay(@Param('id', ParseUUIDPipe) id: string) {
+    return this.financeService.payrollPay(id);
+  }
+
+  @Get('payroll')
+  @RequirePermission(PERM.FINANCE_DRIVER_PAYROLL)
+  payrollList(@Query() query: QueryPayrollDto) {
+    return this.financeService.payrollList(query);
   }
 }

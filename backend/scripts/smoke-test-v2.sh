@@ -77,7 +77,7 @@ echo "── 7. 4 dashboard тус бүр ──"
 curl -sf $API/dashboard/admin -H "Authorization: Bearer $TOK_admin" | json "['deliveredTotal']" | xargs echo "  admin: deliveredTotal ="
 curl -sf $API/dashboard/manager -H "Authorization: Bearer $TOK_manager" | json "['stockLast7Days'][-1]" | xargs echo "  manager: өнөөдөр ="
 curl -sf $API/dashboard/operator -H "Authorization: Bearer $TOK_operator" | python3 -c "import json,sys; d=json.load(sys.stdin); print('  operator: миний захиалга', d['myOrdersTotal'], '| lowStock', len(d['lowStockProducts']))"
-curl -sf $API/dashboard/driver -H "Authorization: Bearer $TOK_driver" | python3 -c "import json,sys; d=json.load(sys.stdin); print('  driver: хүргэсэн', d['totalDelivered'], '| цалин', d['earnings'])"
+curl -sf $API/dashboard/driver -H "Authorization: Bearer $TOK_driver" | python3 -c "import json,sys; d=json.load(sys.stdin); e=d['earnings']; print('  driver: хүргэсэн', d['totalDelivered'], '| тооцоогүй', e['unpaid'], '| олгосон', e['paidTotal'])"
 
 echo "── 8. Эрхийн зөрчлүүд (бүгд 403 байх ёстой) ──"
 check403() { local desc=$1; shift; local c; c=$(code "$@"); [ "$c" = "403" ] && echo "  OK 403: $desc" || { echo "  FAIL ($c): $desc"; exit 1; }; }

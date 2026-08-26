@@ -68,5 +68,10 @@ export type DriverDashboard = {
   deliveredThisWeek: number;
   last7Days: { date: string; delivered: number }[];
   feePerDelivery: unknown; // Decimal
-  earnings: unknown; // Decimal = totalDelivered × feePerDelivery
+  unpaidCount: number; // тооцоонд ороогүй хүргэлт
+  earnings: {
+    unpaid: unknown; // Decimal — unpaidCount × feePerDelivery
+    pendingPayout: unknown; // Decimal — хаагдсан, олгоогүй тооцоо
+    paidTotal: unknown; // Decimal — олгосон нийт
+  };
 };

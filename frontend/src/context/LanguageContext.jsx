@@ -235,6 +235,11 @@ const DICT = {
     'Тайлан': 'Reports',
     'Систем': 'System',
 
+    // — Payroll (V3-07) —
+    'Тооцоогүй цалин': 'Unsettled pay',
+    'Тооцоонд орсон': 'In settlement',
+    'Олгосон нийт': 'Total paid out',
+
     // — Үлдэгдлийн хөдөлгөөн —
     'Үлдэгдлийн хөдөлгөөн': 'Stock movements',
     'Бүх бараа': 'All products',

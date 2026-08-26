@@ -85,6 +85,7 @@ describe('ursGAL v2 API (e2e)', () => {
   let permUserToken: string;
   let financeOrderId: string; // гараар COMPLETED болгох санхүүгийн тест
   const financeEntryIds: string[] = []; // гараар бүртгэсэн гүйлгээнүүд
+  let payoutId: string; // жолоочийн цалингийн тооцоо
   const proofFiles: string[] = [];
 
   const api = () => request(http);
@@ -117,7 +118,11 @@ describe('ursGAL v2 API (e2e)', () => {
     );
     await prisma.financeEntry.deleteMany({
       where: {
-        OR: [{ id: { in: financeEntryIds } }, { refOrderId: { in: orderIds } }],
+        OR: [
+          { id: { in: financeEntryIds } },
+          { refOrderId: { in: orderIds } },
+          ...(payoutId ? [{ refOrderId: payoutId }] : []),
+        ],
       },
     });
     await prisma.stockMovement.deleteMany({
@@ -129,6 +134,10 @@ describe('ursGAL v2 API (e2e)', () => {
     }
     if (categoryId) {
       await prisma.category.deleteMany({ where: { id: categoryId } });
+    }
+    if (payoutId) {
+      // Захиалгууд дээр устсан тул FK-гүй
+      await prisma.driverPayout.deleteMany({ where: { id: payoutId } });
     }
     if (e2eDriverId) {
       await prisma.driverProfile.deleteMany({ where: { userId: e2eDriverId } });
@@ -665,7 +674,10 @@ describe('ursGAL v2 API (e2e)', () => {
         .set(auth(e2eDriverToken))
         .expect(200);
       expect(res.body.totalDelivered).toBe(1);
-      expect(Number(res.body.earnings)).toBe(1500);
+      // Тооцоо хараахан хаагдаагүй — бүгд unpaid-д
+      expect(Number(res.body.earnings.unpaid)).toBe(1500);
+      expect(Number(res.body.earnings.pendingPayout)).toBe(0);
+      expect(Number(res.body.earnings.paidTotal)).toBe(0);
       expect(res.body.last7Days).toHaveLength(7);
     });
 
@@ -1045,6 +1057,113 @@ describe('ursGAL v2 API (e2e)', () => {
     });
   });
 
+  // ────────────────────────────────────────────── PAYROLL (V3)
+  describe('V3: Payroll ⭐', () => {
+    it('operator pending харах → 403', async () => {
+      await api()
+        .get('/api/finance/payroll/pending')
+        .set(auth(tok.operator))
+        .expect(403);
+    });
+
+    it('pending: e2e жолооч 1 хүргэлт × 1800 дүнтэй гарна', async () => {
+      const res = await api()
+        .get('/api/finance/payroll/pending')
+        .set(auth(tok.manager))
+        .expect(200);
+      const row = res.body.find(
+        (r: { driverId: string }) => r.driverId === e2eDriverId,
+      );
+      expect(row).toBeDefined();
+      expect(row.deliveredCount).toBe(1);
+      // Users тестэд хөлс 1800 болж шинэчлэгдсэн
+      expect(row.feePerDelivery).toBe('1800');
+      expect(row.amount).toBe('1800');
+    });
+
+    it('close: payout + EXPENSE entry үүсч, дахин тооцогдохгүй', async () => {
+      const res = await api()
+        .post('/api/finance/payroll/close')
+        .set(auth(tok.manager))
+        .send({ driverId: e2eDriverId })
+        .expect(201);
+      payoutId = res.body.id;
+      expect(res.body.status).toBe('PENDING');
+      expect(res.body.deliveredCount).toBe(1);
+      expect(res.body.totalAmount).toBe('1800');
+      expect(res.body.paidAt).toBeNull();
+
+      // pending-ээс алга болно
+      const pending = await api()
+        .get('/api/finance/payroll/pending')
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(
+        pending.body.some(
+          (r: { driverId: string }) => r.driverId === e2eDriverId,
+        ),
+      ).toBe(false);
+
+      // EXPENSE entry автоматаар (refOrderId = payout.id)
+      const entries = await api()
+        .get('/api/finance/entries?type=EXPENSE&limit=100')
+        .set(auth(tok.manager))
+        .expect(200);
+      const payrollEntry = entries.body.items.find(
+        (e: { refOrderId: string | null }) => e.refOrderId === payoutId,
+      );
+      expect(payrollEntry.category).toBe('DRIVER_PAYROLL');
+      expect(payrollEntry.amount).toBe('1800');
+
+      // дахин close → тооцоо хийх хүргэлт алга
+      await api()
+        .post('/api/finance/payroll/close')
+        .set(auth(tok.manager))
+        .send({ driverId: e2eDriverId })
+        .expect(400);
+    });
+
+    it('stats: unpaid 0 болж pendingPayout руу шилжсэн', async () => {
+      const res = await api()
+        .get('/api/deliveries/my/stats')
+        .set(auth(e2eDriverToken))
+        .expect(200);
+      expect(Number(res.body.earnings.unpaid)).toBe(0);
+      expect(res.body.earnings.pendingPayout).toBe('1800');
+      expect(Number(res.body.earnings.paidTotal)).toBe(0);
+    });
+
+    it('pay: PAID + paidAt; driver-ийн paidTotal өссөн; түүхэнд гарна', async () => {
+      const res = await api()
+        .patch(`/api/finance/payroll/${payoutId}/pay`)
+        .set(auth(tok.admin))
+        .expect(200);
+      expect(res.body.status).toBe('PAID');
+      expect(res.body.paidAt).toBeTruthy();
+
+      // дахин pay → 400
+      await api()
+        .patch(`/api/finance/payroll/${payoutId}/pay`)
+        .set(auth(tok.admin))
+        .expect(400);
+
+      const stats = await api()
+        .get('/api/deliveries/my/stats')
+        .set(auth(e2eDriverToken))
+        .expect(200);
+      expect(stats.body.earnings.paidTotal).toBe('1800');
+      expect(Number(stats.body.earnings.pendingPayout)).toBe(0);
+
+      const hist = await api()
+        .get(`/api/finance/payroll?driverId=${e2eDriverId}&status=PAID`)
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(hist.body.some((p: { id: string }) => p.id === payoutId)).toBe(
+        true,
+      );
+    });
+  });
+
   // ────────────────────────────────────────────── DASHBOARDS
   describe('Dashboards — 4 эрх', () => {
     it('admin: бүтэц + тоо уялдаатай', async () => {
@@ -1110,7 +1229,12 @@ describe('ursGAL v2 API (e2e)', () => {
         .set(auth(e2eDriverToken))
         .expect(200);
       expect(a.body.totalDelivered).toBe(b.body.totalDelivered);
-      expect(Number(a.body.earnings)).toBe(Number(b.body.earnings));
+      expect(Number(a.body.earnings.unpaid)).toBe(
+        Number(b.body.earnings.unpaid),
+      );
+      expect(Number(a.body.earnings.paidTotal)).toBe(
+        Number(b.body.earnings.paidTotal),
+      );
     });
   });
 });

@@ -46,14 +46,28 @@ export default function DriverDashboard() {
       <Rise delay={120}>
         <div className="bg-surface border border-accent/40 rounded-lg p-5">
           <p className="text-xs uppercase tracking-wide text-ink-muted">
-            {t('Авах цалин')}
+            {t('Тооцоогүй цалин')}
           </p>
           <p className="mt-2 font-mono text-5xl tabular-nums text-accent">
-            {formatMoney(data.earnings)}
+            {formatMoney(data.earnings.unpaid)}
           </p>
           <p className="mt-1 text-sm text-ink-muted font-mono tabular-nums">
-            {data.totalDelivered} × {formatMoney(data.feePerDelivery)}
+            {data.unpaidCount} × {formatMoney(data.feePerDelivery)}
           </p>
+          <div className="mt-4 border-t border-rule pt-3 space-y-1.5 text-sm">
+            <p className="flex justify-between">
+              <span className="text-ink-muted">{t('Тооцоонд орсон')}</span>
+              <span className="font-mono tabular-nums">
+                {formatMoney(data.earnings.pendingPayout)}
+              </span>
+            </p>
+            <p className="flex justify-between">
+              <span className="text-ink-muted">{t('Олгосон нийт')}</span>
+              <span className="font-mono tabular-nums">
+                {formatMoney(data.earnings.paidTotal)}
+              </span>
+            </p>
+          </div>
         </div>
       </Rise>
 
