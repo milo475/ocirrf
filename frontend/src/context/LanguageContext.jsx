@@ -354,6 +354,13 @@ const DICT = {
     'Харилцагч шинэ захиалгаа цуцлах боломжтой':
       'Customers may cancel their new orders',
     'Тохиргоо хадгалагдлаа': 'Settings saved',
+    'Төлөв': 'Status',
+    'Идэвхтэй хүргэлт': 'Active deliveries',
+    'Өнөөдөр хүргэсэн': 'Delivered today',
+    'Нийт хүргэсэн': 'Total delivered',
+    'Тээврийн хэрэгсэл': 'Vehicle',
+    'Идэвхгүй': 'Inactive',
+    'Бүртгэл засах': 'Edit accounts',
 
     // — Мэдэгдэл + Үйлдлийн түүх (V3-10) —
     'Мэдэгдэл': 'Notifications',

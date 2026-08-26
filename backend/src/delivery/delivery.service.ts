@@ -253,6 +253,79 @@ export class DeliveryService {
     };
   }
 
+  /** Жолооч нарын жагсаалт — гүйцэтгэл, хөлс, ачаалалтай нь (drivers.view) */
+  async driversList() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const [users, activeGroups, todayGroups, totalGroups] = await Promise.all([
+      this.prisma.user.findMany({
+        where: { role: 'DRIVER' },
+        select: {
+          id: true,
+          fullName: true,
+          username: true,
+          isActive: true,
+          createdAt: true,
+          driverProfile: {
+            select: {
+              feePerDelivery: true,
+              vehicleInfo: true,
+              isAvailable: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
+      this.prisma.order.groupBy({
+        by: ['assignedDriverId'],
+        where: {
+          assignedDriverId: { not: null },
+          deliveryStatus: {
+            in: [DeliveryStatus.ASSIGNED, DeliveryStatus.ON_THE_WAY],
+          },
+        },
+        _count: { _all: true },
+      }),
+      this.prisma.order.groupBy({
+        by: ['assignedDriverId'],
+        where: {
+          assignedDriverId: { not: null },
+          deliveryStatus: DeliveryStatus.DELIVERED,
+          deliveredAt: { gte: today },
+        },
+        _count: { _all: true },
+      }),
+      this.prisma.order.groupBy({
+        by: ['assignedDriverId'],
+        where: {
+          assignedDriverId: { not: null },
+          deliveryStatus: DeliveryStatus.DELIVERED,
+        },
+        _count: { _all: true },
+      }),
+    ]);
+
+    const countBy = (groups: { assignedDriverId: string | null; _count: { _all: number } }[]) =>
+      new Map(groups.map((g) => [g.assignedDriverId, g._count._all]));
+    const activeBy = countBy(activeGroups);
+    const todayBy = countBy(todayGroups);
+    const totalBy = countBy(totalGroups);
+
+    return users.map((u) => ({
+      id: u.id,
+      name: u.fullName,
+      email: u.username,
+      isActive: u.isActive,
+      isAvailable: u.driverProfile?.isAvailable ?? null,
+      feePerDelivery: u.driverProfile?.feePerDelivery ?? null,
+      vehicleInfo: u.driverProfile?.vehicleInfo ?? null,
+      active: activeBy.get(u.id) ?? 0,
+      deliveredToday: todayBy.get(u.id) ?? 0,
+      totalDelivered: totalBy.get(u.id) ?? 0,
+    }));
+  }
+
   /** Жолоочийн маршрутын дараалал тавих: orderIds[i] → routeOrder i+1 */
   async setRouteOrder(driverId: string, orderIds: string[]) {
     if (new Set(orderIds).size !== orderIds.length) {

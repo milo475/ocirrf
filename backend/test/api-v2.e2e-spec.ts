@@ -1487,6 +1487,22 @@ describe('ursGAL v2 API (e2e)', () => {
         .expect(403);
     });
 
+    it('GET /drivers: manager харна, operator 403 (V3 Жолооч нар хуудас)', async () => {
+      await api().get('/api/drivers').set(auth(tok.operator)).expect(403);
+      const res = await api()
+        .get('/api/drivers')
+        .set(auth(tok.manager))
+        .expect(200);
+      const drv = res.body.find(
+        (d: { id: string }) => d.id === e2eDriverId,
+      );
+      expect(drv).toBeDefined();
+      expect(drv.totalDelivered).toBeGreaterThanOrEqual(1);
+      expect(drv.feePerDelivery).toBe('1800');
+      expect(drv).toHaveProperty('active');
+      expect(drv).toHaveProperty('deliveredToday');
+    });
+
     it('2 хүргэлт бэлдэж board дээр бүлэглэгдэнэ', async () => {
       // Үлдэгдэл нэмээд 2 захиалга үүсгэж e2e жолоочид хуваарилна
       await api()

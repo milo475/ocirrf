@@ -99,7 +99,9 @@ export const NAV_ITEMS = [
     key: 'drivers',
     label: 'Жолооч нар',
     icon: UsersRound,
-    path: '/users?role=DRIVER',
+    // Тусдаа хуудас — /users нь users.manage шаарддаг тул manager-т
+    // drivers.view-ээрээ нээгддэг өөрийн route-тай
+    path: '/drivers',
     perm: 'drivers.view',
   },
   {

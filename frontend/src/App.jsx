@@ -13,6 +13,7 @@ import Customers from './pages/Customers'
 import Dashboard from './pages/Dashboard'
 import Reports from './pages/Reports'
 import DeliveryOps from './pages/DeliveryOps'
+import Drivers from './pages/Drivers'
 import Finance from './pages/Finance'
 import Login from './pages/Login'
 import Notifications from './pages/Notifications'
@@ -87,6 +88,7 @@ function App() {
                     </Route>
                     <Route element={<PermRoute perm="drivers.view" />}>
                       <Route path="/delivery-ops" element={<DeliveryOps />} />
+                      <Route path="/drivers" element={<Drivers />} />
                     </Route>
                     <Route element={<PermRoute perm="analytics.view" />}>
                       <Route path="/analytics" element={<Analytics />} />

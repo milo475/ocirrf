@@ -54,6 +54,13 @@ export class DeliveryController {
     return this.deliveryService.assignDriver(id, dto.driverId);
   }
 
+  /** Жолооч нарын жагсаалт — MANAGER гүйцэтгэл/ачааллыг харна */
+  @Get('drivers')
+  @RequirePermission(PERM.DRIVERS_VIEW)
+  driversList() {
+    return this.deliveryService.driversList();
+  }
+
   /** Хүргэлтийн ops самбар — статус бүрээр бүлэглэсэн + жолоочдын ачаалал */
   @Get('delivery-ops/board')
   @RequirePermission(PERM.ORDERS_VIEW, PERM.DRIVERS_VIEW)
