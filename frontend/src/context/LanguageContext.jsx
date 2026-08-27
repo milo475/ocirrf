@@ -377,6 +377,13 @@ const DICT = {
     'Хадгалж байна…': 'Saving…',
     'Нууц үг солих': 'Change password',
 
+    // — PWA + offline (V4-10) —
+    'Офлайн': 'Offline',
+    'Офлайн — дараа илгээгдэнэ': 'Offline — will be sent later',
+    'Илгээгдээгүй баталгаажуулалт: {n} — online болмогц автоматаар илгээгдэнэ':
+      'Unsent confirmations: {n} — they will be sent automatically once online',
+    '{n} баталгаажуулалт илгээгдлээ': '{n} confirmation(s) sent',
+
     // — Нэвтрэлтийн хамгаалалт (V4-07) —
     'Сүүлд нэвтэрсэн': 'Last login',
     'Түгжээтэй': 'Locked',

@@ -6,6 +6,7 @@ import { navFor } from '../../config/nav'
 import { useAuth } from '../../context/AuthContext'
 import { useLang } from '../../context/LanguageContext'
 import { api, getAccessToken } from '../../lib/api'
+import { initOfflineQueue } from '../../lib/offlineQueue'
 import NotificationBell from './NotificationBell'
 import ThemeToggle from './ThemeToggle'
 
@@ -58,6 +59,21 @@ export default function AppShell() {
       window.removeEventListener('notif:refresh', refreshUnread)
     }
   }, [user, refreshUnread])
+
+  // Offline индикатор + илгээгдээгүй дарааллын автомат илгээлт (V4-10)
+  const [offline, setOffline] = useState(!navigator.onLine)
+  useEffect(() => {
+    if (!user) return
+    initOfflineQueue()
+    const on = () => setOffline(false)
+    const off = () => setOffline(true)
+    window.addEventListener('online', on)
+    window.addEventListener('offline', off)
+    return () => {
+      window.removeEventListener('online', on)
+      window.removeEventListener('offline', off)
+    }
+  }, [user])
 
   // SSE (V4-09): мэдэгдэл ирмэгц badge шууд шинэчлэгдэнэ.
   // Тасарвал 5с тутам дахин холбогдоно; дээрх 30с poll fallback хэвээр.
@@ -214,6 +230,13 @@ export default function AppShell() {
             ursGAL
           </NavLink>
           <div className="ml-auto flex items-center gap-2 md:gap-3">
+            {/* Offline индикатор (V4-10) */}
+            {offline && (
+              <span className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-wide text-alarm border border-alarm/40 bg-alarm/10 rounded px-1.5 py-0.5">
+                <span className="w-2 h-2 rounded-full bg-alarm animate-pulse" />
+                {t('Офлайн')}
+              </span>
+            )}
             <NotificationBell unread={unread} />
             <ThemeToggle />
             {/* Mobile дээр sidebar байхгүй тул тохиргоо/гарах topbar-т */}

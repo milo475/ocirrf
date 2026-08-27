@@ -7,6 +7,7 @@ import Spinner from '../components/ui/Spinner'
 import { useToast } from '../components/ui/Toast'
 import { useLang } from '../context/LanguageContext'
 import { api, apiUpload } from '../lib/api'
+import { enqueueComplete, pendingCount } from '../lib/offlineQueue'
 import { formatMoney } from '../lib/format'
 
 /**
@@ -35,6 +36,27 @@ export default function MyDeliveries() {
     window.addEventListener('notif:push', load)
     return () => window.removeEventListener('notif:push', load)
   }, [load])
+
+  // Offline дараалал (V4-10): хүлээгдэж буй илгээлтийн тоо + илгээгдмэгц refresh
+  const [pending, setPending] = useState(0)
+  useEffect(() => {
+    const update = () => {
+      void pendingCount().then(setPending)
+    }
+    update()
+    const onFlushed = (e) => {
+      toast.show(
+        t('{n} баталгаажуулалт илгээгдлээ', { n: e.detail?.sent ?? 1 }),
+      )
+      load()
+    }
+    window.addEventListener('offline-queue:changed', update)
+    window.addEventListener('offline-queue:flushed', onFlushed)
+    return () => {
+      window.removeEventListener('offline-queue:changed', update)
+      window.removeEventListener('offline-queue:flushed', onFlushed)
+    }
+  }, [load, t, toast])
 
   if (error) {
     return (
@@ -71,6 +93,13 @@ export default function MyDeliveries() {
           </button>
         )}
       </div>
+
+      {/* Offline дараалал (V4-10) */}
+      {pending > 0 && (
+        <p className="mt-4 text-sm border border-status-preparing/40 bg-status-preparing/10 text-status-preparing rounded px-3 py-2">
+          {t('Илгээгдээгүй баталгаажуулалт: {n} — online болмогц автоматаар илгээгдэнэ', { n: pending })}
+        </p>
+      )}
 
       {deliveries.length === 0 ? (
         <div className="mt-8">
@@ -254,6 +283,23 @@ function CompleteSheet({ delivery, onClose, onDone, t, toast }) {
       )
       onDone()
     } catch (err) {
+      // Сүлжээний алдаа (status-гүй) = offline — дараалалд хадгална (V4-10)
+      if (err?.status === undefined) {
+        try {
+          await enqueueComplete({
+            deliveryId: delivery.id,
+            orderNo: delivery.orderNo,
+            success,
+            note: note.trim(),
+            photo,
+          })
+          toast.show(t('Офлайн — дараа илгээгдэнэ'))
+          onDone()
+          return
+        } catch {
+          /* IndexedDB боломжгүй бол энгийн алдаа руу унана */
+        }
+      }
       setError(err.message)
       toast.show(err.message, { type: 'error' })
     } finally {
