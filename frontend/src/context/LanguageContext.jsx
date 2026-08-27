@@ -377,6 +377,18 @@ const DICT = {
     'Хадгалж байна…': 'Saving…',
     'Нууц үг солих': 'Change password',
 
+    // — Бэлтгэх хуудас (V4-11) —
+    'Бэлтгэх хуудас': 'Picking list',
+    'Нэгтгэсэн бараа (агуулахаас түүх)': 'Aggregated items (pick from warehouse)',
+    'Захиалга тус бүр (баглах)': 'Per order (packing)',
+    'Бэлтгэж буй болгох': 'Mark as preparing',
+    'Сонгосон {n} захиалгыг «Бэлтгэж буй» болгох уу?':
+      'Mark the {n} selected orders as "Preparing"?',
+    '{n} захиалга Бэлтгэж буй боллоо': '{n} orders marked as preparing',
+    'Шилжүүлж чадсангүй: {list}': 'Could not update: {list}',
+    'Popup хориглогдсон — зөвшөөрнө үү': 'Popup blocked — please allow popups',
+    'сонгох': 'select',
+
     // — PWA + offline (V4-10) —
     'Офлайн': 'Offline',
     'Офлайн — дараа илгээгдэнэ': 'Offline — will be sent later',
