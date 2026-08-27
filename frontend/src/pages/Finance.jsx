@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import MetricCard from '../components/dashboard/MetricCard'
 import Button from '../components/ui/Button'
 import EmptyState from '../components/ui/EmptyState'
@@ -98,6 +98,7 @@ export default function Finance() {
   const tabs = [
     ...(hasPerm('finance.view_income') ? ['INCOME'] : []),
     ...(hasPerm('finance.view_expense') ? ['EXPENSE'] : []),
+    ...(hasPerm('finance.view_receivables') ? ['RECEIVABLES'] : []),
   ]
   const [tab, setTab] = useState(tabs[0])
   const [summary, setSummary] = useState(null)
@@ -108,9 +109,11 @@ export default function Finance() {
 
   const canViewBoth =
     hasPerm('finance.view_income') && hasPerm('finance.view_expense')
-  const canCreate = hasPerm(
-    tab === 'INCOME' ? 'finance.create_income' : 'finance.create_expense',
-  )
+  const canCreate =
+    tab !== 'RECEIVABLES' &&
+    hasPerm(
+      tab === 'INCOME' ? 'finance.create_income' : 'finance.create_expense',
+    )
 
   const loadSummary = useCallback(() => {
     if (!canViewBoth) return
@@ -119,6 +122,12 @@ export default function Finance() {
 
   const loadEntries = useCallback(() => {
     setError(null)
+    if (tab === 'RECEIVABLES') {
+      api('/finance/receivables')
+        .then((d) => setData({ receivables: d }))
+        .catch((e) => setError(e))
+      return
+    }
     api(`/finance/entries?type=${tab}&page=${page}&limit=${LIMIT}`)
       .then(setData)
       .catch((e) => setError(e))
@@ -255,7 +264,13 @@ export default function Finance() {
               tab === ty ? 'bg-surface text-ink' : 'text-ink-muted hover:text-ink'
             }`}
           >
-            {t(ty === 'INCOME' ? 'finance.income' : 'finance.expense')}
+            {t(
+              ty === 'INCOME'
+                ? 'finance.income'
+                : ty === 'EXPENSE'
+                  ? 'finance.expense'
+                  : 'Авлага',
+            )}
           </button>
         ))}
         {canCreate && (
@@ -276,10 +291,12 @@ export default function Finance() {
           <div className="py-16 text-center">
             <Spinner size={22} />
           </div>
+        ) : tab === 'RECEIVABLES' && data.receivables ? (
+          <Receivables data={data.receivables} t={t} />
         ) : (
           <Table
             columns={columns}
-            rows={data.items}
+            rows={data.items ?? []}
             page={data.page}
             limit={data.limit}
             total={data.total}
@@ -302,6 +319,86 @@ export default function Finance() {
           toast={toast}
         />
       )}
+    </div>
+  )
+}
+
+/** Авлага: төлөгдөөгүй хүргэгдсэн захиалгууд — хамгийн удаан нь эхэндээ */
+function Receivables({ data, t }) {
+  const navigate = useNavigate()
+  const rows = [...data.items].sort(
+    (a, b) => b.daysOutstanding - a.daysOutstanding,
+  )
+  const columns = [
+    {
+      key: 'orderNo',
+      header: t('№'),
+      render: (r) => <span className="font-mono text-sm">{r.orderNo}</span>,
+    },
+    { key: 'customerName', header: t('Харилцагч') },
+    {
+      key: 'phone',
+      header: t('Утас'),
+      render: (r) => <span className="font-mono tabular-nums">{r.phone}</span>,
+    },
+    {
+      key: 'total',
+      header: t('Нийт'),
+      align: 'right',
+      render: (r) => (
+        <span className="font-mono tabular-nums text-ink-muted">
+          {formatMoney(r.totalAmount)}
+        </span>
+      ),
+    },
+    {
+      key: 'paid',
+      header: t('Төлсөн'),
+      align: 'right',
+      render: (r) => (
+        <span className="font-mono tabular-nums text-ink-muted">
+          {formatMoney(r.paidAmount)}
+        </span>
+      ),
+    },
+    {
+      key: 'remaining',
+      header: t('pay.remaining'),
+      align: 'right',
+      render: (r) => (
+        <span className="font-mono tabular-nums text-alarm">
+          {formatMoney(r.remaining)}
+        </span>
+      ),
+    },
+    {
+      key: 'days',
+      header: t('Хоног'),
+      align: 'right',
+      render: (r) => (
+        <span
+          className={`font-mono tabular-nums ${r.daysOutstanding >= 7 ? 'text-alarm' : ''}`}
+        >
+          {r.daysOutstanding}
+        </span>
+      ),
+    },
+  ]
+  return (
+    <div>
+      <div className="mb-5 flex md:divide-x divide-rule">
+        <MetricCard
+          label={t('Нийт авлага')}
+          value={formatMoney(data.totalRemaining)}
+          sub={t('{n} захиалга', { n: data.count })}
+        />
+      </div>
+      <Table
+        columns={columns}
+        rows={rows}
+        onRowClick={(r) => navigate(`/orders/${r.id}`)}
+        empty={t('Авлага байхгүй — бүх төлбөр цугларсан')}
+      />
     </div>
   )
 }

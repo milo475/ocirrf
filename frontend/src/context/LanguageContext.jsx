@@ -14,6 +14,10 @@ const DICT = {
     'table.range': '{from}–{to} / нийт {total}',
     'finance.income': 'Орлого',
     'finance.expense': 'Зарлага',
+    'pay.cash': 'Бэлэн',
+    'pay.transfer': 'Шилжүүлэг',
+    'pay.card': 'Карт',
+    'pay.remaining': 'Үлдэгдэл',
     'action.create': 'Үүсгэсэн',
     'action.update': 'Зассан',
     'action.delete': 'Устгасан',
@@ -287,6 +291,29 @@ const DICT = {
       '{name} — {n} deliveries, {amt}. Close this settlement?',
     '{name} — {amt}. Цалинг олгосон гэж тэмдэглэхдээ итгэлтэй байна уу?':
       '{name} — {amt}. Are you sure you want to mark this payout as paid?',
+
+    // — Төлбөр (V4-02) —
+    'Төлбөр': 'Payment',
+    'Төлөөгүй': 'Unpaid',
+    'Хэсэгчлэн': 'Partial',
+    'Төлбөр бүртгэх': 'Record payment',
+    'Төлбөр бүртгэгдлээ': 'Payment recorded',
+    'Төлбөр устгах': 'Delete payment',
+    'Төлбөрийн бүртгэл устлаа': 'Payment record deleted',
+    'Энэ төлбөрийн бүртгэлийг устгахдаа итгэлтэй байна уу? Орлого нь хамт хасагдана.':
+      'Are you sure you want to delete this payment record? Its income entry will be removed too.',
+    'Хэлбэр': 'Method',
+    'Устгах': 'Delete',
+    'Авлага': 'Receivables',
+    'Нийт авлага': 'Total receivables',
+    '{n} захиалга': '{n} orders',
+    'Хоног': 'Days',
+    'Авлага байхгүй — бүх төлбөр цугларсан':
+      'No receivables — all payments collected',
+    'pay.cash': 'Cash',
+    'pay.transfer': 'Transfer',
+    'pay.card': 'Card',
+    'pay.remaining': 'Remaining',
 
     // — Customer portal (V3-14) —
     'Шинэ харилцагч уу?': 'New customer?',

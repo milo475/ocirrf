@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { FileText } from 'lucide-react'
+import PaymentBadge from '../../components/orders/PaymentBadge'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
@@ -67,6 +68,10 @@ function openInvoice(order, t) {
     <tbody>${rows}</tbody>
   </table>
   <p class="total">${esc(t('Нийт'))}: ${esc(formatMoney(order.totalAmount))}</p>
+  <p class="muted" style="text-align:right;margin-top:4px">
+    ${esc(t('Төлсөн'))}: ${esc(formatMoney(order.paidAmount ?? 0))} ·
+    ${esc(t('pay.remaining'))}: ${esc(formatMoney(Number(order.totalAmount) - Number(order.paidAmount ?? 0)))}
+  </p>
   <div class="noprint"><button onclick="window.print()">🖨 ${esc(t('Хэвлэх'))}</button></div>
 </body></html>`
   const w = window.open('', '_blank', 'width=760,height=900')
@@ -204,6 +209,21 @@ export default function PortalOrderDetail() {
           <span className="font-mono text-2xl tabular-nums">
             {formatMoney(order.totalAmount)}
           </span>
+        </div>
+
+        {/* Төлбөрийн байдал */}
+        <div className="mt-3 flex justify-end items-center gap-3 text-sm">
+          <PaymentBadge status={order.paymentStatus} />
+          {order.paymentStatus !== 'PAID' && (
+            <span className="text-ink-muted">
+              {t('pay.remaining')}:{' '}
+              <span className="font-mono tabular-nums text-alarm">
+                {formatMoney(
+                  Number(order.totalAmount) - Number(order.paidAmount ?? 0),
+                )}
+              </span>
+            </span>
+          )}
         </div>
       </section>
 

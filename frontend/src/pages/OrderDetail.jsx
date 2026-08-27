@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import AssignDriverModal from '../components/orders/AssignDriverModal'
+import PaymentBadge from '../components/orders/PaymentBadge'
 import RegionBadge from '../components/orders/RegionBadge'
+import Input from '../components/ui/Input'
+import Select from '../components/ui/Select'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
@@ -218,6 +221,15 @@ export default function OrderDetail() {
         </div>
       </section>
 
+      {/* Төлбөр (v4): орлого = төлбөр */}
+      <PaymentSection
+        order={order}
+        onChanged={load}
+        t={t}
+        toast={toast}
+        hasPerm={hasPerm}
+      />
+
       {/* Хүргэлтийн мэдээлэл */}
       {(order.assignedDriver || order.deliveryProofUrl || order.deliveryNote) && (
         <section className="mt-10 border-t border-rule pt-6">
@@ -334,5 +346,218 @@ export default function OrderDetail() {
         onCancel={() => setCancelOpen(false)}
       />
     </div>
+  )
+}
+
+const PAY_METHODS = [
+  ['CASH', 'pay.cash'],
+  ['TRANSFER', 'pay.transfer'],
+  ['CARD', 'pay.card'],
+]
+const methodLabel = (m) =>
+  PAY_METHODS.find(([k]) => k === m)?.[1] ?? m
+
+/** Төлбөрийн хэсэг: статус, дүнгүүд, түүх, бүртгэх/устгах */
+function PaymentSection({ order, onChanged, t, toast, hasPerm }) {
+  const [formOpen, setFormOpen] = useState(false)
+  const [amount, setAmount] = useState('')
+  const [method, setMethod] = useState('CASH')
+  const [note, setNote] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+  const [deleting, setDeleting] = useState(null) // устгах гэж буй төлбөр
+
+  const canPay = hasPerm('finance.create_income')
+  const remaining =
+    Number(order.totalAmount) - Number(order.paidAmount ?? 0)
+
+  function openForm() {
+    setAmount(String(remaining))
+    setMethod('CASH')
+    setNote('')
+    setError(null)
+    setFormOpen(true)
+  }
+
+  async function submit(e) {
+    e.preventDefault()
+    setBusy(true)
+    setError(null)
+    try {
+      await api(`/orders/${order.id}/payments`, {
+        method: 'POST',
+        body: {
+          amount: amount.trim(),
+          method,
+          ...(note.trim() ? { note: note.trim() } : {}),
+        },
+      })
+      toast.show(t('Төлбөр бүртгэгдлээ'))
+      setFormOpen(false)
+      onChanged()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function remove() {
+    setBusy(true)
+    try {
+      await api(`/payments/${deleting.id}`, { method: 'DELETE' })
+      toast.show(t('Төлбөрийн бүртгэл устлаа'))
+      setDeleting(null)
+      onChanged()
+    } catch (err) {
+      toast.show(err.message, { type: 'error' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="mt-10 border-t border-rule pt-6">
+      <p className="text-xs uppercase tracking-wide text-ink-muted mb-4 flex items-center gap-2">
+        {t('Төлбөр')}
+        <PaymentBadge status={order.paymentStatus} />
+      </p>
+
+      <div className="grid grid-cols-3 gap-x-6 max-w-md">
+        <InfoItem
+          label={t('Нийт')}
+          value={
+            <span className="font-mono tabular-nums">
+              {formatMoney(order.totalAmount)}
+            </span>
+          }
+        />
+        <InfoItem
+          label={t('Төлсөн')}
+          value={
+            <span className="font-mono tabular-nums text-safe">
+              {formatMoney(order.paidAmount ?? 0)}
+            </span>
+          }
+        />
+        <InfoItem
+          label={t('pay.remaining')}
+          value={
+            <span
+              className={`font-mono tabular-nums ${remaining > 0 ? 'text-alarm' : ''}`}
+            >
+              {formatMoney(remaining)}
+            </span>
+          }
+        />
+      </div>
+
+      {/* Төлбөрийн түүх */}
+      {order.payments?.length > 0 && (
+        <ul className="mt-4 divide-y divide-rule border-y border-rule max-w-xl">
+          {order.payments.map((p) => (
+            <li key={p.id} className="py-2 flex items-center gap-3 text-sm">
+              <span className="font-mono text-xs text-ink-muted tabular-nums">
+                {formatDateTime(p.createdAt)}
+              </span>
+              <span className="font-mono text-[10px] uppercase border border-rule rounded px-1 py-0.5 text-ink-muted">
+                {t(methodLabel(p.method))}
+              </span>
+              <span className="flex-1 truncate text-ink-muted">
+                {p.note ?? ''} {p.receivedBy && `· ${p.receivedBy.fullName}`}
+              </span>
+              <span className="font-mono tabular-nums">
+                {formatMoney(p.amount)}
+              </span>
+              {canPay && (
+                <button
+                  type="button"
+                  onClick={() => setDeleting(p)}
+                  aria-label={t('Төлбөр устгах')}
+                  className="text-ink-muted hover:text-alarm px-1"
+                >
+                  ×
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {canPay &&
+        order.paymentStatus !== 'PAID' &&
+        order.orderStatus !== 'CANCELLED' && (
+          <Button onClick={openForm} className="mt-4">
+            {t('Төлбөр бүртгэх')}
+          </Button>
+        )}
+
+      <Modal
+        open={formOpen}
+        onClose={() => setFormOpen(false)}
+        title={`${t('Төлбөр бүртгэх')} — ${order.orderNo}`}
+      >
+        <form onSubmit={submit} className="space-y-4">
+          <Input
+            id="pay-amount"
+            label={t('Дүн')}
+            required
+            inputMode="decimal"
+            pattern="\d{1,10}(\.\d{1,2})?"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            className="font-mono"
+          />
+          <Select
+            id="pay-method"
+            label={t('Хэлбэр')}
+            value={method}
+            onChange={(e) => setMethod(e.target.value)}
+          >
+            {PAY_METHODS.map(([value, label]) => (
+              <option key={value} value={value}>
+                {t(label)}
+              </option>
+            ))}
+          </Select>
+          <Input
+            id="pay-note"
+            label={t('Тэмдэглэл')}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+          />
+          {error && (
+            <p className="text-sm text-alarm border border-alarm rounded px-3 py-2">
+              {error}
+            </p>
+          )}
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              variant="ghost"
+              onClick={() => setFormOpen(false)}
+              disabled={busy}
+            >
+              {t('Болих')}
+            </Button>
+            <Button type="submit" loading={busy}>
+              {t('Хадгалах')}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      <ConfirmDialog
+        open={!!deleting}
+        title={t('Төлбөр устгах')}
+        message={t(
+          'Энэ төлбөрийн бүртгэлийг устгахдаа итгэлтэй байна уу? Орлого нь хамт хасагдана.',
+        )}
+        confirmLabel={t('Устгах')}
+        danger
+        loading={busy}
+        onConfirm={remove}
+        onCancel={() => setDeleting(null)}
+      />
+    </section>
   )
 }

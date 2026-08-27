@@ -8,7 +8,11 @@ import {
   Max,
   Min,
 } from 'class-validator';
-import { DeliveryStatus, OrderStatus } from '../../generated/prisma/client';
+import {
+  DeliveryStatus,
+  OrderStatus,
+  PaymentStatus,
+} from '../../generated/prisma/client';
 
 export class QueryOrdersDto {
   @IsOptional()
@@ -18,6 +22,10 @@ export class QueryOrdersDto {
   @IsOptional()
   @IsEnum(DeliveryStatus, { message: 'Хүргэлтийн статус буруу' })
   deliveryStatus?: DeliveryStatus;
+
+  @IsOptional()
+  @IsEnum(PaymentStatus, { message: 'Төлбөрийн статус буруу' })
+  paymentStatus?: PaymentStatus;
 
   /** Тухайн жолоочид хуваарилагдсан захиалгууд */
   @IsOptional()

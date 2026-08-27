@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
+import PaymentBadge from '../components/orders/PaymentBadge'
 import RegionBadge from '../components/orders/RegionBadge'
 import Badge, { STATUS_LABELS } from '../components/ui/Badge'
 import Button from '../components/ui/Button'
@@ -34,6 +35,7 @@ export default function Orders() {
   const [search, setSearch] = useState(params.get('search') ?? '')
   const [status, setStatus] = useState('')
   const [deliveryStatus, setDeliveryStatus] = useState('')
+  const [paymentStatus, setPaymentStatus] = useState('')
   const [page, setPage] = useState(1)
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
@@ -52,10 +54,11 @@ export default function Orders() {
     if (search) q.set('search', search)
     if (status) q.set('status', status)
     if (deliveryStatus) q.set('deliveryStatus', deliveryStatus)
+    if (paymentStatus) q.set('paymentStatus', paymentStatus)
     api(`/orders?${q}`)
       .then(setData)
       .catch((e) => setError(e))
-  }, [search, status, deliveryStatus, page])
+  }, [search, status, deliveryStatus, paymentStatus, page])
 
   useEffect(() => {
     load()
@@ -102,6 +105,11 @@ export default function Orders() {
       key: 'deliveryStatus',
       header: t('Хүргэлт'),
       render: (o) => <Badge status={o.deliveryStatus} />,
+    },
+    {
+      key: 'paymentStatus',
+      header: t('Төлбөр'),
+      render: (o) => <PaymentBadge status={o.paymentStatus} />,
     },
     {
       key: 'assignedDriver',
@@ -161,6 +169,19 @@ export default function Orders() {
           </button>
         ))}
         <div className="ml-auto flex items-end gap-2">
+          <select
+            value={paymentStatus}
+            onChange={(e) => {
+              setPaymentStatus(e.target.value)
+              setPage(1)
+            }}
+            className="bg-bg border border-rule rounded px-2 py-2 text-sm focus:outline-none focus:border-ink-muted"
+          >
+            <option value="">{t('Төлбөр')}: {t('Бүгд')}</option>
+            <option value="UNPAID">{t('Төлөөгүй')}</option>
+            <option value="PARTIAL">{t('Хэсэгчлэн')}</option>
+            <option value="PAID">{t('Төлсөн')}</option>
+          </select>
           <select
             value={deliveryStatus}
             onChange={(e) => {

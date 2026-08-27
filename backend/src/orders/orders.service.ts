@@ -363,6 +363,7 @@ export class OrdersService {
     const {
       status,
       deliveryStatus,
+      paymentStatus,
       driverId,
       search,
       page = 1,
@@ -372,6 +373,7 @@ export class OrdersService {
     const where: Prisma.OrderWhereInput = {
       ...(status ? { orderStatus: status } : {}),
       ...(deliveryStatus ? { deliveryStatus } : {}),
+      ...(paymentStatus ? { paymentStatus } : {}),
       ...(driverId ? { assignedDriverId: driverId } : {}),
       ...(search
         ? {
