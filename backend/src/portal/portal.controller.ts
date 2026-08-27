@@ -24,7 +24,7 @@ class QueryPortalProductsDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(20)
+  @Max(200) // ангилалтай бүтэн каталог нэг дор ачаалагдана
   limit?: number = 8;
 }
 

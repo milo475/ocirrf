@@ -2421,7 +2421,7 @@ describe('ursGAL v2 API (e2e)', () => {
       expect(Number(on.fee)).toBe(15000);
     });
 
-    it('УБ захиалгад тариф автоматаар нэмэгдэнэ; staff override болно', async () => {
+    it('шинэ захиалгад хөлс автоматаар НЭМЭГДЭХГҮЙ (default 0); staff override болно', async () => {
       await api()
         .post('/api/stock/adjust')
         .set(auth(tok.manager))
@@ -2439,9 +2439,9 @@ describe('ursGAL v2 API (e2e)', () => {
         })
         .expect(201);
       feeOrderIds.push(auto.body.id);
-      expect(Number(auto.body.deliveryFee)).toBe(5000);
+      expect(Number(auto.body.deliveryFee)).toBe(0);
       const price = Number(auto.body.items[0].priceAtOrder);
-      expect(Number(auto.body.totalAmount)).toBe(price + 5000);
+      expect(Number(auto.body.totalAmount)).toBe(price);
 
       const manual = await api()
         .post('/api/orders')
@@ -2459,7 +2459,7 @@ describe('ursGAL v2 API (e2e)', () => {
       expect(Number(manual.body.totalAmount)).toBe(price + 2000);
     });
 
-    it('орон нутгийн захиалгад ОН тариф (15000)', async () => {
+    it('орон нутгийн захиалгад ч хөлс 0 (авто тариф байхгүй)', async () => {
       const res = await api()
         .post('/api/orders')
         .set(auth(tok.operator))
@@ -2474,10 +2474,10 @@ describe('ursGAL v2 API (e2e)', () => {
         })
         .expect(201);
       feeOrderIds.push(res.body.id);
-      expect(Number(res.body.deliveryFee)).toBe(15000);
+      expect(Number(res.body.deliveryFee)).toBe(0);
     });
 
-    it('тариф өөрчлөх: operator 403, дүүргийн тусгай тариф үйлчилнэ, default дутвал 400', async () => {
+    it('тарифын лавлагаа: operator PUT 403, өөрчилсөн ч захиалгад нөлөөлөхгүй, default дутвал 400', async () => {
       await api()
         .put('/api/settings/tariffs')
         .set(auth(tok.operator))
@@ -2501,12 +2501,12 @@ describe('ursGAL v2 API (e2e)', () => {
         .send({
           customerName: `Э2Э-Тариф3-${T}`,
           customerPhone: `7${T}`,
-          ...UB_ADDR_AUTO, // district: ХУД
+          ...UB_ADDR_AUTO, // district: ХУД — тусгай тариф байсан ч 0
           items: [{ productId, qty: 1 }],
         })
         .expect(201);
       feeOrderIds.push(ord.body.id);
-      expect(Number(ord.body.deliveryFee)).toBe(7000);
+      expect(Number(ord.body.deliveryFee)).toBe(0);
 
       // Region default дутуу бол 400
       await api()
@@ -3003,22 +3003,22 @@ describe('ursGAL v2 API (e2e)', () => {
 
   // ────────────────────────────────────────────── V4-16: EDGE ГҮЙЦЭЭЛТ
   describe('V4-16: Edge гүйцээлт ⭐', () => {
-    it('customer-ийн deliveryFee override үл тоомсорлогдоно — автомат тариф', async () => {
+    it('customer захиалгад ч хөлс нэмэгдэхгүй (override ч үл тоомсорлогдоно)', async () => {
       await api()
         .post('/api/stock/adjust')
         .set(auth(tok.manager))
         .send({ productId, qtyChange: 1, reason: 'PURCHASE_IN' })
         .expect(201);
-      // customer deliveryFee:'0' илгээсэн ч УБ default 5000 автоматаар орно
+      // customer-ийн илгээсэн deliveryFee ч, авто тариф ч үйлчлэхгүй — 0
       const ord = await api()
         .post('/api/orders')
         .set(auth(custToken))
-        .send({ ...UB_ADDR, items: [{ productId, qty: 1 }] })
+        .send({ ...UB_ADDR, deliveryFee: '9999', items: [{ productId, qty: 1 }] })
         .expect(201);
       feeOrderIds.push(ord.body.id);
-      expect(Number(ord.body.deliveryFee)).toBe(5000);
+      expect(Number(ord.body.deliveryFee)).toBe(0);
       expect(Number(ord.body.totalAmount)).toBe(
-        Number(ord.body.items[0].lineTotal) + 5000,
+        Number(ord.body.items[0].lineTotal),
       );
     });
 

@@ -10,7 +10,6 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { PERM } from '../permissions/permission-keys';
 import { PermissionsService } from '../permissions/permissions.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { SettingsService } from '../settings/settings.service';
 import { formatFullAddress, formatShortAddress } from './address.util';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { QueryOrdersDto } from './dto/query-orders.dto';
@@ -48,7 +47,6 @@ export class OrdersService {
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
     private readonly permissions: PermissionsService,
-    private readonly settings: SettingsService,
   ) {}
 
   /**
@@ -95,12 +93,13 @@ export class OrdersService {
       throw new BadRequestException('Нэг бараа давхардаж орсон байна');
     }
 
-    // Хүргэлтийн хөлс (V4-05): staff гараар override хийж болно,
-    // customer-т үргэлж тарифаас автоматаар
+    // Хүргэлтийн хөлс: хэрэглэгчийн хүсэлтээр шинэ захиалгад автоматаар
+    // НЭМЭГДЭХГҮЙ (default 0). Staff dto.deliveryFee-ээр гараар өгч болно;
+    // тарифын хүснэгт (V4-05) лавлагаа болж үлдсэн.
     const deliveryFee =
       !isCustomer && dto.deliveryFee !== undefined
         ? new Prisma.Decimal(dto.deliveryFee)
-        : await this.settings.feeFor(dto.region, dto.district);
+        : new Prisma.Decimal(0);
 
     const MAX_ATTEMPTS = 3;
     for (let attempt = 1; ; attempt++) {

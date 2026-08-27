@@ -377,6 +377,15 @@ const DICT = {
     'Хадгалж байна…': 'Saving…',
     'Нууц үг солих': 'Change password',
 
+    // — Барааны каталог (сагс) —
+    'Бараа шүүх — нэр, SKU, barcode…': 'Filter products — name, SKU, barcode…',
+    'Ангилалгүй': 'Uncategorized',
+    'Сагслах': 'Add to cart',
+    'Сагсанд': 'In cart',
+    'Сагс хоосон': 'Cart is empty',
+    'Дээрх каталогоос бараа сонгож сагслана уу': 'Pick products from the catalog above',
+    'Бараа ачаалж чадсангүй': 'Could not load products',
+
     // — Алдааны лог (V4-14) —
     'Системийн алдаа': 'System errors',
     '{n} алдаа': '{n} errors',

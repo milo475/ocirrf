@@ -21,10 +21,11 @@ for U in admin manager operator; do
 done
 echo "OK: 3 эрх нэвтэрлээ"
 
-echo "── 2. Тариф: default-ууд + ОН автомат сонголт ──"
-ON_FEE=$(curl -sf $API/settings/tariffs -H "Authorization: Bearer $TOK_operator" | python3 -c "
+echo "── 2. Тарифын лавлагаа + шинэ захиалгад хөлс 0 ──"
+# Тарифын хүснэгт лавлагаа болж үлдсэн — унших боломжтой
+curl -sf $API/settings/tariffs -H "Authorization: Bearer $TOK_operator" | python3 -c "
 import json,sys
-print(next(int(float(t['fee'])) for t in json.load(sys.stdin) if t['region']=='ORON_NUTAG' and t['district'] is None))")
+assert len(json.load(sys.stdin)) >= 2" || { echo "FAIL: тарифын лавлагаа"; exit 1; }
 PID=$(curl -sf "$API/products?limit=50" -H "Authorization: Bearer $TOK_manager" | python3 -c "
 import json,sys
 print(next(p['id'] for p in json.load(sys.stdin)['items'] if p['stockQty']>=3))")
@@ -35,10 +36,10 @@ ON_ORD=$(curl -sf -X POST $API/orders -H "Authorization: Bearer $TOK_operator" -
   \"transport\":\"Смоук транс\",\"items\":[{\"productId\":\"$PID\",\"qty\":1}]}")
 ON_ID=$(echo "$ON_ORD" | json "['id']")
 GOT_FEE=$(echo "$ON_ORD" | json "['deliveryFee']" | python3 -c "import sys;print(int(float(sys.stdin.read())))")
-[ "$GOT_FEE" = "$ON_FEE" ] || { echo "FAIL: ОН тариф $GOT_FEE != $ON_FEE"; exit 1; }
+[ "$GOT_FEE" = "0" ] || { echo "FAIL: шинэ захиалгад хөлс $GOT_FEE != 0"; exit 1; }
 curl -sf -X PATCH $API/orders/$ON_ID/status -H "Authorization: Bearer $TOK_operator" -H "$H" \
   -d '{"status":"CANCELLED"}' >/dev/null
-echo "OK: ОН захиалгад тариф $GOT_FEE автоматаар орж, цуцлагдаж үлдэгдэл буцлаа"
+echo "OK: шинэ захиалгад хөлс 0 (автоматаар нэмэгдэхгүй), цуцлагдаж үлдэгдэл буцлаа"
 
 echo "── 3. Төлбөр → авлага → буцаалт ──"
 ORD=$(curl -sf -X POST $API/orders -H "Authorization: Bearer $TOK_manager" -H "$H" -d "{

@@ -139,6 +139,8 @@ export class PortalService {
         price: true,
         stockQty: true,
         unit: true,
+        // Каталогийн ангилалын бүлэглэлтэд (нэр л хангалттай)
+        category: { select: { name: true } },
       },
       orderBy: { name: 'asc' },
       take: limit,

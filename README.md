@@ -81,7 +81,7 @@ bash scripts/smoke-test-v2.sh     # v2 урсгалууд
 | payments | Төлбөр бүртгэл (бэлэн/шилжүүлэг/карт), **ОРЛОГО = ТӨЛБӨР** (хүргэлт биш), авлагын жагсаалт | finance.* |
 | returns | Хэсэгчилсэн/бүтэн буцаалт: үлдэгдэл сэргээх, төлбөр буцаах (REFUND зарлага), жолоочийн цалингаас хасах | orders.refund |
 | cost/profit | Барааны өртөг + захиалгын мөрийн snapshot → ашиг аналитик/dashboard-д | inventory.adjustment (өртөг нуугдана) |
-| tariffs | Хүргэлтийн тариф (бүс + УБ дүүрэг тусгайлан), захиалгад автомат, staff override | settings.edit |
+| tariffs | Хүргэлтийн тарифын лавлагаа (шинэ захиалгад хөлс автоматаар НЭМЭГДЭХГҮЙ) | settings.edit |
 | security | Түр нууц үг + заавал солих урсгал, rate limit (5/мин), 5 буруу → 15 мин түгжээ, refresh token rotation + гэр бүлийн revoke | users.manage |
 | sse | Real-time мэдэгдэл (EventSource) — badge секундын дотор, 30с poll fallback | өөрийн л |
 | pwa | Жолоочийн суулгаж болох app + offline баталгаажуулалтын дараалал (IndexedDB) | — |
@@ -95,7 +95,7 @@ bash scripts/smoke-test-v2.sh     # v2 урсгалууд
 ```
 Захиалга ──► CONFIRMED ──► PREPARING ──► READY ──► COMPLETED
    │           (бэлтгэх хуудас)     (хүргэлт: ASSIGNED → DELIVERED)
-   │  нийт дүн = бараа + хүргэлтийн тариф (автомат/override)
+   │  нийт дүн = барааны нийлбэр (хүргэлтийн хөлс нэмэгдэхгүй, default 0)
    ▼
 Төлбөр бүртгэл ──► ОРЛОГО (PAYMENT) ──► UNPAID → PARTIAL → PAID
    │                                    (дутуу бол Авлага тайланд)

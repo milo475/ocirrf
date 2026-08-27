@@ -180,7 +180,7 @@ CI-ийн "Docker compose (smoke)" job push бүрт яг энэ урсгалы�
 |---|---|
 | finance/payments | ОРЛОГО = ТӨЛБӨР: POST /orders/:id/payments, авлага GET /finance/receivables |
 | orders/returns | POST /orders/:id/return — restock/refund/payroll хасалт нэг transaction-д |
-| settings/tariffs | GET/PUT /settings/tariffs — бүс + дүүргийн тариф, захиалгад автомат |
+| settings/tariffs | GET/PUT /settings/tariffs — тарифын лавлагаа (захиалгад автоматаар нэмэгдэхгүй) |
 | auth хамгаалалт | reset-password (түр нууц үг), rate limit, түгжилт + unlock, refresh rotation, logout revoke |
 | notifications/sse | GET /notifications/stream (token query) — real-time push |
 | products/import | GET import-template.csv, POST /products/import, barcode unique |
