@@ -377,6 +377,12 @@ const DICT = {
     'Хадгалж байна…': 'Saving…',
     'Нууц үг солих': 'Change password',
 
+    // — Харилцагчид —
+    'Захиалгын харилцагчид': 'Order customers',
+    'Бүртгэлтэй (portal)': 'Registered (portal)',
+    'Бүртгэлтэй харилцагч алга — portal-аар бүртгүүлсэн хэрэглэгчид энд гарна':
+      'No registered customers — users who sign up via the portal appear here',
+
     // — Барааны каталог (сагс) —
     'Бараа шүүх — нэр, SKU, barcode…': 'Filter products — name, SKU, barcode…',
     'Ангилалгүй': 'Uncategorized',

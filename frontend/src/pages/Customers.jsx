@@ -16,7 +16,8 @@ export default function Customers() {
   const toast = useToast()
   const navigate = useNavigate()
 
-  const [tab, setTab] = useState('registered')
+  // Харилцагчид гол төлөв утасны захиалгаас бүрддэг тул түүгээр нээнэ
+  const [tab, setTab] = useState('phone')
   const [registered, setRegistered] = useState(null)
   const [byPhone, setByPhone] = useState(null)
   const [error, setError] = useState(null)
@@ -151,9 +152,9 @@ export default function Customers() {
 
       <div className="mt-8 flex gap-1 border-b border-rule pb-3">
         {[
-          ['registered', 'Бүртгэлтэй'],
-          ['phone', 'Утасны захиалгаас'],
-        ].map(([key, label]) => (
+          ['phone', 'Захиалгын харилцагчид', byPhone],
+          ['registered', 'Бүртгэлтэй (portal)', registered],
+        ].map(([key, label, list]) => (
           <button
             key={key}
             type="button"
@@ -163,6 +164,11 @@ export default function Customers() {
             }`}
           >
             {t(label)}
+            {list && (
+              <span className="ml-1.5 font-mono text-xs text-ink-muted">
+                ({list.length})
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -184,7 +190,7 @@ export default function Customers() {
               columns={registeredColumns}
               rows={registered}
               onRowClick={(c) => c.phone && goOrders(c.phone)}
-              empty={t('Бүртгэлтэй харилцагч алга')}
+              empty={t('Бүртгэлтэй харилцагч алга — portal-аар бүртгүүлсэн хэрэглэгчид энд гарна')}
             />
           )
         ) : !byPhone ? (
