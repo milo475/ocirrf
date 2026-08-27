@@ -2613,4 +2613,82 @@ describe('ursGAL v2 API (e2e)', () => {
       expect(relog.body.user.mustChangePassword).toBe(false);
     });
   });
+
+  // ────────────────────────────────────────────── V4: НЭВТРЭЛТИЙН ТҮГЖЭЭ
+  describe('V4: Нэвтрэлтийн хамгаалалт ⭐', () => {
+    const lockEmail = `e2e-lock-${T}@ursgal.mn`;
+    let lockUserId: string;
+
+    afterAll(async () => {
+      if (lockUserId) {
+        await prisma.user.deleteMany({ where: { id: lockUserId } });
+      }
+    });
+
+    it('5 буруу оролдлогод 423 — зөв нууц үг ч нэвтрэхгүй', async () => {
+      const created = await api()
+        .post('/api/users')
+        .set(auth(tok.admin))
+        .send({
+          name: 'Э2Э Түгжээ Тест',
+          email: lockEmail,
+          password: 'lockpass1',
+          role: 'OPERATOR',
+        })
+        .expect(201);
+      lockUserId = created.body.id;
+
+      // 4 буруу → 401, 5 дахь нь түгжинэ (423)
+      for (let i = 0; i < 4; i++) {
+        await api()
+          .post('/api/auth/login')
+          .send({ email: lockEmail, password: 'wrong-pass' })
+          .expect(401);
+      }
+      const locked = await api()
+        .post('/api/auth/login')
+        .send({ email: lockEmail, password: 'wrong-pass' })
+        .expect(423);
+      expect(locked.body.message).toContain('түгжигдлээ');
+
+      // Түгжээтэй үед ЗӨВ нууц үг ч 423
+      await api()
+        .post('/api/auth/login')
+        .send({ email: lockEmail, password: 'lockpass1' })
+        .expect(423);
+
+      // Жагсаалтад lockedUntil ирнэ (users.manage)
+      const list = await api()
+        .get('/api/users?role=OPERATOR')
+        .set(auth(tok.admin))
+        .expect(200);
+      const row = list.body.find((u: { id: string }) => u.id === lockUserId);
+      expect(row.lockedUntil).toBeTruthy();
+    });
+
+    it('админ түгжээ тайлбал нэвтэрч, lastLoginAt тавигдана; operator unlock 403', async () => {
+      await api()
+        .patch(`/api/users/${lockUserId}/unlock`)
+        .set(auth(tok.operator))
+        .expect(403);
+
+      const res = await api()
+        .patch(`/api/users/${lockUserId}/unlock`)
+        .set(auth(tok.admin))
+        .expect(200);
+      expect(res.body.lockedUntil).toBeNull();
+
+      const login = await api()
+        .post('/api/auth/login')
+        .send({ email: lockEmail, password: 'lockpass1' })
+        .expect(200);
+      expect(login.body.user.lastLoginAt).toBeTruthy();
+
+      const dbUser = await prisma.user.findUnique({
+        where: { id: lockUserId },
+      });
+      expect(dbUser?.failedLoginCount).toBe(0);
+      expect(dbUser?.lastLoginAt).toBeTruthy();
+    });
+  });
 });

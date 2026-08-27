@@ -28,6 +28,8 @@ const SAFE_SELECT = {
   role: true,
   isActive: true,
   createdAt: true,
+  lastLoginAt: true,
+  lockedUntil: true,
   driverProfile: {
     select: {
       feePerDelivery: true,
@@ -197,5 +199,18 @@ export class UsersService {
     // Refresh token-ууд DB-д хадгалагдаж эхлэхээр (V4-08) энд бүгдийг
     // revoke хийнэ. Одоогоор шинэ нэвтрэлт бүр DB-ээс дахин шалгагддаг.
     return { tempPassword };
+  }
+
+  /** Түгжээ тайлах (V4-07) — counter 0, lockedUntil арилна */
+  async unlock(id: string) {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) {
+      throw new NotFoundException('Хэрэглэгч олдсонгүй');
+    }
+    return this.prisma.user.update({
+      where: { id },
+      data: { failedLoginCount: 0, lockedUntil: null },
+      select: SAFE_SELECT,
+    });
   }
 }

@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import { useLang } from '../context/LanguageContext'
 import { useTheme } from '../context/ThemeContext'
 import { api } from '../lib/api'
+import { formatDateTime } from '../lib/format'
 
 function OptionGroup({ label, options, value, onChange, note }) {
   return (
@@ -37,10 +38,16 @@ function OptionGroup({ label, options, value, onChange, note }) {
 export default function Settings() {
   const { lang, setLang, t } = useLang()
   const { theme, setTheme } = useTheme()
+  const { user } = useAuth()
 
   return (
     <div className="max-w-2xl">
       <h1 className="font-serif text-4xl font-medium">{t('Тохиргоо')}</h1>
+      {user?.lastLoginAt && (
+        <p className="mt-2 font-mono text-xs text-ink-muted tabular-nums">
+          {t('Сүүлд нэвтэрсэн')}: {formatDateTime(user.lastLoginAt)}
+        </p>
+      )}
 
       <div className="mt-10 border-t border-rule pt-8">
         <OptionGroup

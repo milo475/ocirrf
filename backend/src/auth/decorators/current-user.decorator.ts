@@ -9,6 +9,8 @@ export type AuthUser = {
   role: Role;
   /** Түр нууц үгтэй — солитол бусад API 403 (V4-06) */
   mustChangePassword: boolean;
+  /** Сүүлд нэвтэрсэн огноо (V4-07) */
+  lastLoginAt: Date | null;
 };
 
 /** JwtStrategy.validate-ийн буцаасан хэрэглэгчийг controller-т öгнө */

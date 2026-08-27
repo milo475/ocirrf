@@ -70,6 +70,10 @@ model User {
   isActive     Boolean  @default(true)
   /// Түр нууц үгээр нэвтэрсэн — солитол бусад API 403 (V4-06)
   mustChangePassword Boolean @default(false)
+  // Нэвтрэлтийн хамгаалалт (V4-07)
+  lastLoginAt      DateTime?
+  failedLoginCount Int       @default(0)
+  lockedUntil      DateTime?
   createdAt    DateTime @default(now())
 
   orders         Order[]         @relation("CreatedOrders")

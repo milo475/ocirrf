@@ -377,6 +377,12 @@ const DICT = {
     'Хадгалж байна…': 'Saving…',
     'Нууц үг солих': 'Change password',
 
+    // — Нэвтрэлтийн хамгаалалт (V4-07) —
+    'Сүүлд нэвтэрсэн': 'Last login',
+    'Түгжээтэй': 'Locked',
+    'Түгжээ тайлах': 'Unlock',
+    '«{name}»-ийн түгжээ тайлагдлаа': '"{name}" has been unlocked',
+
     // — Customer portal (V3-14) —
     'Шинэ харилцагч уу?': 'New customer?',
     'Бүртгүүлэх': 'Sign up',

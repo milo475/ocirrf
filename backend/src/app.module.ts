@@ -5,6 +5,7 @@ import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { ActivityLogInterceptor } from './activity-log/activity-log.interceptor';
 import { ActivityLogModule } from './activity-log/activity-log.module';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { PasswordChangeGuard } from './auth/guards/password-change.guard';
 import { AppController } from './app.controller';
 import { AuthModule } from './auth/auth.module';
@@ -31,6 +32,9 @@ import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
+    // Rate limit (V4-07) — global guard БИШ: зөвхөн auth route-ууд
+    // @UseGuards(ThrottlerGuard)-аар ашиглана
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 1000 }]),
     // frontend/dist-ийг нэг порт дээрээс serve хийнэ:
     // /api/* backend-д, бусад бүх зам SPA-ийн index.html руу.
     // uploads/ — хүргэлтийн баталгаажуулах зургууд /api/uploads/* дээр.

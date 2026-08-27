@@ -48,6 +48,12 @@ export class UsersController {
     return this.usersService.update(id, dto, user.id);
   }
 
+  /** V4-07: нэвтрэлтийн түгжээ тайлах */
+  @Patch(':id/unlock')
+  unlock(@Param('id', ParseUUIDPipe) id: string) {
+    return this.usersService.unlock(id);
+  }
+
   /** V4-06: түр нууц үг үүсгэнэ — хариунд НЭГ УДАА л ил ирнэ */
   @Post(':id/reset-password')
   resetPassword(@Param('id', ParseUUIDPipe) id: string) {

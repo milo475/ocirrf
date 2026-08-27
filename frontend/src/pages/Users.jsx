@@ -359,8 +359,36 @@ export default function Users() {
     }
   }
 
+  const isLocked = (u) => u.lockedUntil && new Date(u.lockedUntil) > new Date()
+
+  async function unlock(u) {
+    setBusy(true)
+    try {
+      await api(`/users/${u.id}/unlock`, { method: 'PATCH' })
+      toast.show(t('«{name}»-ийн түгжээ тайлагдлаа', { name: u.fullName }))
+      load()
+    } catch (e) {
+      toast.show(e.message, { type: 'error' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const columns = [
-    { key: 'fullName', header: t('Нэр') },
+    {
+      key: 'fullName',
+      header: t('Нэр'),
+      render: (u) => (
+        <span className="inline-flex items-center gap-2">
+          {u.fullName}
+          {isLocked(u) && (
+            <span className="font-mono text-[10px] uppercase border rounded px-1 py-0.5 text-alarm border-alarm/40 bg-alarm/10">
+              {t('Түгжээтэй')}
+            </span>
+          )}
+        </span>
+      ),
+    },
     {
       key: 'username',
       header: t('Имэйл'),
@@ -377,6 +405,15 @@ export default function Users() {
       render: (u) => (
         <span className="font-mono text-xs text-ink-muted tabular-nums">
           {formatDateTime(u.createdAt)}
+        </span>
+      ),
+    },
+    {
+      key: 'lastLoginAt',
+      header: t('Сүүлд нэвтэрсэн'),
+      render: (u) => (
+        <span className="font-mono text-xs text-ink-muted tabular-nums">
+          {u.lastLoginAt ? formatDateTime(u.lastLoginAt) : '—'}
         </span>
       ),
     },
@@ -416,6 +453,15 @@ export default function Users() {
           >
             {t('Нууц үг сэргээх')}
           </button>
+          {isLocked(u) && (
+            <button
+              type="button"
+              onClick={() => unlock(u)}
+              className="text-xs text-alarm hover:underline underline-offset-2"
+            >
+              {t('Түгжээ тайлах')}
+            </button>
+          )}
         </span>
       ),
     },

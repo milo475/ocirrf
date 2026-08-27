@@ -1,6 +1,8 @@
 import {
   BadRequestException,
   ConflictException,
+  HttpException,
+  HttpStatus,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -38,12 +40,39 @@ export class AuthService {
       throw invalid;
     }
 
-    const passwordOk = await bcrypt.compare(dto.password, user.passwordHash);
-    if (!passwordOk) {
-      throw invalid;
+    // Түгжээ (V4-07): хугацаа дуустал ЗӨВ нууц үг ч нэвтрэхгүй
+    const locked = new HttpException(
+      'Бүртгэл түр түгжигдлээ (15 мин)',
+      HttpStatus.LOCKED,
+    );
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      throw locked;
     }
 
-    return this.issueTokens(user);
+    const passwordOk = await bcrypt.compare(dto.password, user.passwordHash);
+    if (!passwordOk) {
+      // 5 дахь буруу оролдлогод 15 минут түгжинэ, counter шинээр эхэлнэ
+      const count = user.failedLoginCount + 1;
+      const willLock = count >= 5;
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: willLock
+          ? {
+              failedLoginCount: 0,
+              lockedUntil: new Date(Date.now() + 15 * 60_000),
+            }
+          : { failedLoginCount: count },
+      });
+      throw willLock ? locked : invalid;
+    }
+
+    // Амжилттай: counter 0, түгжээ арилж, lastLoginAt шинэчлэгдэнэ
+    const updated = await this.prisma.user.update({
+      where: { id: user.id },
+      data: { failedLoginCount: 0, lockedUntil: null, lastLoginAt: new Date() },
+    });
+
+    return this.issueTokens(updated);
   }
 
   /** Харилцагчийн өөрийн бүртгэл — үргэлж CUSTOMER эрхтэй */
@@ -143,6 +172,7 @@ export class AuthService {
         phone: user.phone,
         role: user.role,
         mustChangePassword: user.mustChangePassword,
+        lastLoginAt: user.lastLoginAt,
         permissions: [...permissions],
       },
     };
