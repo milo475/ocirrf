@@ -9,7 +9,7 @@
 
 - **Backend:** NestJS 11, Prisma 7, PostgreSQL, JWT (access + refresh)
 - **Frontend:** React 19, Vite, Tailwind v4, React Router 7
-- **Тест:** Jest + supertest e2e (89 тест), bash smoke скриптүүд
+- **Тест:** Jest + supertest e2e (120 тест) + GitHub Actions CI, bash smoke скриптүүд
 
 ## Эрхийн систем (5 эрх)
 
@@ -65,10 +65,41 @@ node dist/main        # http://localhost:3000
 
 ```bash
 cd backend
-npm run test:e2e                  # 89 тест, өөрийн ул мөрөө цэвэрлэдэг
+npm run test:e2e                  # 120 тест, өөрийн ул мөрөө цэвэрлэдэг
+bash scripts/smoke-test-v4.sh     # v4: төлбөр/буцаалт/тариф/түгжилт/SSE/импорт
 bash scripts/smoke-test-v3.sh     # амьд сервэр дээрх v3 урсгалууд
 bash scripts/smoke-test-v2.sh     # v2 урсгалууд
 ```
 
 Гараар шалгах жагсаалт: [TESTING.md](TESTING.md).
 Байршуулалт: [DEPLOY.md](DEPLOY.md).
+
+## v4 модулиуд (2026-08 өргөтгөл)
+
+| Хэсэг | Тайлбар | Хамгаалалт |
+|---|---|---|
+| payments | Төлбөр бүртгэл (бэлэн/шилжүүлэг/карт), **ОРЛОГО = ТӨЛБӨР** (хүргэлт биш), авлагын жагсаалт | finance.* |
+| returns | Хэсэгчилсэн/бүтэн буцаалт: үлдэгдэл сэргээх, төлбөр буцаах (REFUND зарлага), жолоочийн цалингаас хасах | orders.refund |
+| cost/profit | Барааны өртөг + захиалгын мөрийн snapshot → ашиг аналитик/dashboard-д | inventory.adjustment (өртөг нуугдана) |
+| tariffs | Хүргэлтийн тариф (бүс + УБ дүүрэг тусгайлан), захиалгад автомат, staff override | settings.edit |
+| security | Түр нууц үг + заавал солих урсгал, rate limit (5/мин), 5 буруу → 15 мин түгжээ, refresh token rotation + гэр бүлийн revoke | users.manage |
+| sse | Real-time мэдэгдэл (EventSource) — badge секундын дотор, 30с poll fallback | өөрийн л |
+| pwa | Жолоочийн суулгаж болох app + offline баталгаажуулалтын дараалал (IndexedDB) | — |
+| picking | Бэлтгэх хуудас: сонгосон захиалгуудын нэгтгэсэн бараа + захиалга тус бүр, хэвлээд PREPARING | orders.view |
+| import | Бараа CSV импорт (SKU-гаар upsert, INITIAL үлдэгдэл) + barcode хайлт/камер скан | inventory.adjustment |
+| logging | 5xx алдааны файл лог (14 хоног), admin UI таб, cron скрипт | activity_log.view |
+| ci/docker | GitHub Actions (e2e + docker smoke), docker compose нэг командын байршуулалт | — |
+
+### Захиалгын мөнгөн урсгалын зураглал (v4)
+
+```
+Захиалга ──► CONFIRMED ──► PREPARING ──► READY ──► COMPLETED
+   │           (бэлтгэх хуудас)     (хүргэлт: ASSIGNED → DELIVERED)
+   │  нийт дүн = бараа + хүргэлтийн тариф (автомат/override)
+   ▼
+Төлбөр бүртгэл ──► ОРЛОГО (PAYMENT) ──► UNPAID → PARTIAL → PAID
+   │                                    (дутуу бол Авлага тайланд)
+   ▼
+Буцаалт ──► үлдэгдэл сэргэнэ (RETURN) + төлбөр буцна (REFUND зарлага)
+            + шаардлагатай бол жолоочийн цалингийн тооцооноос хасна
+```

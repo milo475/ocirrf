@@ -173,3 +173,18 @@ docker compose up -d        # build → migrate → (эхний удаа) seed �
 
 CI-ийн "Docker compose (smoke)" job push бүрт яг энэ урсгалыг цэвэр
 орчинд бүрэн ажиллуулж баталдаг.
+
+## 11. v4 модулиуд (2026-08 өргөтгөл)
+
+| Модуль | Гол зүйл |
+|---|---|
+| finance/payments | ОРЛОГО = ТӨЛБӨР: POST /orders/:id/payments, авлага GET /finance/receivables |
+| orders/returns | POST /orders/:id/return — restock/refund/payroll хасалт нэг transaction-д |
+| settings/tariffs | GET/PUT /settings/tariffs — бүс + дүүргийн тариф, захиалгад автомат |
+| auth хамгаалалт | reset-password (түр нууц үг), rate limit, түгжилт + unlock, refresh rotation, logout revoke |
+| notifications/sse | GET /notifications/stream (token query) — real-time push |
+| products/import | GET import-template.csv, POST /products/import, barcode unique |
+| logging | logs/error-YYYY-MM-DD.log + GET /admin/errors + scripts/check-errors.sh |
+| CI/Docker | .github/workflows/ci.yml (e2e + docker smoke), docker compose up -d |
+
+Smoke: `bash backend/scripts/smoke-test-v4.sh` (v2/v3-ийнхтэй хамт).

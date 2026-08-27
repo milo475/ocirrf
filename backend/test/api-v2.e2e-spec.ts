@@ -3000,4 +3000,81 @@ describe('ursGAL v2 API (e2e)', () => {
         .expect(400);
     });
   });
+
+  // ────────────────────────────────────────────── V4-16: EDGE ГҮЙЦЭЭЛТ
+  describe('V4-16: Edge гүйцээлт ⭐', () => {
+    it('customer-ийн deliveryFee override үл тоомсорлогдоно — автомат тариф', async () => {
+      await api()
+        .post('/api/stock/adjust')
+        .set(auth(tok.manager))
+        .send({ productId, qtyChange: 1, reason: 'PURCHASE_IN' })
+        .expect(201);
+      // customer deliveryFee:'0' илгээсэн ч УБ default 5000 автоматаар орно
+      const ord = await api()
+        .post('/api/orders')
+        .set(auth(custToken))
+        .send({ ...UB_ADDR, items: [{ productId, qty: 1 }] })
+        .expect(201);
+      feeOrderIds.push(ord.body.id);
+      expect(Number(ord.body.deliveryFee)).toBe(5000);
+      expect(Number(ord.body.totalAmount)).toBe(
+        Number(ord.body.items[0].lineTotal) + 5000,
+      );
+    });
+
+    it('4 буруу оролдлого түгжихгүй — амжилттай нэвтрэлт counter-ийг 0 болгоно', async () => {
+      const email = `e2e-cnt-${T}@ursgal.mn`;
+      const created = await api()
+        .post('/api/users')
+        .set(auth(tok.admin))
+        .send({ name: 'Э2Э Counter', email, password: 'cntpass1', role: 'OPERATOR' })
+        .expect(201);
+      for (let i = 0; i < 4; i++) {
+        await api()
+          .post('/api/auth/login')
+          .send({ email, password: 'wrong' + i })
+          .expect(401);
+      }
+      // 5 дахь нь ЗӨВ — түгжилгүй нэвтэрч counter 0 болно
+      await api()
+        .post('/api/auth/login')
+        .send({ email, password: 'cntpass1' })
+        .expect(200);
+      const dbUser = await prisma.user.findUnique({
+        where: { id: created.body.id },
+      });
+      expect(dbUser?.failedLoginCount).toBe(0);
+      expect(dbUser?.lockedUntil).toBeNull();
+      await prisma.user.deleteMany({ where: { id: created.body.id } });
+    });
+
+    it('төлөөгүй захиалгын буцаалт: refundPayment=true ч EXPENSE үүсэхгүй, UNPAID хэвээр', async () => {
+      // noPhotoOrderId — DELIVERED, төлбөргүй, буцаалтгүй
+      const res = await api()
+        .post(`/api/orders/${noPhotoOrderId}/return`)
+        .set(auth(tok.manager))
+        .send({
+          items: [
+            {
+              orderItemId: (
+                await prisma.orderItem.findFirst({
+                  where: { orderId: noPhotoOrderId },
+                })
+              )!.id,
+              qty: 1,
+            },
+          ],
+          reason: 'e2e-төлөөгүй буцаалт',
+          restock: false,
+          refundPayment: true,
+        })
+        .expect(201);
+      expect(res.body.order.paymentStatus).toBe('UNPAID');
+      expect(Number(res.body.order.paidAmount)).toBe(0);
+      const refundEntry = await prisma.financeEntry.findFirst({
+        where: { refOrderId: noPhotoOrderId, category: 'REFUND' },
+      });
+      expect(refundEntry).toBeNull();
+    });
+  });
 });
