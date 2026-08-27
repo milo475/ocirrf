@@ -377,6 +377,21 @@ const DICT = {
     'Хадгалж байна…': 'Saving…',
     'Нууц үг солих': 'Change password',
 
+    // — CSV импорт + barcode (V4-12) —
+    'Импорт': 'Import',
+    'Бараа CSV импорт': 'Product CSV import',
+    'SKU байвал шинэчилж, байхгүй бол шинээр үүсгэнэ. Эхний үлдэгдэл нь агуулахын INITIAL хөдөлгөөнөөр бүртгэгдэнэ.':
+      'Existing SKUs are updated, new ones are created. Initial stock is recorded as an INITIAL stock movement.',
+    'Загвар татах (CSV)': 'Download template (CSV)',
+    'CSV файл': 'CSV file',
+    'Шинээр үүссэн': 'Created',
+    'Шинэчилсэн': 'Updated',
+    'Алдаатай мөр': 'Rows with errors',
+    'Мөр': 'Row',
+    'Импортлох': 'Import',
+    'Barcode скан': 'Scan barcode',
+    'Barcode-ыг камерт ойртуулна уу': 'Point the camera at the barcode',
+
     // — Бэлтгэх хуудас (V4-11) —
     'Бэлтгэх хуудас': 'Picking list',
     'Нэгтгэсэн бараа (агуулахаас түүх)': 'Aggregated items (pick from warehouse)',

@@ -250,6 +250,7 @@ model Category {
 model Product {
   id            String   @id @default(uuid())
   sku           String   @unique
+  barcode       String?  @unique // штрих код (V4-12) — сканнерын хайлтад
   name          String
   price         Decimal  @db.Decimal(12, 2)
   costPrice     Decimal  @default(0) @db.Decimal(12, 2) // өртөг (v4) — сүүлийн орлогын үнэ

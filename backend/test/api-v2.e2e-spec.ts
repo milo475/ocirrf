@@ -2843,4 +2843,94 @@ describe('ursGAL v2 API (e2e)', () => {
       await new Promise<void>((res) => http.close(() => res()));
     });
   });
+
+  // ────────────────────────────────────────────── V4: CSV ИМПОРТ + BARCODE
+  describe('V4: CSV импорт + barcode ⭐', () => {
+    const impSku1 = `E2EIMP1-${T}`;
+    const impSku2 = `E2EIMP2-${T}`;
+    const impBarcode = `869${T}0001`;
+    const impCat = `Э2Э-Импорт-${T}`;
+
+    afterAll(async () => {
+      const prods = await prisma.product.findMany({
+        where: { sku: { in: [impSku1, impSku2] } },
+        select: { id: true },
+      });
+      const ids = prods.map((p) => p.id);
+      await prisma.stockMovement.deleteMany({
+        where: { productId: { in: ids } },
+      });
+      await prisma.product.deleteMany({ where: { id: { in: ids } } });
+      await prisma.category.deleteMany({ where: { name: impCat } });
+    });
+
+    it('загвар CSV: adjustment эрхтэйд татагдана, operator 403', async () => {
+      await api()
+        .get('/api/products/import-template.csv')
+        .set(auth(tok.operator))
+        .expect(403);
+      const res = await api()
+        .get('/api/products/import-template.csv')
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(res.headers['content-type']).toContain('text/csv');
+      expect(res.text).toContain('SKU');
+    });
+
+    it('5 мөр: 2 шинэ + 2 шинэчлэл + 1 алдаа — тайлан зөв, INITIAL орсон ⭐', async () => {
+      const csv = [
+        'SKU,Нэр,Ангилал,Үнэ,Өртөг,Barcode,Доод хязгаар,Эхний үлдэгдэл',
+        `${impSku1},Импорт бараа 1,${impCat},4500,3000,${impBarcode},3,12`,
+        `${impSku2},Импорт бараа 2,,2500,,,5,`,
+        `${SKU},,,1500,,,,`,
+        `${impSku1},Импорт бараа 1 v2,,4800,,,,`,
+        `BADROW-${T},Буруу мөр,,abc,,,,`,
+      ].join('\n');
+
+      const res = await api()
+        .post('/api/products/import')
+        .set(auth(tok.manager))
+        .attach('file', Buffer.from('﻿' + csv, 'utf8'), {
+          filename: 'imp.csv',
+          contentType: 'text/csv',
+        })
+        .expect(201);
+      expect(res.body.created).toBe(2);
+      expect(res.body.updated).toBe(2);
+      expect(res.body.errors).toHaveLength(1);
+      expect(res.body.errors[0].row).toBe(6);
+      expect(res.body.errors[0].reason).toContain('Үнэ');
+
+      // Шинэ бараа: эхний үлдэгдэл + INITIAL movement, 2 дахь мөрөөр шинэчлэгдсэн
+      const p1 = await prisma.product.findUnique({ where: { sku: impSku1 } });
+      expect(p1?.stockQty).toBe(12);
+      expect(Number(p1?.price)).toBe(4800);
+      expect(p1?.name).toBe('Импорт бараа 1 v2');
+      expect(p1?.barcode).toBe(impBarcode);
+      const mv = await prisma.stockMovement.findFirst({
+        where: { productId: p1!.id, reason: 'INITIAL' },
+      });
+      expect(mv?.qtyChange).toBe(12);
+
+      // Ангилал нэрээр үүссэн; суурь барааны үнэ шинэчлэгдсэн
+      const cat = await prisma.category.findUnique({
+        where: { name: impCat },
+      });
+      expect(cat).toBeTruthy();
+      const base = await api()
+        .get(`/api/products/${productId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(Number(base.body.price)).toBe(1500);
+    });
+
+    it('barcode бүрэн таарвал шууд олдоно (staff хайлт)', async () => {
+      const res = await api()
+        .get(`/api/products?search=${impBarcode}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(res.body.items).toHaveLength(1);
+      expect(res.body.items[0].sku).toBe(impSku1);
+    });
+  });
 });

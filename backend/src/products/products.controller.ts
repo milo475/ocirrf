@@ -8,7 +8,13 @@ import {
   Patch,
   Post,
   Query,
+  Res,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import type { Response } from 'express';
+import { memoryStorage } from 'multer';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../auth/decorators/current-user.decorator';
 import { PERM } from '../permissions/permission-keys';
@@ -27,6 +33,34 @@ export class ProductsController {
   @RequirePermission(PERM.INVENTORY_VIEW)
   findAll(@Query() query: QueryProductsDto, @CurrentUser() user: AuthUser) {
     return this.productsService.findAll(query, user);
+  }
+
+  /** V4-12: импортын CSV загвар (UTF-8 BOM) — ':id'-ээс ӨМНӨ байх ёстой */
+  @Get('import-template.csv')
+  @RequirePermission(PERM.INVENTORY_ADJUSTMENT)
+  importTemplate(@Res() res: Response) {
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="import-template.csv"',
+    );
+    res.send(this.productsService.importTemplate());
+  }
+
+  /** V4-12: CSV импорт — мөр бүрийн үр дүн {created, updated, errors} */
+  @Post('import')
+  @RequirePermission(PERM.INVENTORY_ADJUSTMENT)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: 2 * 1024 * 1024 },
+    }),
+  )
+  importCsv(
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.productsService.importCsv(file?.buffer, user);
   }
 
   @Get(':id')

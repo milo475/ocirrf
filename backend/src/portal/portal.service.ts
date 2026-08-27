@@ -126,6 +126,8 @@ export class PortalService {
               OR: [
                 { name: { contains: search, mode: 'insensitive' } },
                 { sku: { contains: search, mode: 'insensitive' } },
+                // Barcode бүрэн таарвал шууд олдоно (V4-12)
+                { barcode: search },
               ],
             }
           : {}),
