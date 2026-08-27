@@ -5,7 +5,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { AuthUser } from '../auth/decorators/current-user.decorator';
-import { OrderStatus, Prisma } from '../generated/prisma/client';
+import {
+  FinanceType,
+  OrderStatus,
+  PaymentMethod,
+  PaymentStatus,
+  Prisma,
+} from '../generated/prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PERM } from '../permissions/permission-keys';
 import { PermissionsService } from '../permissions/permissions.service';
@@ -112,6 +118,8 @@ export class OrdersService {
           customerName,
           isCustomer ? user.id : null,
           deliveryFee,
+          // "Төлсөн" флаг зөвхөн staff-д — customer өөрөө тэмдэглэхгүй
+          !isCustomer && dto.paid === true,
         );
         // Transaction амжилттай болсны ДАРАА мэдэгдэнэ (rollback-д илгээхгүй)
         for (const p of lowStockCrossed) {
@@ -138,6 +146,7 @@ export class OrdersService {
     customerName: string | null,
     customerId: string | null,
     deliveryFee: Prisma.Decimal,
+    markPaid: boolean,
   ) {
     const lowStockCrossed: {
       id: string;
@@ -263,6 +272,44 @@ export class OrdersService {
             userId,
           },
         });
+      }
+
+      // 8. "Төлсөн" гэж бүртгэсэн бол бүтэн төлбөрийг ЭНД шууд бүртгэнэ —
+      // ОРЛОГО = ТӨЛБӨР зарчмаар Payment + INCOME entry нэг transaction-д.
+      // (customer-ийн илгээсэн paid флагийг create() дээр хаясан байдаг.)
+      if (markPaid && totalAmount.gt(0)) {
+        const METHOD_MN: Record<string, string> = {
+          CASH: 'Бэлэн',
+          TRANSFER: 'Шилжүүлэг',
+          CARD: 'Карт',
+        };
+        const method = dto.paymentMethod ?? PaymentMethod.CASH;
+        const payment = await tx.payment.create({
+          data: {
+            orderId: order.id,
+            amount: totalAmount,
+            method,
+            note: 'Захиалга үүсгэхэд төлсөн',
+            receivedById: userId,
+          },
+        });
+        await tx.financeEntry.create({
+          data: {
+            type: FinanceType.INCOME,
+            category: 'PAYMENT',
+            amount: totalAmount,
+            note: `Төлбөр ${orderNo} (${METHOD_MN[method]})`,
+            refOrderId: order.id,
+            refPaymentId: payment.id,
+            createdById: userId,
+          },
+        });
+        const paidOrder = await tx.order.update({
+          where: { id: order.id },
+          data: { paidAmount: totalAmount, paymentStatus: PaymentStatus.PAID },
+          include: { items: true, createdBy: CREATED_BY_SELECT },
+        });
+        return paidOrder;
       }
 
       return order;

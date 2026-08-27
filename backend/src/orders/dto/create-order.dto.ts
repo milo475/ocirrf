@@ -2,6 +2,7 @@ import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsEnum,
   IsInt,
   IsNotEmpty,
@@ -14,7 +15,7 @@ import {
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
-import { DeliveryRegion } from '../../generated/prisma/client';
+import { DeliveryRegion, PaymentMethod } from '../../generated/prisma/client';
 
 export class OrderItemInput {
   @IsUUID('4', { message: 'productId буруу форматтай' })
@@ -120,6 +121,20 @@ export class CreateOrderDto {
     message: 'Хүргэлтийн хөлс буруу форматтай',
   })
   deliveryFee?: string;
+
+  /**
+   * "Төлсөн" гэж үүсгэх — бүтэн төлбөр нь захиалгатай нэг transaction-д
+   * бүртгэгдэнэ (Payment + INCOME). Зөвхөн staff; customer-ийнхийг
+   * service үл тоомсорлоно.
+   */
+  @IsOptional()
+  @IsBoolean()
+  paid?: boolean;
+
+  /** Төлсөн үеийн хэлбэр (default CASH) */
+  @IsOptional()
+  @IsEnum(PaymentMethod, { message: 'Төлбөрийн хэлбэр буруу' })
+  paymentMethod?: PaymentMethod;
 
   @IsArray()
   @ArrayMinSize(1, { message: 'Дор хаяж 1 бараа сонгоно' })

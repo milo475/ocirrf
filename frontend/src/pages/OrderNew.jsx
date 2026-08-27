@@ -109,6 +109,9 @@ export default function OrderNew({ portal = false }) {
   const [errors, setErrors] = useState({})
   const [items, setItems] = useState([])
   const [submitting, setSubmitting] = useState(false)
+  // Төлбөр төлсөн эсэх — "Төлсөн" бол бүтэн төлбөр захиалгатай хамт бүртгэгдэнэ
+  const [paid, setPaid] = useState(false)
+  const [payMethod, setPayMethod] = useState('CASH')
 
   const isUB = form.region === 'ULAANBAATAR'
   const set = (key) => (e) => {
@@ -202,6 +205,8 @@ export default function OrderNew({ portal = false }) {
           ...(form.extraPhone.trim() ? { extraPhone: form.extraPhone.trim() } : {}),
           ...(form.note.trim() ? { note: form.note.trim() } : {}),
           ...addr,
+          // "Төлсөн" сонгосон бол бүтэн төлбөр хамт бүртгэгдэнэ (staff л)
+          ...(!portal && paid ? { paid: true, paymentMethod: payMethod } : {}),
           items: items.map((i) => ({
             productId: i.product.id,
             qty: Number(i.qty),
@@ -502,6 +507,47 @@ export default function OrderNew({ portal = false }) {
                 </span>
               </p>
             </div>
+
+            {/* Төлбөр төлсөн эсэх — staff-д л (portal-д харагдахгүй) */}
+            {!portal && (
+              <div className="mt-6 flex items-center justify-end gap-3 flex-wrap">
+                <span className="text-xs uppercase tracking-wide text-ink-muted">
+                  {t('Төлбөр')}
+                </span>
+                <div className="grid grid-cols-2 border border-rule rounded overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setPaid(true)}
+                    className={`px-5 py-2 text-sm font-medium transition-colors ${
+                      paid ? 'bg-safe/15 text-safe' : 'text-ink-muted hover:text-ink'
+                    }`}
+                  >
+                    ✓ {t('Төлсөн')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaid(false)}
+                    className={`px-5 py-2 text-sm font-medium transition-colors ${
+                      !paid ? 'bg-alarm/15 text-alarm' : 'text-ink-muted hover:text-ink'
+                    }`}
+                  >
+                    {t('Төлөөгүй')}
+                  </button>
+                </div>
+                {paid && (
+                  <select
+                    value={payMethod}
+                    onChange={(e) => setPayMethod(e.target.value)}
+                    aria-label={t('Хэлбэр')}
+                    className="bg-bg border border-rule rounded px-2 py-2 text-sm focus:outline-none focus:border-ink-muted"
+                  >
+                    <option value="CASH">{t('pay.cash')}</option>
+                    <option value="TRANSFER">{t('pay.transfer')}</option>
+                    <option value="CARD">{t('pay.card')}</option>
+                  </select>
+                )}
+              </div>
+            )}
 
             <div className="mt-6 flex justify-end">
               <Button
