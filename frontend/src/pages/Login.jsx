@@ -131,7 +131,7 @@ export default function Login() {
           </form>
 
           <p className="mt-5 text-center text-sm text-ink-muted">
-            {t('Шинэ харилцагч уу?')}{' '}
+            {t('Шинэ хэрэглэгч үү?')}{' '}
             <Link
               to="/register"
               className="text-accent underline underline-offset-2"

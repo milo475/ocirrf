@@ -128,7 +128,7 @@ export default function OrderDetail() {
 
       {/* Толгой мэдээлэл */}
       <section className="mt-8 grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-5">
-        <InfoItem label={t('Харилцагч')} value={order.customerName} />
+        <InfoItem label={t('Хүлээн авагч')} value={order.customerName} />
         <InfoItem
           label={t('Утас')}
           value={<span className="font-mono tabular-nums">{order.phone}</span>}

@@ -170,7 +170,7 @@ export default function Orders() {
       header: t('№'),
       render: (o) => <span className="font-mono">{o.orderNo}</span>,
     },
-    { key: 'customerName', header: t('Харилцагч') },
+    { key: 'customerName', header: t('Хүлээн авагч') },
     {
       key: 'phone',
       header: t('Утас'),

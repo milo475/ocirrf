@@ -335,7 +335,7 @@ function Receivables({ data, t }) {
       header: t('№'),
       render: (r) => <span className="font-mono text-sm">{r.orderNo}</span>,
     },
-    { key: 'customerName', header: t('Харилцагч') },
+    { key: 'customerName', header: t('Хүлээн авагч') },
     {
       key: 'phone',
       header: t('Утас'),

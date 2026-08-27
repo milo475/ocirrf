@@ -46,7 +46,7 @@ export default function AdminDashboard() {
               value={formatMoney(data.totalProfit)}
             />
             <MetricCard
-              label={t('Нийт харилцагч')}
+              label={t('Нийт хүлээн авагч')}
               value={String(data.totalCustomers)}
             />
             <MetricCard

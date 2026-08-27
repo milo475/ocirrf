@@ -3109,6 +3109,30 @@ describe('ursGAL v2 API (e2e)', () => {
       expect(payment).toBeNull();
     });
 
+    it('Харилцагчид (түнш = OPERATOR эрхтэй): жагсаалт статистиктай, operator 403', async () => {
+      await api()
+        .get('/api/customers/partners')
+        .set(auth(tok.operator))
+        .expect(403);
+
+      const res = await api()
+        .get('/api/customers/partners')
+        .set(auth(tok.manager))
+        .expect(200);
+      // seed-ийн operator@ursgal.mn — OPERATOR эрхтэй тул жагсаалтад байна
+      const seedOp = res.body.find(
+        (c: { email: string }) => c.email === 'operator@ursgal.mn',
+      );
+      expect(seedOp).toBeTruthy();
+      expect(seedOp).toHaveProperty('orders');
+      expect(seedOp).toHaveProperty('totalAmount');
+      expect(seedOp.orders).toBeGreaterThanOrEqual(1); // тестүүд нь шивсэн
+      // Зөвхөн OPERATOR — жолооч/менежер орохгүй
+      expect(
+        res.body.some((c: { email: string }) => c.email === 'driver@ursgal.mn'),
+      ).toBe(false);
+    });
+
     it('төлөөгүй захиалгын буцаалт: refundPayment=true ч EXPENSE үүсэхгүй, UNPAID хэвээр', async () => {
       // noPhotoOrderId — DELIVERED, төлбөргүй, буцаалтгүй
       const res = await api()

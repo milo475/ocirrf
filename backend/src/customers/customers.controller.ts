@@ -22,6 +22,51 @@ class SetActiveDto {
 export class CustomersController {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Харилцагчид — өөр компаниас бараа нийлүүлдэг түнш хүмүүс.
+   * Системд OPERATOR эрхээр бүртгэгддэг (захиалга шивэх эрхтэй) тул
+   * тэднийг захиалгын статистиктай нь жагсаана.
+   */
+  @Get('partners')
+  @RequirePermission(PERM.CUSTOMERS_VIEW)
+  async partners() {
+    const users = await this.prisma.user.findMany({
+      where: { role: Role.OPERATOR },
+      select: {
+        id: true,
+        username: true,
+        fullName: true,
+        phone: true,
+        isActive: true,
+        createdAt: true,
+        lastLoginAt: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+    const stats = await this.prisma.order.groupBy({
+      by: ['createdById'],
+      where: { createdById: { in: users.map((u) => u.id) } },
+      _count: { _all: true },
+      _sum: { totalAmount: true },
+      _max: { createdAt: true },
+    });
+    const byId = new Map(stats.map((s) => [s.createdById, s]));
+    return users.map((u) => {
+      const s = byId.get(u.id);
+      return {
+        id: u.id,
+        email: u.username,
+        name: u.fullName,
+        phone: u.phone,
+        isActive: u.isActive,
+        lastLoginAt: u.lastLoginAt,
+        orders: s?._count._all ?? 0,
+        totalAmount: s?._sum.totalAmount ?? 0,
+        lastOrderAt: s?._max.createdAt ?? null,
+      };
+    });
+  }
+
   /** Бүртгэлтэй (portal) харилцагчид — захиалгын тоо/нийт дүнтэй */
   @Get('registered')
   @RequirePermission(PERM.CUSTOMERS_VIEW)

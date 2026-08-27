@@ -23,7 +23,7 @@ const ROLE_COLORS = {
 const ROLE_LABELS = {
   ADMIN: 'Админ',
   MANAGER: 'Менежер',
-  OPERATOR: 'Оператор',
+  OPERATOR: 'Харилцагч', // бараа нийлүүлдэг түнш — захиалга шивэх эрхтэй
   DRIVER: 'Жолооч',
 }
 
@@ -128,7 +128,7 @@ function UserForm({ submitting, error, onSubmit, onCancel, t }) {
         placeholder={t('Хамгийн багадаа 6 тэмдэгт')}
       />
       <Select id="u-role" label={t('Эрх')} value={values.role} onChange={set('role')}>
-        <option value="OPERATOR">{t('Оператор')}</option>
+        <option value="OPERATOR">{t('Харилцагч')}</option>
         <option value="MANAGER">{t('Менежер')}</option>
         <option value="DRIVER">{t('Жолооч')}</option>
         <option value="ADMIN">{t('Админ')}</option>
@@ -218,7 +218,7 @@ function UserEditModal({ user, self, onClose, onDone, t, toast }) {
           onChange={(e) => setRole(e.target.value)}
           disabled={self}
         >
-          <option value="OPERATOR">{t('Оператор')}</option>
+          <option value="OPERATOR">{t('Харилцагч')}</option>
           <option value="MANAGER">{t('Менежер')}</option>
           <option value="DRIVER">{t('Жолооч')}</option>
           <option value="ADMIN">{t('Админ')}</option>

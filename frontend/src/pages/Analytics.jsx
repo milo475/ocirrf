@@ -258,10 +258,10 @@ export default function Analytics() {
               )}
             </section>
 
-            {/* Харилцагч */}
+            {/* Хүлээн авагч (утсаар бүлэглэсэн) */}
             <section>
               <p className="text-xs uppercase tracking-wide text-ink-muted border-b border-rule pb-2 mb-4">
-                {t('Харилцагч')}
+                {t('Хүлээн авагч')}
               </p>
               <div className="flex divide-x divide-rule">
                 <MetricCard

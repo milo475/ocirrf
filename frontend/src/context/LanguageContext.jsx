@@ -50,6 +50,7 @@ const DICT = {
     'Гарах': 'Log out',
     'Админ': 'Admin',
     'Оператор': 'Operator',
+    'Харилцагч': 'Partner',
     'Харанхуй': 'Dark',
     'Цайвар': 'Light',
     'Тема солих': 'Toggle theme',
@@ -151,7 +152,6 @@ const DICT = {
     '+ Шинэ захиалга': '+ New order',
     '№, нэр, утас…': 'No., name, phone…',
     '№': 'No.',
-    'Харилцагч': 'Customer',
     'Үүсгэсэн': 'Created by',
     'Захиалга олдсонгүй': 'No orders found',
     'Шинэ': 'New',
@@ -376,6 +376,17 @@ const DICT = {
     'Түр (хуучин) нууц үг': 'Temporary (old) password',
     'Хадгалж байна…': 'Saving…',
     'Нууц үг солих': 'Change password',
+
+    // — Нэршил: Харилцагч = бараа нийлүүлэгч түнш (OPERATOR эрх) —
+    'Хүлээн авагч': 'Recipient',
+    'Нийт хүлээн авагч': 'Total recipients',
+    'Захиалгын хүлээн авагчид': 'Order recipients',
+    'Портал хэрэглэгчид': 'Portal users',
+    'Портал хэрэглэгч': 'Portal user',
+    'Харилцагч алга — Хэрэглэгчид хуудаснаас «Харилцагч» эрхтэйгээр бүртгэнэ':
+      'No partners yet — register them on the Users page with the "Partner" role',
+    'Шинэ хэрэглэгч үү?': 'New user?',
+    'Хэрэглэгчийн бүртгэл': 'User sign-up',
 
     // — Харилцагчид —
     'Захиалгын харилцагчид': 'Order customers',

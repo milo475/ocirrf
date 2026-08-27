@@ -54,7 +54,7 @@ export default function Register() {
         <div>
           <h1 className="font-serif text-4xl font-medium text-center">ursGAL</h1>
           <p className="mt-2 text-center text-sm text-ink-muted">
-            {t('Харилцагчийн бүртгэл')}
+            {t('Хэрэглэгчийн бүртгэл')}
           </p>
 
           <form onSubmit={onSubmit} className="mt-8 space-y-4">
