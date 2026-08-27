@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { List, Map as MapIcon, LayoutList } from 'lucide-react'
 import Button from '../components/ui/Button'
+import ConfirmDialog from '../components/ui/ConfirmDialog'
 import EmptyState from '../components/ui/EmptyState'
 import Spinner from '../components/ui/Spinner'
 import { useToast } from '../components/ui/Toast'
@@ -210,6 +211,7 @@ function CompleteSheet({ delivery, onClose, onDone, t, toast }) {
   const [previewUrl, setPreviewUrl] = useState(null)
   const [note, setNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false) // Илгээхийн өмнөх асуулт
   const [error, setError] = useState(null)
 
   useEffect(() => {
@@ -358,7 +360,7 @@ function CompleteSheet({ delivery, onClose, onDone, t, toast }) {
               {t('Болих')}
             </Button>
             <Button
-              onClick={handleSubmit}
+              onClick={() => setConfirmOpen(true)}
               loading={submitting}
               disabled={!canSubmit}
               className="flex-1 py-3 text-base"
@@ -368,6 +370,25 @@ function CompleteSheet({ delivery, onClose, onDone, t, toast }) {
           </div>
         </div>
       </div>
+
+      {/* Илгээхийн өмнөх баталгаажуулалт — санамсаргүй даралтаас хамгаална */}
+      <ConfirmDialog
+        open={confirmOpen}
+        title={t(success ? 'Хүргэлт баталгаажуулах' : 'Амжилтгүй тэмдэглэх')}
+        message={t(
+          success
+            ? 'Та энэ хүргэлтийг амжилттай гэж баталгаажуулахдаа итгэлтэй байна уу?'
+            : 'Та энэ хүргэлтийг амжилтгүй гэж тэмдэглэхдээ итгэлтэй байна уу?',
+        )}
+        confirmLabel={t('Илгээх')}
+        danger={!success}
+        loading={submitting}
+        onConfirm={() => {
+          setConfirmOpen(false)
+          handleSubmit()
+        }}
+        onCancel={() => setConfirmOpen(false)}
+      />
     </div>
   )
 }

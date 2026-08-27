@@ -367,6 +367,12 @@ const DICT = {
       'Are you sure you want to sign out?',
     'Ж: Гэрт нь байгаагүй — доод талын дэлгүүрт үлдээсэн':
       'e.g. Recipient not home — left at the store downstairs',
+    'Хүргэлт баталгаажуулах': 'Confirm delivery',
+    'Амжилтгүй тэмдэглэх': 'Mark as failed',
+    'Та энэ хүргэлтийг амжилттай гэж баталгаажуулахдаа итгэлтэй байна уу?':
+      'Are you sure you want to confirm this delivery as successful?',
+    'Та энэ хүргэлтийг амжилтгүй гэж тэмдэглэхдээ итгэлтэй байна уу?':
+      'Are you sure you want to mark this delivery as failed?',
 
     // — Мэдэгдэл + Үйлдлийн түүх (V3-10) —
     'Мэдэгдэл': 'Notifications',
