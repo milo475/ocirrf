@@ -285,6 +285,8 @@ const DICT = {
     'Хугацаа': 'Period',
     '{name} — {n} хүргэлт, {amt}. Тооцоо хаах уу?':
       '{name} — {n} deliveries, {amt}. Close this settlement?',
+    '{name} — {amt}. Цалинг олгосон гэж тэмдэглэхдээ итгэлтэй байна уу?':
+      '{name} — {amt}. Are you sure you want to mark this payout as paid?',
 
     // — Customer portal (V3-14) —
     'Шинэ харилцагч уу?': 'New customer?',

@@ -35,6 +35,7 @@ export default function Payroll() {
   const [history, setHistory] = useState(null)
   const [error, setError] = useState(null)
   const [closing, setClosing] = useState(null) // тооцоо хаах гэж буй мөр
+  const [paying, setPaying] = useState(null) // төлсөн болгох гэж буй тооцоо
   const [busy, setBusy] = useState(false)
   const [payingId, setPayingId] = useState(null)
 
@@ -67,6 +68,7 @@ export default function Payroll() {
 
   async function markPaid(p) {
     setPayingId(p.id)
+    setPaying(null)
     try {
       await api(`/finance/payroll/${p.id}/pay`, { method: 'PATCH' })
       toast.show(t('Төлсөн болголоо'))
@@ -160,7 +162,7 @@ export default function Payroll() {
           <Button
             variant="ghost"
             loading={payingId === p.id}
-            onClick={() => markPaid(p)}
+            onClick={() => setPaying(p)}
             className="text-xs px-2 py-1"
           >
             {t('Төлсөн болгох')}
@@ -219,6 +221,24 @@ export default function Payroll() {
           empty={t('Тооцоо хийгдээгүй байна')}
         />
       </section>
+
+      {/* Төлсөн болгохын өмнөх баталгаажуулалт */}
+      <ConfirmDialog
+        open={!!paying}
+        title={t('Төлсөн болгох')}
+        message={
+          paying
+            ? t('{name} — {amt}. Цалинг олгосон гэж тэмдэглэхдээ итгэлтэй байна уу?', {
+                name: paying.driver?.fullName ?? '',
+                amt: formatMoney(paying.totalAmount),
+              })
+            : ''
+        }
+        confirmLabel={t('Төлсөн болгох')}
+        loading={payingId === paying?.id}
+        onConfirm={() => markPaid(paying)}
+        onCancel={() => setPaying(null)}
+      />
 
       <ConfirmDialog
         open={!!closing}
