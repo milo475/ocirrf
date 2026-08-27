@@ -46,7 +46,7 @@ jobs:
       - name: Prisma generate
         run: npx prisma generate
       - name: Seed (e2e-ийн 4 хэрэглэгч + тариф)
-        run: npx ts-node prisma/seed.ts
+        run: npx prisma db seed
       - name: Build
         run: npm run build
       - name: E2E tests
