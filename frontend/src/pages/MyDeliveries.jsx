@@ -31,6 +31,9 @@ export default function MyDeliveries() {
 
   useEffect(() => {
     load()
+    // SSE push (V4-09): хуваарилалт хийгдмэгц жагсаалт шууд шинэчлэгдэнэ
+    window.addEventListener('notif:push', load)
+    return () => window.removeEventListener('notif:push', load)
   }, [load])
 
   if (error) {

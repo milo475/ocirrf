@@ -1,11 +1,14 @@
 import 'dotenv/config';
 import { existsSync, unlinkSync } from 'node:fs';
+import { get as httpGet } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { join } from 'node:path';
 import { deflateSync } from 'node:zlib';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
+import { NotificationsService } from '../src/notifications/notifications.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { UPLOADS_DIR } from '../src/uploads.config';
 
@@ -2767,6 +2770,77 @@ describe('ursGAL v2 API (e2e)', () => {
         .set(auth(login.body.accessToken))
         .expect(401);
       await rtRefresh(login.body.refreshToken).expect(401);
+    });
+  });
+
+  // ────────────────────────────────────────────── V4: SSE МЭДЭГДЭЛ
+  describe('V4: SSE real-time мэдэгдэл ⭐', () => {
+    it('stream нээгдэж, notify() дуудагдмагц unreadCount push ирнэ', async () => {
+      // Supertest сервер сонсдоггүй тул raw http-ээр өөрсдөө нээнэ
+      await new Promise<void>((res) => http.listen(0, res));
+      const port = (http.address() as AddressInfo).port;
+
+      const me = await api().get('/api/auth/me').set(auth(tok.driver));
+      const driverId: string = me.body.id;
+
+      let resolveOpen!: () => void;
+      const opened = new Promise<void>((r) => (resolveOpen = r));
+      let resolveData!: (chunk: string) => void;
+      let rejectData!: (e: Error) => void;
+      const pushed = new Promise<string>((r, j) => {
+        resolveData = r;
+        rejectData = j;
+      });
+
+      const req = httpGet(
+        `http://127.0.0.1:${port}/api/notifications/stream?token=${encodeURIComponent(tok.driver)}`,
+        (res) => {
+          expect(res.statusCode).toBe(200);
+          expect(res.headers['content-type']).toContain('text/event-stream');
+          resolveOpen();
+          res.setEncoding('utf8');
+          res.on('data', (chunk: string) => {
+            if (chunk.includes('unreadCount')) resolveData(chunk);
+          });
+        },
+      );
+      req.on('error', () => undefined); // destroy() үед гарна
+      const timer = setTimeout(
+        () => rejectData(new Error('SSE push 5с дотор ирсэнгүй')),
+        5000,
+      );
+
+      // Холболт нээгдсэний ДАРАА мэдэгдэл үүсгэнэ
+      await opened;
+      const notifications = app.get(NotificationsService);
+      await notifications.notify([driverId], {
+        type: 'DELIVERY_ASSIGNED',
+        title: `Э2Э SSE тест ${T}`,
+      });
+
+      const chunk = await pushed;
+      clearTimeout(timer);
+      req.destroy();
+      expect(chunk).toContain('"type":"notification"');
+
+      // Буруу token → stream нээгдэлгүй алдаа буцна
+      await new Promise<void>((resolve) => {
+        const bad = httpGet(
+          `http://127.0.0.1:${port}/api/notifications/stream?token=bad-token`,
+          (res) => {
+            expect(res.statusCode).toBeGreaterThanOrEqual(400);
+            bad.destroy();
+            resolve();
+          },
+        );
+        bad.on('error', () => resolve());
+      });
+
+      // Цэвэрлэгээ: тестийн мэдэгдэл + сонссон портыг хаана
+      await prisma.notification.deleteMany({
+        where: { title: `Э2Э SSE тест ${T}` },
+      });
+      await new Promise<void>((res) => http.close(() => res()));
     });
   });
 });

@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Observable, Subject, finalize, interval, map, merge } from 'rxjs';
 import { Role } from '../generated/prisma/client';
 import { PERM } from '../permissions/permission-keys';
 import { PermissionsService } from '../permissions/permissions.service';
@@ -12,12 +13,55 @@ export type NotifyData = {
   refId?: string;
 };
 
+/** SSE мессеж — data нь JSON string */
+export type SseEvent = { data: string };
+
 @Injectable()
 export class NotificationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly permissions: PermissionsService,
   ) {}
+
+  /**
+   * SSE холболтууд (V4-09): хэрэглэгч бүрд нэгээс олон tab байж болно.
+   * In-memory — server restart-д холболтууд тасарч frontend дахин холбогдоно.
+   */
+  private readonly streams = new Map<string, Set<Subject<SseEvent>>>();
+
+  /** Нэг хэрэглэгчийн SSE stream — 25с тутамд ping (proxy timeout-аас сэргийлнэ) */
+  subscribe(userId: string): Observable<SseEvent> {
+    const subj = new Subject<SseEvent>();
+    let set = this.streams.get(userId);
+    if (!set) {
+      set = new Set();
+      this.streams.set(userId, set);
+    }
+    set.add(subj);
+
+    const heartbeat = interval(25_000).pipe(
+      map((): SseEvent => ({ data: '{"type":"ping"}' })),
+    );
+    return merge(subj.asObservable(), heartbeat).pipe(
+      finalize(() => {
+        set.delete(subj);
+        if (set.size === 0) this.streams.delete(userId);
+      }),
+    );
+  }
+
+  /** Холбогдсон хэрэглэгчид шинэ unread тоог push хийнэ */
+  private async pushUnread(userId: string) {
+    const set = this.streams.get(userId);
+    if (!set || set.size === 0) return;
+    const unreadCount = await this.prisma.notification.count({
+      where: { userId, isRead: false },
+    });
+    const evt: SseEvent = {
+      data: JSON.stringify({ type: 'notification', unreadCount }),
+    };
+    for (const subj of set) subj.next(evt);
+  }
 
   /** Олон хэрэглэгчид нэг мэдэгдэл */
   async notify(userIds: string[], data: NotifyData) {
@@ -32,6 +76,12 @@ export class NotificationsService {
         refId: data.refId ?? null,
       })),
     });
+    // Real-time push (V4-09) — push бүтэхгүй байсан ч мэдэгдэл үүссэн байна
+    await Promise.all(
+      [...new Set(userIds)].map((id) =>
+        this.pushUnread(id).catch(() => undefined),
+      ),
+    );
   }
 
   /** Тухайн permission-тэй идэвхтэй ADMIN/MANAGER-үүдийн id */
@@ -176,10 +226,13 @@ export class NotificationsService {
     if (!n || n.userId !== userId) {
       throw new NotFoundException('Мэдэгдэл олдсонгүй');
     }
-    return this.prisma.notification.update({
+    const updated = await this.prisma.notification.update({
       where: { id },
       data: { isRead: true },
     });
+    // Бусад tab-ын badge шууд буурна (V4-09)
+    await this.pushUnread(userId).catch(() => undefined);
+    return updated;
   }
 
   async markAllRead(userId: string) {
@@ -187,6 +240,7 @@ export class NotificationsService {
       where: { userId, isRead: false },
       data: { isRead: true },
     });
+    await this.pushUnread(userId).catch(() => undefined);
     return { ok: true };
   }
 }

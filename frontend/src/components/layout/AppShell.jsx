@@ -5,7 +5,7 @@ import ConfirmDialog from '../ui/ConfirmDialog'
 import { navFor } from '../../config/nav'
 import { useAuth } from '../../context/AuthContext'
 import { useLang } from '../../context/LanguageContext'
-import { api } from '../../lib/api'
+import { api, getAccessToken } from '../../lib/api'
 import NotificationBell from './NotificationBell'
 import ThemeToggle from './ThemeToggle'
 
@@ -58,6 +58,48 @@ export default function AppShell() {
       window.removeEventListener('notif:refresh', refreshUnread)
     }
   }, [user, refreshUnread])
+
+  // SSE (V4-09): мэдэгдэл ирмэгц badge шууд шинэчлэгдэнэ.
+  // Тасарвал 5с тутам дахин холбогдоно; дээрх 30с poll fallback хэвээр.
+  useEffect(() => {
+    if (!user) return
+    let es = null
+    let retry = null
+    let stopped = false
+
+    const connect = () => {
+      const token = getAccessToken()
+      if (!token) {
+        retry = setTimeout(connect, 5000)
+        return
+      }
+      es = new EventSource(
+        `/api/notifications/stream?token=${encodeURIComponent(token)}`,
+      )
+      es.onmessage = (e) => {
+        try {
+          const d = JSON.parse(e.data)
+          if (d.type === 'notification') {
+            setUnread(d.unreadCount)
+            // Нээлттэй хуудсууд (Миний хүргэлт г.м.) шууд шинэчлэгдэнэ
+            window.dispatchEvent(new Event('notif:push'))
+          }
+        } catch {
+          /* ping */
+        }
+      }
+      es.onerror = () => {
+        es?.close()
+        if (!stopped) retry = setTimeout(connect, 5000)
+      }
+    }
+    connect()
+    return () => {
+      stopped = true
+      es?.close()
+      clearTimeout(retry)
+    }
+  }, [user])
 
   function toggleSidebar() {
     setCollapsed((c) => {
