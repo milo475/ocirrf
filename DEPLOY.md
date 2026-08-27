@@ -150,3 +150,26 @@ Offline горим:
 # Өглөө бүр 09:00-д өнөөдрийн алдааны тоог шалгана
 0 9 * * * bash /path/to/ursGAL/backend/scripts/check-errors.sh >> /var/log/ursgal-errors.log 2>&1
 ```
+
+## 10. Docker-оор байршуулах (V4-15)
+
+Нэг командаар бүх зүйл (Postgres + app) асна:
+
+```bash
+cp .env.example .env        # JWT нууцуудаа заавал солино (openssl rand -hex 32)
+docker compose up -d        # build → migrate → (эхний удаа) seed → сервер
+```
+
+- `db` — postgres:16, өгөгдөл `dbdata` volume-д хадгалагдана.
+- `app` — backend/Dockerfile (multi-stage: backend + frontend build →
+  node:20-slim runtime). Эхлэхдээ `prisma migrate deploy` ажиллуулж,
+  User хүснэгт ХООСОН үед л seed хийнэ (дараагийн restart бодит
+  өгөгдлийг дарахгүй). Зураг `uploads`, алдааны лог `logs` volume-д.
+- Health: `curl http://localhost:3000/api/health` → `{"status":"ok","db":true}`.
+- Шинэ хувилбар: `git pull && docker compose up -d --build`.
+- Зогсоох: `docker compose down` (өгөгдөл үлдэнэ);
+  `down -v` — volume-уудтай нь БҮРЭН устгана (болгоомжтой!).
+- Smoke: `bash backend/scripts/smoke-test-v3.sh` (host дээрээс).
+
+CI-ийн "Docker compose (smoke)" job push бүрт яг энэ урсгалыг цэвэр
+орчинд бүрэн ажиллуулж баталдаг.

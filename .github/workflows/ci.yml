@@ -69,3 +69,30 @@ jobs:
         run: npm ci
       - name: Build
         run: npm run build
+
+  # V4-15: цэвэр орчинд docker compose up → health OK → smoke-v3 ногоон
+  docker:
+    name: Docker compose (smoke)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Env бэлдэх (dummy secrets)
+        run: cp .env.example .env
+      - name: Compose up (build + migrate + seed + start)
+        run: docker compose up -d --build
+      - name: Health хүлээх
+        run: |
+          for i in $(seq 1 40); do
+            if curl -sf http://localhost:3000/api/health | grep -q '"db":true'; then
+              echo "health OK"; exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::health хугацаанд бэлэн болсонгүй"
+          docker compose logs app
+          exit 1
+      - name: Smoke test v3
+        run: bash backend/scripts/smoke-test-v3.sh
+      - name: Down
+        if: always()
+        run: docker compose down -v
