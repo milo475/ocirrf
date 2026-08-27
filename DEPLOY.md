@@ -136,3 +136,17 @@ Offline горим:
 - Хүргэлт баталгаажуулбал зурагтайгаа төхөөрөмжид (IndexedDB)
   хадгалагдаж, сүлжээ сэргэмэгц автоматаар илгээгдэнэ —
   "Миний хүргэлт" дээр хүлээгдэж буй тоо харагдана.
+
+## 9. Алдааны лог (V4-14)
+
+- Catch болоогүй бүх 500 алдаа `backend/logs/error-YYYY-MM-DD.log`
+  файлд JSON мөрөөр бичигдэнэ (timestamp, path, method, userId,
+  message, stack). 14 хоногоос хуучин файл автоматаар устдаг.
+  Байршлыг `LOGS_DIR` env-ээр өөрчилж болно.
+- UI: `/activity-log` → "Системийн алдаа" таб (activity_log.view эрхтэйд).
+- Cron шалгалт:
+
+```bash
+# Өглөө бүр 09:00-д өнөөдрийн алдааны тоог шалгана
+0 9 * * * bash /path/to/ursGAL/backend/scripts/check-errors.sh >> /var/log/ursgal-errors.log 2>&1
+```

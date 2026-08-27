@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { existsSync, unlinkSync } from 'node:fs';
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { get as httpGet } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { join } from 'node:path';
@@ -2931,6 +2931,73 @@ describe('ursGAL v2 API (e2e)', () => {
         .expect(200);
       expect(res.body.items).toHaveLength(1);
       expect(res.body.items[0].sku).toBe(impSku1);
+    });
+  });
+
+  // ────────────────────────────────────────────── V4: АЛДААНЫ ЛОГ
+  describe('V4: Алдааны төвлөрсөн лог ⭐', () => {
+    afterAll(async () => {
+      // Тестийн "Тест алдаа" мөрүүдийг өнөөдрийн лог файлаас арилгана
+      const d = new Date();
+      const today = new Date(d.getTime() - d.getTimezoneOffset() * 60_000)
+        .toISOString()
+        .slice(0, 10);
+      const file = join(process.cwd(), 'logs', `error-${today}.log`);
+      try {
+        const text = readFileSync(file, 'utf8');
+        const kept = text
+          .split('\n')
+          .filter((l) => l.trim() && !l.includes('Тест алдаа'))
+          .join('\n');
+        if (kept) writeFileSync(file, kept + '\n');
+        else unlinkSync(file);
+      } catch {
+        /* файл байхгүй бол зүгээр */
+      }
+    });
+
+    it('зориуд 500 → файлд бичигдэж admin API-гаас харагдана; 400/403 бичигдэхгүй ⭐', async () => {
+      const before = await api()
+        .get('/api/admin/errors')
+        .set(auth(tok.admin))
+        .expect(200);
+
+      // Зориуд 500
+      await api()
+        .post('/api/admin/errors/test')
+        .set(auth(tok.admin))
+        .expect(500);
+
+      // Энгийн 400 + 403 — лог руу ОРОХГҮЙ
+      await api()
+        .post('/api/orders')
+        .set(auth(tok.operator))
+        .send({ region: 'ULAANBAATAR' })
+        .expect(400);
+      await api().get('/api/users').set(auth(tok.operator)).expect(403);
+
+      const after = await api()
+        .get('/api/admin/errors')
+        .set(auth(tok.admin))
+        .expect(200);
+      expect(after.body.count).toBe(before.body.count + 1);
+      const entry = after.body.items[0];
+      expect(entry.message).toContain('Тест алдаа');
+      expect(entry.path).toContain('/api/admin/errors/test');
+      expect(entry.method).toBe('POST');
+      expect(entry.stack).toBeTruthy();
+      expect(entry.userId).toBeTruthy();
+    });
+
+    it('operator алдааны лог харахгүй (403); буруу огноо 400', async () => {
+      await api()
+        .get('/api/admin/errors')
+        .set(auth(tok.operator))
+        .expect(403);
+      await api()
+        .get('/api/admin/errors?date=27-08-2026')
+        .set(auth(tok.admin))
+        .expect(400);
     });
   });
 });

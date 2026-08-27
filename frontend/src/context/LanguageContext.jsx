@@ -377,6 +377,11 @@ const DICT = {
     'Хадгалж байна…': 'Saving…',
     'Нууц үг солих': 'Change password',
 
+    // — Алдааны лог (V4-14) —
+    'Системийн алдаа': 'System errors',
+    '{n} алдаа': '{n} errors',
+    'Энэ өдөр серверийн алдаа бүртгэгдээгүй ✅': 'No server errors recorded on this day ✅',
+
     // — CSV импорт + barcode (V4-12) —
     'Импорт': 'Import',
     'Бараа CSV импорт': 'Product CSV import',
