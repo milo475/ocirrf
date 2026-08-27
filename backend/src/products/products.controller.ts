@@ -9,6 +9,8 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { AuthUser } from '../auth/decorators/current-user.decorator';
 import { PERM } from '../permissions/permission-keys';
 import { RequirePermission } from '../permissions/require-permission.decorator';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -23,14 +25,17 @@ export class ProductsController {
   /** DRIVER бараа харахгүй — эрхийн матрицын дагуу */
   @Get()
   @RequirePermission(PERM.INVENTORY_VIEW)
-  findAll(@Query() query: QueryProductsDto) {
-    return this.productsService.findAll(query);
+  findAll(@Query() query: QueryProductsDto, @CurrentUser() user: AuthUser) {
+    return this.productsService.findAll(query, user);
   }
 
   @Get(':id')
   @RequirePermission(PERM.INVENTORY_VIEW)
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.productsService.findOne(id);
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.productsService.findOne(id, user);
   }
 
   @Post()

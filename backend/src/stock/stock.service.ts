@@ -43,7 +43,13 @@ export class StockService {
 
       const product = await tx.product.update({
         where: { id: dto.productId },
-        data: { stockQty: { increment: dto.qtyChange } },
+        data: {
+          stockQty: { increment: dto.qtyChange },
+          // Орлогод нэгжийн өртөг өгсөн бол — "сүүлийн өртөг" зарчмаар
+          ...(dto.reason === 'PURCHASE_IN' && dto.unitCost
+            ? { costPrice: dto.unitCost }
+            : {}),
+        },
       });
 
       if (product.stockQty < 0) {

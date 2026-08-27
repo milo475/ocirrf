@@ -188,6 +188,7 @@ export class OrdersService {
           productName: product.name, // snapshot
           qty: item.qty,
           priceAtOrder: product.price, // snapshot
+          costAtOrder: product.costPrice, // өртгийн snapshot (v4)
           lineTotal,
         };
       });

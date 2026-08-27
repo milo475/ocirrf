@@ -19,6 +19,7 @@ export default function ProductForm({
     sku: initial?.sku ?? '',
     categoryId: initial?.categoryId ?? '',
     price: initial?.price ?? '',
+    costPrice: initial?.costPrice ?? '',
     lowStockLimit: initial?.lowStockLimit ?? 5,
   })
 
@@ -31,6 +32,9 @@ export default function ProductForm({
       name: values.name.trim(),
       sku: values.sku.trim(),
       price: String(values.price).trim(),
+      ...(String(values.costPrice).trim()
+        ? { costPrice: String(values.costPrice).trim() }
+        : {}),
       lowStockLimit: Number(values.lowStockLimit),
       ...(values.categoryId ? { categoryId: values.categoryId } : {}),
     })
@@ -90,6 +94,17 @@ export default function ProductForm({
         value={values.price}
         onChange={set('price')}
         placeholder="12500.00"
+      />
+
+      <Input
+        id="p-cost"
+        label={t('Өртөг (₮)')}
+        inputMode="decimal"
+        pattern="\d{1,10}(\.\d{1,2})?"
+        title="Жишээ: 8500 эсвэл 8500.50"
+        value={values.costPrice}
+        onChange={set('costPrice')}
+        placeholder={t('(заавал биш)')}
       />
 
       {error && (

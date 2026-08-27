@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { DeliveryStatus, OrderStatus } from '../generated/prisma/client';
+import {
+  DeliveryStatus,
+  OrderStatus,
+  Prisma,
+} from '../generated/prisma/client';
 import { formatShortAddress } from '../orders/address.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { StockService } from '../stock/stock.service';
@@ -62,6 +66,7 @@ export class DashboardService {
       deliveredGroups,
       driverUsers,
       incomeAgg,
+      profitRows,
     ] = await Promise.all([
       this.prisma.order.groupBy({ by: ['phone'] }),
       this.prisma.user.count({ where: { role: 'DRIVER', isActive: true } }),
@@ -100,11 +105,21 @@ export class DashboardService {
         where: { role: 'DRIVER' },
         select: { id: true, fullName: true },
       }),
-      // Нийт орлого — FinanceEntry-ээс (авто ORDER + гар бүртгэл хоёул)
+      // Нийт орлого — FinanceEntry-ээс (төлбөр + гар бүртгэл)
       this.prisma.financeEntry.aggregate({
         _sum: { amount: true },
         where: { type: 'INCOME' },
       }),
+      // Нийт ашиг (v4) — ТӨЛБӨР төвтэй биш БОРЛУУЛАЛТ төвтэй:
+      // цуцлагдаагүй бүх захиалгын орлого − борлуулсан барааны
+      // snapshot өртөг (costAtOrder × qty)
+      this.prisma.$queryRaw<
+        { revenue: unknown; cost: unknown }[]
+      >`SELECT COALESCE(SUM(oi."lineTotal"), 0) AS revenue,
+               COALESCE(SUM(oi."costAtOrder" * oi.qty), 0) AS cost
+        FROM "OrderItem" oi
+        JOIN "Order" o ON o.id = oi."orderId"
+        WHERE o."orderStatus" != 'CANCELLED'`,
     ]);
 
     const days = new Map<
@@ -150,6 +165,9 @@ export class DashboardService {
       deliveriesInProgress,
       deliveredTotal,
       totalIncome: incomeAgg._sum.amount ?? 0,
+      totalProfit: new Prisma.Decimal(
+        String(profitRows[0]?.revenue ?? 0),
+      ).sub(new Prisma.Decimal(String(profitRows[0]?.cost ?? 0))),
       last7Days: [...days.values()],
       topDrivers,
     };

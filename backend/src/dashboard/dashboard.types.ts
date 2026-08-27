@@ -10,6 +10,7 @@ export type AdminDashboard = {
   deliveriesInProgress: number; // ASSIGNED + ON_THE_WAY
   deliveredTotal: number;
   totalIncome: unknown; // Decimal — FinanceEntry INCOME нийлбэр
+  totalProfit: unknown; // Decimal — борлуулалт − борлуулсан барааны өртөг (v4)
   last7Days: { date: string; ordersCreated: number; delivered: number }[];
   /** DR = delivered/assigned, багадаа 1 хуваарилалттай жолооч, TOP-3 */
   topDrivers: {

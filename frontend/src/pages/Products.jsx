@@ -144,6 +144,40 @@ export default function Products() {
         <span className="font-mono tabular-nums">{formatMoney(p.price)}</span>
       ),
     },
+    // Өртөг + ашгийн % — зөвхөн inventory.adjustment эрхтэйд (v4)
+    ...(canEdit
+      ? [
+          {
+            key: 'costPrice',
+            header: t('Өртөг'),
+            align: 'right',
+            render: (p) => (
+              <span className="font-mono tabular-nums text-ink-muted">
+                {formatMoney(p.costPrice ?? 0)}
+              </span>
+            ),
+          },
+          {
+            key: 'margin',
+            header: t('Ашиг %'),
+            align: 'right',
+            render: (p) => {
+              const price = Number(p.price)
+              const cost = Number(p.costPrice ?? 0)
+              if (!price || !cost)
+                return <span className="text-ink-muted">—</span>
+              const margin = Math.round(((price - cost) / price) * 100)
+              return (
+                <span
+                  className={`font-mono tabular-nums ${margin < 0 ? 'text-alarm' : 'text-safe'}`}
+                >
+                  {margin}%
+                </span>
+              )
+            },
+          },
+        ]
+      : []),
     {
       key: 'stockQty',
       header: t('Үлдэгдэл'),

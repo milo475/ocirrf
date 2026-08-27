@@ -310,6 +310,14 @@ const DICT = {
     'Хоног': 'Days',
     'Авлага байхгүй — бүх төлбөр цугларсан':
       'No receivables — all payments collected',
+
+    // — Өртөг + ашиг (V4-03) —
+    'Өртөг': 'Cost',
+    'Өртөг (₮)': 'Cost (₮)',
+    'Ашиг': 'Profit',
+    'Ашиг %': 'Margin %',
+    'Нийт ашиг': 'Total profit',
+    'Нэгжийн өртөг (₮)': 'Unit cost (₮)',
     'pay.cash': 'Cash',
     'pay.transfer': 'Transfer',
     'pay.card': 'Card',

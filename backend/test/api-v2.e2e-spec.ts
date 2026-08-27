@@ -90,6 +90,7 @@ describe('ursGAL v2 API (e2e)', () => {
   let roB: string;
   let e2eMgrId: string; // default матрицын шалгалтын менежер
   let noPhotoOrderId: string; // зураггүй баталгаажуулалтын тест
+  let costOrderId: string; // өртгийн snapshot-ын тест
   let custUserId: string; // portal-ын тест харилцагч
   let custToken: string;
   let custOrderId: string;
@@ -132,6 +133,7 @@ describe('ursGAL v2 API (e2e)', () => {
       custOrderId,
       custOrder2Id,
       noPhotoOrderId,
+      costOrderId,
     ].filter(Boolean);
     await prisma.financeEntry.deleteMany({
       where: {
@@ -1444,6 +1446,7 @@ describe('ursGAL v2 API (e2e)', () => {
         'deliveriesInProgress',
         'deliveredTotal',
         'totalIncome',
+        'totalProfit',
         'last7Days',
         'topDrivers',
       ]) {
@@ -2082,6 +2085,111 @@ describe('ursGAL v2 API (e2e)', () => {
         .get('/api/reports/delivery.csv')
         .set(auth(tok.operator))
         .expect(403);
+    });
+  });
+
+  // ────────────────────────────────────────────── ӨРТӨГ + АШИГ (V4)
+  describe('V4: Өртөг + ашиг ⭐', () => {
+    it('costPrice: manager засна, operator-т API хариунаас нуугдана', async () => {
+      const upd = await api()
+        .patch(`/api/products/${productId}`)
+        .set(auth(tok.manager))
+        .send({ costPrice: '1200.00' })
+        .expect(200);
+      expect(upd.body.costPrice).toBe('1200');
+
+      const asManager = await api()
+        .get(`/api/products/${productId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(asManager.body.costPrice).toBe('1200');
+
+      // operator (inventory.view л эрхтэй) — өртөг нуугдана
+      const asOperator = await api()
+        .get(`/api/products/${productId}`)
+        .set(auth(tok.operator))
+        .expect(200);
+      expect(asOperator.body).not.toHaveProperty('costPrice');
+      const list = await api()
+        .get(`/api/products?search=${T}&limit=50`)
+        .set(auth(tok.operator))
+        .expect(200);
+      for (const p of list.body.items) {
+        expect(p).not.toHaveProperty('costPrice');
+      }
+    });
+
+    it('PURCHASE_IN + unitCost → costPrice "сүүлийн өртөг"-өөр шинэчлэгдэнэ', async () => {
+      const res = await api()
+        .post('/api/stock/adjust')
+        .set(auth(tok.manager))
+        .send({
+          productId,
+          qtyChange: 1,
+          reason: 'PURCHASE_IN',
+          unitCost: '1300.00',
+        })
+        .expect(201);
+      expect(res.body.product.costPrice).toBe('1300');
+    });
+
+    it('захиалгад costAtOrder snapshot — дараа өртөг өөрчлөгдөхөд хөндөгдөхгүй', async () => {
+      const ord = await api()
+        .post('/api/orders')
+        .set(auth(tok.operator))
+        .send({
+          customerName: `Э2Э-Өртөг-${T}`,
+          customerPhone: `4${T}`,
+          ...UB_ADDR,
+          items: [{ productId, qty: 1 }],
+        })
+        .expect(201);
+      costOrderId = ord.body.id;
+      expect(ord.body.items[0].costAtOrder).toBe('1300');
+
+      // Өртгийг өөрчилье — хуучин захиалгын snapshot хэвээр
+      await api()
+        .patch(`/api/products/${productId}`)
+        .set(auth(tok.manager))
+        .send({ costPrice: '999.00' })
+        .expect(200);
+      const detail = await api()
+        .get(`/api/orders/${costOrderId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(detail.body.items[0].costAtOrder).toBe('1300');
+    });
+
+    it('analytics: profit = amount − cost; top-products ашигтай', async () => {
+      const sales = await api()
+        .get('/api/analytics/sales?groupBy=day')
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(Number(sales.body.totals.profit)).toBeCloseTo(
+        Number(sales.body.totals.amount) - Number(sales.body.totals.cost),
+        2,
+      );
+      expect(Number(sales.body.totals.cost)).toBeGreaterThan(0);
+
+      const top = await api()
+        .get('/api/analytics/top-products?limit=50')
+        .set(auth(tok.manager))
+        .expect(200);
+      const mine = top.body.find(
+        (p: { productId: string }) => p.productId === productId,
+      );
+      expect(Number(mine.cost)).toBeGreaterThan(0);
+      expect(Number(mine.profit)).toBeCloseTo(
+        Number(mine.amount) - Number(mine.cost),
+        2,
+      );
+
+      // Admin dashboard-д Нийт ашиг
+      const dash = await api()
+        .get('/api/dashboard/admin')
+        .set(auth(tok.admin))
+        .expect(200);
+      expect(dash.body).toHaveProperty('totalProfit');
     });
   });
 });

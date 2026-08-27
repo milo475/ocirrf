@@ -34,11 +34,16 @@ export default function AdminDashboard() {
       {/* MetricCard ×4 */}
       <Rise delay={60}>
         <section className="mt-16 border-t border-rule pt-8">
-          <div className="grid grid-cols-2 md:grid-cols-5 md:divide-x divide-rule">
-            {/* FinanceEntry-ийн INCOME нийлбэр (авто ORDER + гар бүртгэл) */}
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 md:divide-x divide-rule">
+            {/* FinanceEntry-ийн INCOME нийлбэр (төлбөр + гар бүртгэл) */}
             <MetricCard
               label={t('Нийт орлого')}
               value={formatMoney(data.totalIncome)}
+            />
+            {/* Борлуулалт − борлуулсан барааны өртөг (v4) */}
+            <MetricCard
+              label={t('Нийт ашиг')}
+              value={formatMoney(data.totalProfit)}
             />
             <MetricCard
               label={t('Нийт харилцагч')}

@@ -13,6 +13,7 @@ export default function StockAdjustModal({ product, onClose, onDone }) {
   const { t } = useLang()
   const [type, setType] = useState('PURCHASE_IN')
   const [qty, setQty] = useState('')
+  const [unitCost, setUnitCost] = useState('')
   const [note, setNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
@@ -44,6 +45,9 @@ export default function StockAdjustModal({ product, onClose, onDone }) {
           productId: product.id,
           qtyChange,
           reason: type,
+          ...(type === 'PURCHASE_IN' && unitCost.trim()
+            ? { unitCost: unitCost.trim() }
+            : {}),
           ...(note.trim() ? { note: note.trim() } : {}),
         },
       })
@@ -104,6 +108,20 @@ export default function StockAdjustModal({ product, onClose, onDone }) {
           placeholder={type === 'CORRECTION' ? '5 эсвэл -5' : '10'}
           className="font-mono"
         />
+
+        {/* Орлогод нэгжийн өртөг — барааны costPrice шинэчлэгдэнэ (v4) */}
+        {type === 'PURCHASE_IN' && (
+          <Input
+            id="adj-cost"
+            label={t('Нэгжийн өртөг (₮)')}
+            inputMode="decimal"
+            pattern="\d{1,10}(\.\d{1,2})?"
+            value={unitCost}
+            onChange={(e) => setUnitCost(e.target.value)}
+            placeholder={t('(заавал биш)')}
+            className="font-mono"
+          />
+        )}
 
         <Input
           id="adj-note"

@@ -29,6 +29,13 @@ export class CreateProductDto {
   })
   price: string;
 
+  /** Өртөг (v4) — inventory.adjustment эрхтэйд л харагдана */
+  @IsOptional()
+  @Matches(/^\d{1,10}(\.\d{1,2})?$/, {
+    message: 'Өртөг буруу форматтай (жишээ: 8500 эсвэл 8500.50)',
+  })
+  costPrice?: string;
+
   @IsOptional()
   @IsUUID('4', { message: 'categoryId буруу форматтай' })
   categoryId?: string;

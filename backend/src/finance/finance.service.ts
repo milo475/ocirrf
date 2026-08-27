@@ -152,11 +152,27 @@ export class FinanceService {
       }
     }
 
+    // Борлуулалтын ашиг (v4) — төлбөр төвтэй биш БОРЛУУЛАЛТ төвтэй:
+    // тухайн хугацаанд ҮҮССЭН (цуцлагдаагүй) захиалгуудын
+    // орлого − борлуулсан барааны snapshot өртөг
+    const salesRows = await this.prisma.$queryRaw<
+      { revenue: Prisma.Decimal; cost: Prisma.Decimal }[]
+    >`SELECT COALESCE(SUM(oi."lineTotal"), 0) AS revenue,
+             COALESCE(SUM(oi."costAtOrder" * oi.qty), 0) AS cost
+      FROM "OrderItem" oi
+      JOIN "Order" o ON o.id = oi."orderId"
+      WHERE o."createdAt" >= ${start} AND o."orderStatus" != 'CANCELLED'`;
+    const salesRevenue = salesRows[0]?.revenue ?? zero;
+    const salesCost = salesRows[0]?.cost ?? zero;
+
     return {
       days,
       income,
       expense,
       net: income.sub(expense),
+      salesRevenue,
+      salesCost,
+      salesProfit: new Prisma.Decimal(salesRevenue).sub(salesCost),
       byDay: [...byDay.values()],
     };
   }

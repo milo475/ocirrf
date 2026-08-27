@@ -4,6 +4,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Matches,
   NotEquals,
 } from 'class-validator';
 
@@ -32,4 +33,11 @@ export class AdjustStockDto {
   @IsOptional()
   @IsString()
   note?: string;
+
+  /** PURCHASE_IN үед нэгжийн өртөг — өгвөл барааны costPrice шинэчлэгдэнэ */
+  @IsOptional()
+  @Matches(/^\d{1,10}(\.\d{1,2})?$/, {
+    message: 'Өртөг буруу форматтай (жишээ: 8500 эсвэл 8500.50)',
+  })
+  unitCost?: string;
 }

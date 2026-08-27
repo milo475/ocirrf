@@ -167,6 +167,11 @@ export default function Analytics() {
                   label={t('Нийт дүн')}
                   value={formatMoney(data.sales.totals.amount)}
                 />
+                <MetricCard
+                  label={t('Ашиг')}
+                  value={formatMoney(data.sales.totals.profit)}
+                  sub={`${t('Өртөг')}: ${formatMoneyShort(data.sales.totals.cost)}`}
+                />
               </div>
               <div className="flex gap-10 flex-wrap">
                 <div>
@@ -229,8 +234,15 @@ export default function Analytics() {
                               ×{p.qty}
                             </span>
                           </span>
-                          <span className="font-mono tabular-nums shrink-0">
-                            {formatMoneyShort(p.amount)}
+                          <span className="shrink-0">
+                            <span className="font-mono tabular-nums">
+                              {formatMoneyShort(p.amount)}
+                            </span>
+                            {Number(p.cost) > 0 && (
+                              <span className="font-mono text-xs text-safe ml-2 tabular-nums">
+                                +{formatMoneyShort(p.profit)}
+                              </span>
+                            )}
                           </span>
                         </div>
                         <div className="mt-1 h-2 bg-surface rounded overflow-hidden">

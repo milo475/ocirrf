@@ -192,6 +192,7 @@ model Product {
   sku           String   @unique
   name          String
   price         Decimal  @db.Decimal(12, 2)
+  costPrice     Decimal  @default(0) @db.Decimal(12, 2) // өртөг (v4) — сүүлийн орлогын үнэ
   stockQty      Int      @default(0)
   lowStockLimit Int      @default(5) // үүнээс доош орвол анхааруулга
   unit          String   @default("ш")
@@ -279,6 +280,7 @@ model OrderItem {
   productName  String // snapshot
   qty          Int
   priceAtOrder Decimal @db.Decimal(12, 2)
+  costAtOrder  Decimal @default(0) @db.Decimal(12, 2) // өртгийн snapshot (v4)
   lineTotal    Decimal @db.Decimal(12, 2)
 
   order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)

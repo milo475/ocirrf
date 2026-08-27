@@ -42,23 +42,49 @@ export class AnalyticsService {
         createdAt: { gte: start, lte: end },
         orderStatus: { not: OrderStatus.CANCELLED },
       },
-      select: { createdAt: true, totalAmount: true },
+      select: {
+        createdAt: true,
+        totalAmount: true,
+        items: { select: { qty: true, costAtOrder: true } },
+      },
     });
 
     const keyOf = groupBy === 'week' ? weekKey : dayKey;
     const zero = new Prisma.Decimal(0);
     const buckets = new Map<
       string,
-      { bucket: string; count: number; amount: Prisma.Decimal }
+      {
+        bucket: string;
+        count: number;
+        amount: Prisma.Decimal;
+        cost: Prisma.Decimal;
+        profit: Prisma.Decimal;
+      }
     >();
     let totalAmount = zero;
+    let totalCost = zero;
     for (const o of orders) {
+      // Захиалгын өртөг = мөр бүрийн snapshot өртөг × тоо (v4)
+      const orderCost = o.items.reduce(
+        (acc, i) => acc.add(i.costAtOrder.mul(i.qty)),
+        zero,
+      );
       const key = keyOf(o.createdAt);
-      const row = buckets.get(key) ?? { bucket: key, count: 0, amount: zero };
+      const row =
+        buckets.get(key) ?? {
+          bucket: key,
+          count: 0,
+          amount: zero,
+          cost: zero,
+          profit: zero,
+        };
       row.count += 1;
       row.amount = row.amount.add(o.totalAmount);
+      row.cost = row.cost.add(orderCost);
+      row.profit = row.amount.sub(row.cost);
       buckets.set(key, row);
       totalAmount = totalAmount.add(o.totalAmount);
+      totalCost = totalCost.add(orderCost);
     }
 
     return {
@@ -66,7 +92,12 @@ export class AnalyticsService {
       rows: [...buckets.values()].sort((a, b) =>
         a.bucket.localeCompare(b.bucket),
       ),
-      totals: { count: orders.length, amount: totalAmount },
+      totals: {
+        count: orders.length,
+        amount: totalAmount,
+        cost: totalCost,
+        profit: totalAmount.sub(totalCost),
+      },
     };
   }
 
@@ -86,19 +117,42 @@ export class AnalyticsService {
       take: limit,
     });
 
-    const products = await this.prisma.product.findMany({
-      where: { id: { in: groups.map((g) => g.productId) } },
-      select: { id: true, name: true, sku: true },
-    });
+    if (groups.length === 0) return [];
+    const ids = groups.map((g) => g.productId);
+    const [products, costRows] = await Promise.all([
+      this.prisma.product.findMany({
+        where: { id: { in: ids } },
+        select: { id: true, name: true, sku: true },
+      }),
+      // Өртөг×тоо-г aggregate хийж чадахгүй тул raw-аар (v4)
+      this.prisma.$queryRaw<
+        { productId: string; cost: unknown }[]
+      >`SELECT oi."productId", COALESCE(SUM(oi."costAtOrder" * oi.qty), 0) AS cost
+        FROM "OrderItem" oi
+        JOIN "Order" o ON o.id = oi."orderId"
+        WHERE oi."productId" IN (${Prisma.join(ids)})
+          AND o."createdAt" >= ${start} AND o."createdAt" <= ${end}
+          AND o."orderStatus" != 'CANCELLED'
+        GROUP BY oi."productId"`,
+    ]);
     const byId = new Map(products.map((p) => [p.id, p]));
+    const costBy = new Map<string, Prisma.Decimal>(
+      costRows.map((r) => [r.productId, new Prisma.Decimal(String(r.cost))]),
+    );
 
-    return groups.map((g) => ({
-      productId: g.productId,
-      name: byId.get(g.productId)?.name ?? 'Устгагдсан бараа',
-      sku: byId.get(g.productId)?.sku ?? '—',
-      qty: g._sum.qty ?? 0,
-      amount: g._sum.lineTotal ?? 0,
-    }));
+    return groups.map((g) => {
+      const amount = g._sum.lineTotal ?? new Prisma.Decimal(0);
+      const cost = costBy.get(g.productId) ?? new Prisma.Decimal(0);
+      return {
+        productId: g.productId,
+        name: byId.get(g.productId)?.name ?? 'Устгагдсан бараа',
+        sku: byId.get(g.productId)?.sku ?? '—',
+        qty: g._sum.qty ?? 0,
+        amount,
+        cost,
+        profit: new Prisma.Decimal(amount).sub(cost),
+      };
+    });
   }
 
   /** Жолооч бүрийн гүйцэтгэл + бодогдох цалин */
