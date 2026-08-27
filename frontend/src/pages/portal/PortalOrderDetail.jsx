@@ -67,6 +67,11 @@ function openInvoice(order, t) {
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>
+  ${
+    Number(order.deliveryFee) > 0
+      ? `<p class="muted" style="text-align:right;margin:6px 0 0">${esc(t('Хүргэлтийн хөлс'))}: ${esc(formatMoney(order.deliveryFee))}</p>`
+      : ''
+  }
   <p class="total">${esc(t('Нийт'))}: ${esc(formatMoney(order.totalAmount))}</p>
   <p class="muted" style="text-align:right;margin-top:4px">
     ${esc(t('Төлсөн'))}: ${esc(formatMoney(order.paidAmount ?? 0))} ·
@@ -204,11 +209,21 @@ export default function PortalOrderDetail() {
             ))}
           </tbody>
         </table>
-        <div className="mt-4 flex justify-end items-baseline gap-3">
-          <span className="text-sm text-ink-muted">{t('Нийт')}</span>
-          <span className="font-mono text-2xl tabular-nums">
-            {formatMoney(order.totalAmount)}
-          </span>
+        <div className="mt-4 space-y-1 text-right">
+          {Number(order.deliveryFee) > 0 && (
+            <p className="text-sm text-ink-muted">
+              {t('Хүргэлтийн хөлс')}
+              <span className="font-mono tabular-nums ml-3 text-ink">
+                {formatMoney(order.deliveryFee)}
+              </span>
+            </p>
+          )}
+          <p className="flex justify-end items-baseline gap-3">
+            <span className="text-sm text-ink-muted">{t('Нийт')}</span>
+            <span className="font-mono text-2xl tabular-nums">
+              {formatMoney(order.totalAmount)}
+            </span>
+          </p>
         </div>
 
         {/* Төлбөрийн байдал */}

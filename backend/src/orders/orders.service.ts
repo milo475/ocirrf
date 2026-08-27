@@ -10,6 +10,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { PERM } from '../permissions/permission-keys';
 import { PermissionsService } from '../permissions/permissions.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { SettingsService } from '../settings/settings.service';
 import { formatFullAddress, formatShortAddress } from './address.util';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { QueryOrdersDto } from './dto/query-orders.dto';
@@ -47,6 +48,7 @@ export class OrdersService {
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
     private readonly permissions: PermissionsService,
+    private readonly settings: SettingsService,
   ) {}
 
   /**
@@ -93,6 +95,13 @@ export class OrdersService {
       throw new BadRequestException('Нэг бараа давхардаж орсон байна');
     }
 
+    // Хүргэлтийн хөлс (V4-05): staff гараар override хийж болно,
+    // customer-т үргэлж тарифаас автоматаар
+    const deliveryFee =
+      !isCustomer && dto.deliveryFee !== undefined
+        ? new Prisma.Decimal(dto.deliveryFee)
+        : await this.settings.feeFor(dto.region, dto.district);
+
     const MAX_ATTEMPTS = 3;
     for (let attempt = 1; ; attempt++) {
       try {
@@ -103,6 +112,7 @@ export class OrdersService {
           phone,
           customerName,
           isCustomer ? user.id : null,
+          deliveryFee,
         );
         // Transaction амжилттай болсны ДАРАА мэдэгдэнэ (rollback-д илгээхгүй)
         for (const p of lowStockCrossed) {
@@ -128,6 +138,7 @@ export class OrdersService {
     phone: string,
     customerName: string | null,
     customerId: string | null,
+    deliveryFee: Prisma.Decimal,
   ) {
     const lowStockCrossed: {
       id: string;
@@ -177,8 +188,9 @@ export class OrdersService {
         : 1;
       const orderNo = prefix + String(nextNum).padStart(4, '0');
 
-      // 3–4. Snapshot + нийт дүн (Decimal — float хэрэглэхгүй)
-      let totalAmount = new Prisma.Decimal(0);
+      // 3–4. Snapshot + нийт дүн (Decimal — float хэрэглэхгүй).
+      // V4-05: нийт дүн = барааны нийлбэр + хүргэлтийн хөлс
+      let totalAmount = deliveryFee;
       const itemsData = dto.items.map((item) => {
         const product = byId.get(item.productId)!;
         const lineTotal = product.price.mul(item.qty);
@@ -216,6 +228,7 @@ export class OrdersService {
           addressDetail: isUB ? null : (dto.addressDetail ?? null),
           note: dto.note,
           totalAmount,
+          deliveryFee,
           createdById: userId,
           items: { create: itemsData },
         },

@@ -343,6 +343,16 @@ const DICT = {
     'ret.excluded': 'Excluded from payroll',
     'ret.left': 'Left',
 
+    // — Хүргэлтийн тариф (V4-05) —
+    'Хүргэлтийн хөлс': 'Delivery fee',
+    'Хүргэлтийн тариф': 'Delivery tariffs',
+    'Дүүрэггүй мөр нь тухайн бүсийн үндсэн тариф':
+      'Rows without a district are the default tariff for that region',
+    'Тариф хадгалагдлаа': 'Tariffs saved',
+    'Тариф давхардаж байна': 'Duplicate tariff',
+    'Дүүргийн тусгай тариф (УБ)': 'District-specific tariff (UB)',
+    'Тариф': 'Tariff',
+
     // — Customer portal (V3-14) —
     'Шинэ харилцагч уу?': 'New customer?',
     'Бүртгүүлэх': 'Sign up',

@@ -27,6 +27,9 @@ const UB_ADDR = {
   entrance: '2',
   floor: '5',
   door: '501',
+  // V4-05: staff override 0 — хуучин тестүүдийн дүн тарифгүй хэвээр.
+  // (CUSTOMER-ийн захиалгад service үл тоомсорлож автомат тариф тавина.)
+  deliveryFee: '0',
 };
 const UB_FULL =
   'ХУД, 11-р хороо, Гоёо хотхон 45-р байр, 2-р орц, 5 давхар, 501 тоот';
@@ -93,6 +96,7 @@ describe('ursGAL v2 API (e2e)', () => {
   let costOrderId: string; // өртгийн snapshot-ын тест
   let retOrderId: string; // буцаалтын тест (V4-04)
   let retItemId: string; // буцаалтын тест захиалгын мөр
+  const feeOrderIds: string[] = []; // тарифын тест захиалгууд (V4-05)
   let custUserId: string; // portal-ын тест харилцагч
   let custToken: string;
   let custOrderId: string;
@@ -137,6 +141,7 @@ describe('ursGAL v2 API (e2e)', () => {
       noPhotoOrderId,
       costOrderId,
       retOrderId,
+      ...feeOrderIds,
     ].filter(Boolean);
     await prisma.financeEntry.deleteMany({
       where: {
@@ -579,6 +584,7 @@ describe('ursGAL v2 API (e2e)', () => {
           soum: 'Эрдэнэбулган',
           transport: 'Од транс',
           addressDetail: 'Захын хойд талд',
+          deliveryFee: '0',
           items: [{ productId, qty: 1 }],
         })
         .expect(201);
@@ -2370,6 +2376,142 @@ describe('ursGAL v2 API (e2e)', () => {
         .expect(200);
       expect(detail.body.returns).toHaveLength(2);
       expect(detail.body.returnState).toBe('FULL');
+    });
+  });
+
+  // ────────────────────────────────────────────── V4: ХҮРГЭЛТИЙН ТАРИФ
+  describe('V4: Хүргэлтийн тариф ⭐', () => {
+    const DEFAULT_TARIFFS = [
+      { region: 'ULAANBAATAR', district: null, fee: '5000' },
+      { region: 'ORON_NUTAG', district: null, fee: '15000' },
+    ];
+    // deliveryFee override-гүй УБ хаяг (UB_ADDR-д '0' override орсон)
+    const { deliveryFee: _noFee, ...UB_ADDR_AUTO } = UB_ADDR;
+
+    afterAll(async () => {
+      // Тарифуудыг default руу нь буцаана
+      await api()
+        .put('/api/settings/tariffs')
+        .set(auth(tok.admin))
+        .send({ tariffs: DEFAULT_TARIFFS })
+        .expect(200);
+    });
+
+    it('GET tariffs нэвтэрсэн бүгдэд — default-ууд байна', async () => {
+      const res = await api()
+        .get('/api/settings/tariffs')
+        .set(auth(tok.operator))
+        .expect(200);
+      const ub = res.body.find(
+        (t: { region: string; district: string | null }) =>
+          t.region === 'ULAANBAATAR' && t.district === null,
+      );
+      const on = res.body.find(
+        (t: { region: string; district: string | null }) =>
+          t.region === 'ORON_NUTAG' && t.district === null,
+      );
+      expect(Number(ub.fee)).toBe(5000);
+      expect(Number(on.fee)).toBe(15000);
+    });
+
+    it('УБ захиалгад тариф автоматаар нэмэгдэнэ; staff override болно', async () => {
+      await api()
+        .post('/api/stock/adjust')
+        .set(auth(tok.manager))
+        .send({ productId, qtyChange: 4, reason: 'PURCHASE_IN' })
+        .expect(201);
+
+      const auto = await api()
+        .post('/api/orders')
+        .set(auth(tok.operator))
+        .send({
+          customerName: `Э2Э-Тариф-${T}`,
+          customerPhone: `7${T}`,
+          ...UB_ADDR_AUTO,
+          items: [{ productId, qty: 1 }],
+        })
+        .expect(201);
+      feeOrderIds.push(auto.body.id);
+      expect(Number(auto.body.deliveryFee)).toBe(5000);
+      const price = Number(auto.body.items[0].priceAtOrder);
+      expect(Number(auto.body.totalAmount)).toBe(price + 5000);
+
+      const manual = await api()
+        .post('/api/orders')
+        .set(auth(tok.operator))
+        .send({
+          customerName: `Э2Э-Тариф2-${T}`,
+          customerPhone: `7${T}`,
+          ...UB_ADDR_AUTO,
+          deliveryFee: '2000',
+          items: [{ productId, qty: 1 }],
+        })
+        .expect(201);
+      feeOrderIds.push(manual.body.id);
+      expect(Number(manual.body.deliveryFee)).toBe(2000);
+      expect(Number(manual.body.totalAmount)).toBe(price + 2000);
+    });
+
+    it('орон нутгийн захиалгад ОН тариф (15000)', async () => {
+      const res = await api()
+        .post('/api/orders')
+        .set(auth(tok.operator))
+        .send({
+          customerName: `Э2Э-ТарифОН-${T}`,
+          customerPhone: `7${T}`,
+          region: 'ORON_NUTAG',
+          province: 'Хөвсгөл',
+          soum: 'Мөрөн',
+          transport: 'Тэнүүн транс',
+          items: [{ productId, qty: 1 }],
+        })
+        .expect(201);
+      feeOrderIds.push(res.body.id);
+      expect(Number(res.body.deliveryFee)).toBe(15000);
+    });
+
+    it('тариф өөрчлөх: operator 403, дүүргийн тусгай тариф үйлчилнэ, default дутвал 400', async () => {
+      await api()
+        .put('/api/settings/tariffs')
+        .set(auth(tok.operator))
+        .send({ tariffs: DEFAULT_TARIFFS })
+        .expect(403);
+
+      // ХУД-д тусгай 7000 тариф
+      await api()
+        .put('/api/settings/tariffs')
+        .set(auth(tok.admin))
+        .send({
+          tariffs: [
+            ...DEFAULT_TARIFFS,
+            { region: 'ULAANBAATAR', district: 'ХУД', fee: '7000' },
+          ],
+        })
+        .expect(200);
+      const ord = await api()
+        .post('/api/orders')
+        .set(auth(tok.operator))
+        .send({
+          customerName: `Э2Э-Тариф3-${T}`,
+          customerPhone: `7${T}`,
+          ...UB_ADDR_AUTO, // district: ХУД
+          items: [{ productId, qty: 1 }],
+        })
+        .expect(201);
+      feeOrderIds.push(ord.body.id);
+      expect(Number(ord.body.deliveryFee)).toBe(7000);
+
+      // Region default дутуу бол 400
+      await api()
+        .put('/api/settings/tariffs')
+        .set(auth(tok.admin))
+        .send({
+          tariffs: [
+            { region: 'ULAANBAATAR', district: null, fee: '5000' },
+            { region: 'ORON_NUTAG', district: 'мөрөн', fee: '15000' },
+          ],
+        })
+        .expect(400);
     });
   });
 });

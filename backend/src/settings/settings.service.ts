@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { DeliveryRegion, Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 /** Нэвтэрсэн бүх хэрэглэгчид харагдах public түлхүүрүүд + default утга */
@@ -60,5 +61,72 @@ export class SettingsService {
       ),
     );
     return this.getPublic();
+  }
+
+  // ── Хүргэлтийн тариф (V4-05) ──
+
+  /** Бүх тариф — default (district=null) мөрүүд эхэндээ */
+  async tariffs() {
+    const rows = await this.prisma.deliveryTariff.findMany({
+      orderBy: [{ region: 'asc' }, { district: 'asc' }],
+    });
+    // default-ууд region бүрийн эхэнд
+    return rows.sort((a, b) =>
+      a.region === b.region
+        ? (a.district === null ? -1 : 1) - (b.district === null ? -1 : 1)
+        : a.region.localeCompare(b.region),
+    );
+  }
+
+  /** Тарифуудыг бүхэлд нь солино — region бүрийн default заавал байна */
+  async setTariffs(
+    list: { region: DeliveryRegion; district?: string | null; fee: string }[],
+  ) {
+    const keys = new Set<string>();
+    for (const t of list) {
+      const key = `${t.region}:${t.district ?? ''}`;
+      if (keys.has(key)) {
+        throw new BadRequestException('Тариф давхардаж байна');
+      }
+      keys.add(key);
+      if (new Prisma.Decimal(t.fee).lt(0)) {
+        throw new BadRequestException('Тариф 0-ээс багагүй байна');
+      }
+    }
+    for (const region of Object.values(DeliveryRegion)) {
+      if (!keys.has(`${region}:`)) {
+        throw new BadRequestException(
+          `${region} бүсийн default тариф заавал байна`,
+        );
+      }
+    }
+    await this.prisma.$transaction([
+      this.prisma.deliveryTariff.deleteMany({}),
+      this.prisma.deliveryTariff.createMany({
+        data: list.map((t) => ({
+          region: t.region,
+          district: t.district?.trim() || null,
+          fee: new Prisma.Decimal(t.fee),
+        })),
+      }),
+    ]);
+    return this.tariffs();
+  }
+
+  /** Хаягийн тариф: дүүргийн тусгай тариф байвал түүнийг, үгүй бол default */
+  async feeFor(
+    region: DeliveryRegion,
+    district?: string | null,
+  ): Promise<Prisma.Decimal> {
+    if (region === DeliveryRegion.ULAANBAATAR && district) {
+      const specific = await this.prisma.deliveryTariff.findFirst({
+        where: { region, district },
+      });
+      if (specific) return specific.fee;
+    }
+    const def = await this.prisma.deliveryTariff.findFirst({
+      where: { region, district: null },
+    });
+    return def?.fee ?? new Prisma.Decimal(0);
   }
 }

@@ -111,6 +111,16 @@ export class CreateOrderDto {
   @IsString()
   note?: string;
 
+  /**
+   * Хүргэлтийн хөлс (V4-05) — staff-ийн гар override. Орхивол тарифаас
+   * автоматаар; CUSTOMER-ийн илгээснийг service үл тоомсорлоно.
+   */
+  @IsOptional()
+  @Matches(/^\d{1,10}(\.\d{1,2})?$/, {
+    message: 'Хүргэлтийн хөлс буруу форматтай',
+  })
+  deliveryFee?: string;
+
   @IsArray()
   @ArrayMinSize(1, { message: 'Дор хаяж 1 бараа сонгоно' })
   @ValidateNested({ each: true })
