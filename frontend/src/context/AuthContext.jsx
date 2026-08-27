@@ -51,6 +51,12 @@ export function AuthProvider({ children }) {
     setUser(null)
   }, [])
 
+  /** Нууц үг сольсны дараах шинэ token+user-ийг хэрэглэнэ (V4-06) */
+  const applyAuth = useCallback((data) => {
+    setTokens(data)
+    setUser(data.user)
+  }, [])
+
   // Effective permission шалгалт — backend login/refresh/me-гээс ирдэг массив.
   // ADMIN-д бүх түлхүүр ирдэг тул includes() хангалттай.
   const hasPerm = useCallback(
@@ -60,7 +66,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, login, register, logout, hasPerm }}
+      value={{ user, loading, login, register, logout, hasPerm, applyAuth }}
     >
       {children}
     </AuthContext.Provider>

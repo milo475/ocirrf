@@ -353,6 +353,30 @@ const DICT = {
     'Дүүргийн тусгай тариф (УБ)': 'District-specific tariff (UB)',
     'Тариф': 'Tariff',
 
+    // — Нууц үг сэргээх (V4-06) —
+    'Нууц үг сэргээх': 'Reset password',
+    '«{name}»-д шинэ түр нууц үг үүсгэнэ. Хуучин нууц үг нь ажиллахаа болино. Үргэлжлүүлэх үү?':
+      'A new temporary password will be generated for "{name}". Their old password will stop working. Continue?',
+    'Сэргээх': 'Reset',
+    'Түр нууц үг': 'Temporary password',
+    '«{name}»-ийн түр нууц үг. Энэ цонхыг хаасны дараа ДАХИН харагдахгүй — хуулж аваад хэрэглэгчид дамжуулна уу.':
+      'Temporary password for "{name}". It will NOT be shown again after closing — copy it and hand it to the user.',
+    'Хуулах': 'Copy',
+    'Хуулагдлаа ✓': 'Copied ✓',
+    'Хуулж чадсангүй — гараар хуулна уу': 'Copy failed — copy manually',
+    'Хэрэглэгч түр нууц үгээр нэвтрээд шинэ нууц үг зохиох хүртэл систем түгжээтэй байна.':
+      'The user stays locked out of the system until they log in with the temporary password and set a new one.',
+    'Нууц үг мартсан?': 'Forgot password?',
+    'Админд хандаж түр нууц үг авна уу. Түр нууц үгээр нэвтэрсний дараа шинэ нууц үгээ зохионо.':
+      'Contact your admin for a temporary password. After logging in with it you will set a new password.',
+    'Холбогдох утас': 'Contact phone',
+    'Шинэ нууц үг зохиох': 'Set a new password',
+    'Түр нууц үгээ сольсны дараа систем нээгдэнэ':
+      'The system unlocks after you replace the temporary password',
+    'Түр (хуучин) нууц үг': 'Temporary (old) password',
+    'Хадгалж байна…': 'Saving…',
+    'Нууц үг солих': 'Change password',
+
     // — Customer portal (V3-14) —
     'Шинэ харилцагч уу?': 'New customer?',
     'Бүртгүүлэх': 'Sign up',

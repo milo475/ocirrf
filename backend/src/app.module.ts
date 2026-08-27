@@ -5,6 +5,7 @@ import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { ActivityLogInterceptor } from './activity-log/activity-log.interceptor';
 import { ActivityLogModule } from './activity-log/activity-log.module';
+import { PasswordChangeGuard } from './auth/guards/password-change.guard';
 import { AppController } from './app.controller';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
@@ -82,6 +83,8 @@ import { UsersModule } from './users/users.module';
     // Дараалал чухал: эхлээд JWT (Public-ийг үл хамааруулна), дараа нь Roles,
     // сүүлд Permissions (@RequirePermission заасан route дээр л оролцоно)
     { provide: APP_GUARD, useClass: JwtAuthGuard },
+    // Түр нууц үгтэй хэрэглэгчийг солитол нь түгжинэ (V4-06)
+    { provide: APP_GUARD, useClass: PasswordChangeGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
     // Амжилттай өөрчлөлт бүрийг ActivityLog-д бичнэ

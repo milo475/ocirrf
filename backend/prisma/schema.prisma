@@ -68,6 +68,8 @@ model User {
   phone        String? // CUSTOMER-ийн үндсэн утас (захиалгын default)
   role         Role     @default(OPERATOR)
   isActive     Boolean  @default(true)
+  /// Түр нууц үгээр нэвтэрсэн — солитол бусад API 403 (V4-06)
+  mustChangePassword Boolean @default(false)
   createdAt    DateTime @default(now())
 
   orders         Order[]         @relation("CreatedOrders")

@@ -1,9 +1,11 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { PermissionsService } from '../permissions/permissions.service';
 import { AuthService } from './auth.service';
+import { AllowTempPassword } from './decorators/allow-temp-password.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
 import type { AuthUser } from './decorators/current-user.decorator';
 import { Public } from './decorators/public.decorator';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -35,7 +37,16 @@ export class AuthController {
     return this.authService.refresh(dto);
   }
 
+  /** V4-06: түр нууц үгээ солино — mustChangePassword үед ганц нээлттэй үйлдэл */
+  @Post('change-password')
+  @AllowTempPassword()
+  @HttpCode(HttpStatus.OK)
+  changePassword(@Body() dto: ChangePasswordDto, @CurrentUser() user: AuthUser) {
+    return this.authService.changePassword(user.id, dto);
+  }
+
   @Get('me')
+  @AllowTempPassword()
   async me(@CurrentUser() user: AuthUser) {
     // Frontend permissions массиваар товч/цэс нуух шийдвэрээ гаргана
     const permissions = await this.permissionsService.getEffectivePermissions(

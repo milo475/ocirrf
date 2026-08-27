@@ -16,5 +16,7 @@ export default function ProtectedRoute() {
   }
 
   if (!user) return <Navigate to="/login" replace />
+  // Түр нууц үгтэй бол солитол өөр хуудас руу оруулахгүй (V4-06)
+  if (user.mustChangePassword) return <Navigate to="/change-password" replace />
   return <Outlet />
 }

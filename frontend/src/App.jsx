@@ -9,6 +9,7 @@ import { LanguageProvider } from './context/LanguageContext'
 import { ThemeProvider } from './context/ThemeContext'
 import ActivityLog from './pages/ActivityLog'
 import Analytics from './pages/Analytics'
+import ChangePassword from './pages/ChangePassword'
 import Customers from './pages/Customers'
 import Dashboard from './pages/Dashboard'
 import Reports from './pages/Reports'
@@ -45,6 +46,8 @@ function App() {
                 {/* Login — nav-гүй, хамгаалалтгүй */}
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
+                {/* Түр нууц үг солих — ProtectedRoute-ийн ГАДНА (V4-06) */}
+                <Route path="/change-password" element={<ChangePassword />} />
 
                 <Route element={<ProtectedRoute />}>
                   <Route element={<AppShell />}>

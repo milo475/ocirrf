@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
+import { randomBytes } from 'node:crypto';
 import { DeliveryStatus } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -165,5 +166,36 @@ export class UsersService {
 
       return tx.user.findUnique({ where: { id }, select: SAFE_SELECT });
     });
+  }
+
+  /**
+   * Нууц үг сэргээх (V4-06): 8 тэмдэгт түр нууц үг үүсгэж НЭГ УДАА
+   * хариунд буцаана — DB-д зөвхөн hash. mustChangePassword=true тул
+   * хэрэглэгч солитол бусад API-д 403 (PasswordChangeGuard).
+   * ActivityLog interceptor үйлдлийг бичнэ — түр нууц үг response-д тул
+   * лог руу ОРОХГҮЙ.
+   */
+  async resetPassword(id: string) {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) {
+      throw new NotFoundException('Хэрэглэгч олдсонгүй');
+    }
+    // Төстэй харагддаг тэмдэгтгүй (0/O, 1/l/I) цагаан толгой
+    const alphabet =
+      'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+    const tempPassword = Array.from(randomBytes(8))
+      .map((b) => alphabet[b % alphabet.length])
+      .join('');
+
+    await this.prisma.user.update({
+      where: { id },
+      data: {
+        passwordHash: await bcrypt.hash(tempPassword, 10),
+        mustChangePassword: true,
+      },
+    });
+    // Refresh token-ууд DB-д хадгалагдаж эхлэхээр (V4-08) энд бүгдийг
+    // revoke хийнэ. Одоогоор шинэ нэвтрэлт бүр DB-ээс дахин шалгагддаг.
+    return { tempPassword };
   }
 }

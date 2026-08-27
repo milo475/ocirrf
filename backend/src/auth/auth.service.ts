@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   UnauthorizedException,
@@ -9,6 +10,7 @@ import { Role } from '../generated/prisma/client';
 import type { User } from '../generated/prisma/client';
 import { PermissionsService } from '../permissions/permissions.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -84,6 +86,33 @@ export class AuthService {
     return this.issueTokens(user);
   }
 
+  /**
+   * Нууц үг солих (V4-06) — түр нууц үгтэй хэрэглэгч энэ route-оор
+   * ГАНЦХАН орж болно (@AllowTempPassword). Хуучин нууц үг заавал таарна.
+   */
+  async changePassword(userId: string, dto: ChangePasswordDto) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || !user.isActive) {
+      throw new UnauthorizedException('Нэвтрэх эрх хүчингүй');
+    }
+    const ok = await bcrypt.compare(dto.oldPassword, user.passwordHash);
+    if (!ok) {
+      throw new BadRequestException('Хуучин нууц үг буруу');
+    }
+    if (dto.oldPassword === dto.newPassword) {
+      throw new BadRequestException('Шинэ нууц үг хуучинтай ижил байна');
+    }
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        passwordHash: await bcrypt.hash(dto.newPassword, 10),
+        mustChangePassword: false,
+      },
+    });
+    // Шинэ token — хуучин session-ийн mustChangePassword төлөв цэвэрлэгдэнэ
+    return this.issueTokens(updated);
+  }
+
   private async issueTokens(user: User) {
     const payload: JwtPayload = { sub: user.id, role: user.role };
 
@@ -113,6 +142,7 @@ export class AuthService {
         name: user.fullName,
         phone: user.phone,
         role: user.role,
+        mustChangePassword: user.mustChangePassword,
         permissions: [...permissions],
       },
     };

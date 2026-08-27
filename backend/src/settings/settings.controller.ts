@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Put } from '@nestjs/common';
+import { Public } from '../auth/decorators/public.decorator';
 import { PERM } from '../permissions/permission-keys';
 import { RequirePermission } from '../permissions/require-permission.decorator';
 import { UpdateTariffsDto } from './dto/tariffs.dto';
@@ -12,6 +13,14 @@ export class SettingsController {
   @Get()
   getPublic() {
     return this.settingsService.getPublic();
+  }
+
+  /** V4-06: login хуудасны "Нууц үг мартсан?" — нэвтрэлтгүйгээр компанийн утас */
+  @Public()
+  @Get('company')
+  async company() {
+    const s = await this.settingsService.getPublic();
+    return { companyName: s.companyName, companyPhone: s.companyPhone };
   }
 
   /** Хүргэлтийн тариф (V4-05) — нэвтэрсэн бүгдэд (wizard уншина) */

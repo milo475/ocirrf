@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router'
 import { homeFor } from '../components/auth/RoleRoute'
+import Modal from '../components/ui/Modal'
 import { useAuth } from '../context/AuthContext'
 import { useLang } from '../context/LanguageContext'
+import { api } from '../lib/api'
 
 export default function Login() {
   const { user, loading, login } = useAuth()
@@ -13,6 +15,17 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+  const [forgotOpen, setForgotOpen] = useState(false)
+  const [company, setCompany] = useState(null)
+
+  function openForgot() {
+    setForgotOpen(true)
+    if (!company) {
+      api('/settings/company')
+        .then(setCompany)
+        .catch(() => setCompany({}))
+    }
+  }
 
   // Session сэргээгдэж дуусаагүй бол хүлээнэ
   if (loading) {
@@ -24,7 +37,13 @@ export default function Login() {
   }
 
   // Аль хэдийн нэвтэрсэн бол эрхийнхээ нүүр рүү (DRIVER → /deliveries)
-  if (user) return <Navigate to={homeFor(user.role)} replace />
+  if (user)
+    return (
+      <Navigate
+        to={user.mustChangePassword ? '/change-password' : homeFor(user.role)}
+        replace
+      />
+    )
 
   async function onSubmit(e) {
     e.preventDefault()
@@ -32,7 +51,13 @@ export default function Login() {
     setSubmitting(true)
     try {
       const loggedIn = await login(email, password)
-      navigate(homeFor(loggedIn.role), { replace: true })
+      // Түр нууц үгтэй бол эхлээд солиулна (V4-06)
+      navigate(
+        loggedIn.mustChangePassword
+          ? '/change-password'
+          : homeFor(loggedIn.role),
+        { replace: true },
+      )
     } catch (err) {
       setError(err.message ?? 'Алдаа гарлаа')
     } finally {
@@ -114,8 +139,35 @@ export default function Login() {
               {t('Бүртгүүлэх')}
             </Link>
           </p>
+          <p className="mt-2 text-center text-sm">
+            <button
+              type="button"
+              onClick={openForgot}
+              className="text-ink-muted underline underline-offset-2 hover:text-ink"
+            >
+              {t('Нууц үг мартсан?')}
+            </button>
+          </p>
         </div>
       </div>
+
+      <Modal
+        open={forgotOpen}
+        onClose={() => setForgotOpen(false)}
+        title={t('Нууц үг мартсан?')}
+      >
+        <p className="text-sm">
+          {t(
+            'Админд хандаж түр нууц үг авна уу. Түр нууц үгээр нэвтэрсний дараа шинэ нууц үгээ зохионо.',
+          )}
+        </p>
+        {company?.companyPhone && (
+          <p className="mt-3 text-sm text-ink-muted">
+            {t('Холбогдох утас')}:{' '}
+            <span className="font-mono text-ink">{company.companyPhone}</span>
+          </p>
+        )}
+      </Modal>
     </main>
   )
 }

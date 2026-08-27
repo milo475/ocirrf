@@ -2514,4 +2514,103 @@ describe('ursGAL v2 API (e2e)', () => {
         .expect(400);
     });
   });
+
+  // ────────────────────────────────────────────── V4: НУУЦ ҮГ СЭРГЭЭХ
+  describe('V4: Нууц үг сэргээх ⭐', () => {
+    const pwEmail = `e2e-pw-${T}@ursgal.mn`;
+    let pwUserId: string;
+    let pwToken: string;
+    let tempPassword: string;
+
+    afterAll(async () => {
+      if (pwUserId) {
+        await prisma.user.deleteMany({ where: { id: pwUserId } });
+      }
+    });
+
+    it('operator reset 403; admin → 8 тэмдэгт түр нууц үг, лог-д нууц үг ОРОХГҮЙ', async () => {
+      const created = await api()
+        .post('/api/users')
+        .set(auth(tok.admin))
+        .send({
+          name: 'Э2Э Нууцүг Тест',
+          email: pwEmail,
+          password: 'firstpass1',
+          role: 'OPERATOR',
+        })
+        .expect(201);
+      pwUserId = created.body.id;
+
+      await api()
+        .post(`/api/users/${pwUserId}/reset-password`)
+        .set(auth(tok.operator))
+        .expect(403);
+
+      const res = await api()
+        .post(`/api/users/${pwUserId}/reset-password`)
+        .set(auth(tok.admin))
+        .expect(201);
+      tempPassword = res.body.tempPassword;
+      expect(tempPassword).toHaveLength(8);
+
+      // Хуучин нууц үг шууд хүчингүй
+      await api()
+        .post('/api/auth/login')
+        .send({ email: pwEmail, password: 'firstpass1' })
+        .expect(401);
+
+      // ActivityLog-д үйлдэл бичигдсэн, түр нууц үг лог-д БАЙХГҮЙ
+      const log = await prisma.activityLog.findFirst({
+        where: { entityId: pwUserId, action: { contains: 'reset-password' } },
+        orderBy: { createdAt: 'desc' },
+      });
+      expect(log).toBeTruthy();
+      expect(JSON.stringify(log)).not.toContain(tempPassword);
+    });
+
+    it('түр нууц үгээр нэвтрэхэд mustChangePassword — бусад API 403, me нээлттэй', async () => {
+      const login = await api()
+        .post('/api/auth/login')
+        .send({ email: pwEmail, password: tempPassword })
+        .expect(200);
+      expect(login.body.user.mustChangePassword).toBe(true);
+      pwToken = login.body.accessToken;
+
+      await api().get('/api/products').set(auth(pwToken)).expect(403);
+      await api().get('/api/orders').set(auth(pwToken)).expect(403);
+      await api().get('/api/auth/me').set(auth(pwToken)).expect(200);
+    });
+
+    it('солиход нээгдэнэ: буруу хуучин 400; түр нууц үг 401 болно', async () => {
+      await api()
+        .post('/api/auth/change-password')
+        .set(auth(pwToken))
+        .send({ oldPassword: 'wrong-wrong', newPassword: 'newpass22' })
+        .expect(400);
+
+      const res = await api()
+        .post('/api/auth/change-password')
+        .set(auth(pwToken))
+        .send({ oldPassword: tempPassword, newPassword: 'newpass22' })
+        .expect(200);
+      expect(res.body.user.mustChangePassword).toBe(false);
+
+      // Шинэ token-оор хэвийн ажиллана (operator default: inventory.view)
+      await api()
+        .get('/api/products')
+        .set(auth(res.body.accessToken))
+        .expect(200);
+
+      // Түр нууц үг ажиллахгүй, шинэ нууц үгээр хэвийн нэвтэрнэ
+      await api()
+        .post('/api/auth/login')
+        .send({ email: pwEmail, password: tempPassword })
+        .expect(401);
+      const relog = await api()
+        .post('/api/auth/login')
+        .send({ email: pwEmail, password: 'newpass22' })
+        .expect(200);
+      expect(relog.body.user.mustChangePassword).toBe(false);
+    });
+  });
 });

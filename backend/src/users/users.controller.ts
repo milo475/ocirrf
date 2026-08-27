@@ -48,6 +48,12 @@ export class UsersController {
     return this.usersService.update(id, dto, user.id);
   }
 
+  /** V4-06: түр нууц үг үүсгэнэ — хариунд НЭГ УДАА л ил ирнэ */
+  @Post(':id/reset-password')
+  resetPassword(@Param('id', ParseUUIDPipe) id: string) {
+    return this.usersService.resetPassword(id);
+  }
+
   /** Permission Panel — permissions.manage шаардана (default: зөвхөн ADMIN) */
   @Get(':id/permissions')
   @RequirePermission(PERM.PERMISSIONS_MANAGE)

@@ -274,6 +274,9 @@ export default function Users() {
   const [busy, setBusy] = useState(false)
   const [deactivating, setDeactivating] = useState(null)
   const [editing, setEditing] = useState(null)
+  const [resetting, setResetting] = useState(null) // сэргээх гэж буй хэрэглэгч
+  const [tempResult, setTempResult] = useState(null) // {name, tempPassword}
+  const [copied, setCopied] = useState(false)
 
   // "Жолооч нар" цэс /users?role=DRIVER-ээр ирдэг
   const [params] = useSearchParams()
@@ -330,6 +333,32 @@ export default function Users() {
     else setActive(u, true)
   }
 
+  /** V4-06: түр нууц үг үүсгээд НЭГ УДАА харуулна */
+  async function resetPassword() {
+    setBusy(true)
+    try {
+      const res = await api(`/users/${resetting.id}/reset-password`, {
+        method: 'POST',
+      })
+      setTempResult({ name: resetting.fullName, tempPassword: res.tempPassword })
+      setCopied(false)
+      setResetting(null)
+    } catch (e) {
+      toast.show(e.message, { type: 'error' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function copyTemp() {
+    try {
+      await navigator.clipboard.writeText(tempResult.tempPassword)
+      setCopied(true)
+    } catch {
+      toast.show(t('Хуулж чадсангүй — гараар хуулна уу'), { type: 'error' })
+    }
+  }
+
   const columns = [
     { key: 'fullName', header: t('Нэр') },
     {
@@ -379,6 +408,13 @@ export default function Users() {
             className="text-xs text-accent hover:underline underline-offset-2"
           >
             {t('Эрхүүд')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setResetting(u)}
+            className="text-xs text-ink-muted hover:text-alarm"
+          >
+            {t('Нууц үг сэргээх')}
           </button>
         </span>
       ),
@@ -455,6 +491,54 @@ export default function Users() {
           toast={toast}
         />
       )}
+
+      <ConfirmDialog
+        open={!!resetting}
+        title={t('Нууц үг сэргээх')}
+        message={t(
+          '«{name}»-д шинэ түр нууц үг үүсгэнэ. Хуучин нууц үг нь ажиллахаа болино. Үргэлжлүүлэх үү?',
+          { name: resetting?.fullName },
+        )}
+        confirmLabel={t('Сэргээх')}
+        danger
+        loading={busy}
+        onConfirm={resetPassword}
+        onCancel={() => setResetting(null)}
+      />
+
+      {/* Түр нууц үг — ЗӨВХӨН энэ modal-д нэг удаа харагдана */}
+      <Modal
+        open={!!tempResult}
+        onClose={() => setTempResult(null)}
+        title={t('Түр нууц үг')}
+      >
+        {tempResult && (
+          <div className="space-y-4">
+            <p className="text-sm">
+              {t(
+                '«{name}»-ийн түр нууц үг. Энэ цонхыг хаасны дараа ДАХИН харагдахгүй — хуулж аваад хэрэглэгчид дамжуулна уу.',
+                { name: tempResult.name },
+              )}
+            </p>
+            <div className="flex items-center gap-3">
+              <code className="flex-1 font-mono text-xl tracking-wider border border-rule rounded px-4 py-2 text-center select-all">
+                {tempResult.tempPassword}
+              </code>
+              <Button variant="ghost" onClick={copyTemp}>
+                {copied ? t('Хуулагдлаа ✓') : t('Хуулах')}
+              </Button>
+            </div>
+            <p className="text-xs text-ink-muted">
+              {t(
+                'Хэрэглэгч түр нууц үгээр нэвтрээд шинэ нууц үг зохиох хүртэл систем түгжээтэй байна.',
+              )}
+            </p>
+            <div className="flex justify-end">
+              <Button onClick={() => setTempResult(null)}>{t('Хаах')}</Button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       <ConfirmDialog
         open={!!deactivating}
