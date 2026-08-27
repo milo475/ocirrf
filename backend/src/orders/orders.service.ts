@@ -5,7 +5,6 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { AuthUser } from '../auth/decorators/current-user.decorator';
-import { FinanceService } from '../finance/finance.service';
 import { OrderStatus, Prisma } from '../generated/prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PERM } from '../permissions/permission-keys';
@@ -46,7 +45,6 @@ const CREATED_BY_SELECT = {
 export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly financeService: FinanceService,
     private readonly notifications: NotificationsService,
     private readonly permissions: PermissionsService,
   ) {}
@@ -317,20 +315,8 @@ export class OrdersService {
       return cancelled;
     }
 
-    // Дууссан: статус + авто орлогын бүртгэл — нэг transaction
-    if (status === OrderStatus.COMPLETED) {
-      const completed = await this.prisma.$transaction(async (tx) => {
-        const row = await tx.order.update({
-          where: { id },
-          data: { orderStatus: OrderStatus.COMPLETED },
-          include: { items: true, createdBy: CREATED_BY_SELECT },
-        });
-        await this.financeService.recordOrderIncome(tx, row, user.id);
-        return row;
-      });
-      await this.notifyCustomerStatus(order.customerId, completed);
-      return completed;
-    }
+    // V4: COMPLETED дээр орлого ҮҮСЭХГҮЙ — орлого = төлбөр
+    // (PaymentsService.addPayment). Тиймээс энгийн шилжилтээр явна.
 
     // Бусад шилжилт — зөвхөн статус update
     const updated = await this.prisma.order.update({
@@ -358,6 +344,12 @@ export class OrdersService {
         items: true,
         createdBy: CREATED_BY_SELECT,
         assignedDriver: CREATED_BY_SELECT,
+        payments: {
+          include: {
+            receivedBy: { select: { id: true, fullName: true } },
+          },
+          orderBy: { createdAt: 'asc' },
+        },
       },
     });
     if (!order) {

@@ -32,6 +32,7 @@ export const PERM = {
   FINANCE_VIEW_EXPENSE: 'finance.view_expense',
   FINANCE_CREATE_EXPENSE: 'finance.create_expense',
   FINANCE_DRIVER_PAYROLL: 'finance.driver_payroll',
+  FINANCE_VIEW_RECEIVABLES: 'finance.view_receivables',
   // Тайлан
   REPORTS_DELIVERY: 'reports.delivery',
   REPORTS_INVENTORY: 'reports.inventory',
@@ -72,6 +73,7 @@ export const PERM_LABELS: Record<PermKey, string> = {
   [PERM.FINANCE_VIEW_EXPENSE]: 'Зарлагын гүйлгээ харах',
   [PERM.FINANCE_CREATE_EXPENSE]: 'Зарлагын гүйлгээ бүртгэх',
   [PERM.FINANCE_DRIVER_PAYROLL]: 'Жолоочийн цалин бодох',
+  [PERM.FINANCE_VIEW_RECEIVABLES]: 'Авлага харах',
   [PERM.REPORTS_DELIVERY]: 'Хүргэлтийн тайлан',
   [PERM.REPORTS_INVENTORY]: 'Агуулахын тайлан',
   [PERM.REPORTS_FINANCE]: 'Санхүүгийн тайлан',
@@ -122,6 +124,7 @@ export const PERM_GROUPS: { group: string; keys: PermKey[] }[] = [
       PERM.FINANCE_VIEW_EXPENSE,
       PERM.FINANCE_CREATE_EXPENSE,
       PERM.FINANCE_DRIVER_PAYROLL,
+      PERM.FINANCE_VIEW_RECEIVABLES,
     ],
   },
   {
@@ -170,6 +173,7 @@ export const ROLE_DEFAULTS: Record<Role, PermKey[]> = {
     PERM.FINANCE_VIEW_EXPENSE,
     PERM.FINANCE_CREATE_EXPENSE,
     PERM.FINANCE_DRIVER_PAYROLL,
+    PERM.FINANCE_VIEW_RECEIVABLES, // V4: авлага ADMIN+MANAGER-т
     PERM.REPORTS_DELIVERY,
     PERM.REPORTS_INVENTORY,
     PERM.ANALYTICS_VIEW, // V3-16: аналитик ADMIN+MANAGER-т

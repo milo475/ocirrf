@@ -43,6 +43,18 @@ enum FinanceType {
   EXPENSE
 }
 
+enum PaymentStatus {
+  UNPAID
+  PARTIAL
+  PAID
+}
+
+enum PaymentMethod {
+  CASH
+  TRANSFER
+  CARD
+}
+
 enum PayoutStatus {
   PENDING
   PAID
@@ -68,6 +80,22 @@ model User {
   payoutsCreated DriverPayout[]  @relation("PayoutsCreated")
   notifications  Notification[]
   customerOrders Order[]         @relation("CustomerOrders")
+  paymentsReceived Payment[]     @relation("PaymentsReceived")
+}
+
+/// Захиалгын төлбөрийн бүртгэл (бэлэн/шилжүүлэг/карт)
+model Payment {
+  id           String        @id @default(uuid())
+  orderId      String
+  order        Order         @relation(fields: [orderId], references: [id])
+  amount       Decimal       @db.Decimal(12, 2)
+  method       PaymentMethod
+  note         String?
+  receivedById String
+  receivedBy   User          @relation("PaymentsReceived", fields: [receivedById], references: [id])
+  createdAt    DateTime      @default(now())
+
+  @@index([orderId])
 }
 
 /// Хэрэглэгчийн мэдэгдэл (хонх)
@@ -111,9 +139,10 @@ model FinanceEntry {
   type        FinanceType
   category    String
   amount      Decimal     @db.Decimal(12, 2)
-  note        String?
-  refOrderId  String? // автомат орлогод — эх захиалга
-  createdById String
+  note         String?
+  refOrderId   String? // автомат орлогод — эх захиалга
+  refPaymentId String? // PAYMENT орлогод — эх төлбөр (устгахад хамт устна)
+  createdById  String
   createdBy   User        @relation("FinanceEntries", fields: [createdById], references: [id])
   entryDate   DateTime    @default(now())
 
@@ -220,6 +249,10 @@ model Order {
   // Санхүү (v3): аль цалингийн тооцоонд орсныг тэмдэглэнэ
   payoutId String?
 
+  // Төлбөр (v4): ОРЛОГО = ТӨЛБӨР — хүргэлт биш төлбөрөөр орлого бүртгэгдэнэ
+  paymentStatus PaymentStatus @default(UNPAID)
+  paidAmount    Decimal       @default(0) @db.Decimal(12, 2)
+
   // Жолоочийн маршрутын дараалал (1..n, тухайн жолоочийн идэвхтэй хүргэлтэд)
   routeOrder Int?
 
@@ -231,6 +264,7 @@ model Order {
   payout         DriverPayout? @relation("PayoutOrders", fields: [payoutId], references: [id])
   customerUser   User?         @relation("CustomerOrders", fields: [customerId], references: [id])
   items          OrderItem[]
+  payments       Payment[]
 
   @@index([orderStatus])
   @@index([phone])

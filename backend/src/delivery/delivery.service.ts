@@ -4,7 +4,6 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { FinanceService } from '../finance/finance.service';
 import {
   DeliveryStatus,
   OrderStatus,
@@ -25,7 +24,6 @@ const DRIVER_SELECT = {
 export class DeliveryService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly financeService: FinanceService,
     private readonly notifications: NotificationsService,
   ) {}
 
@@ -385,20 +383,17 @@ export class DeliveryService {
       // Зураг ЗААВАЛ БИШ: хүлээн авагч гэртээ байгаагүй үед жолооч
       // тайлбараар (ж: "доод талын дэлгүүрт үлдээсэн") баталгаажуулж
       // болно — тайлбар нь admin/manager-т захиалгын дэлгэрэнгүйд гарна
-      // DELIVERED мөчид авто орлого — нэг transaction
-      const delivered = await this.prisma.$transaction(async (tx) => {
-        const row = await tx.order.update({
-          where: { id: orderId },
-          data: {
-            orderStatus: OrderStatus.COMPLETED,
-            deliveryStatus: DeliveryStatus.DELIVERED,
-            deliveredAt: new Date(),
-            deliveryProofUrl: proofUrl,
-            deliveryNote: dto.note?.trim() || null,
-          },
-        });
-        await this.financeService.recordOrderIncome(tx, row, driverId);
-        return row;
+      // V4: DELIVERED дээр орлого ҮҮСЭХГҮЙ — орлого = төлбөр.
+      // Төлөгдөөгүй хүргэгдсэн захиалга авлагад тоологдоно.
+      const delivered = await this.prisma.order.update({
+        where: { id: orderId },
+        data: {
+          orderStatus: OrderStatus.COMPLETED,
+          deliveryStatus: DeliveryStatus.DELIVERED,
+          deliveredAt: new Date(),
+          deliveryProofUrl: proofUrl,
+          deliveryNote: dto.note?.trim() || null,
+        },
       });
       if (delivered.customerId) {
         await this.notifications.notifyOrderStatus(

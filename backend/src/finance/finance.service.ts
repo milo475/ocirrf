@@ -298,31 +298,6 @@ export class FinanceService {
     });
   }
 
-  /**
-   * Захиалга DELIVERED/COMPLETED болох мөчид АВТОМАТ орлого бүртгэнэ.
-   * Статус солих transaction-ы ДОТОР дуудагдана; refOrderId+category
-   * шалгалтаар давхардахгүй. DELIVERED эцсийн төлөв тул сөрөг залруулга
-   * бичихгүй (цуцлагдах боломжгүй).
-   */
-  async recordOrderIncome(
-    tx: Prisma.TransactionClient,
-    order: { id: string; orderNo: string; totalAmount: Prisma.Decimal },
-    actorId: string,
-  ) {
-    const exists = await tx.financeEntry.findFirst({
-      where: { refOrderId: order.id, category: 'ORDER' },
-      select: { id: true },
-    });
-    if (exists) return;
-    await tx.financeEntry.create({
-      data: {
-        type: FinanceType.INCOME,
-        category: 'ORDER',
-        amount: order.totalAmount,
-        note: `Захиалга ${order.orderNo}`,
-        refOrderId: order.id,
-        createdById: actorId,
-      },
-    });
-  }
+  // V4: recordOrderIncome устгагдсан — орлого одоо ТӨЛБӨР бүртгэгдэх
+  // мөчид PaymentsService.addPayment дотор (category "PAYMENT") үүснэ.
 }

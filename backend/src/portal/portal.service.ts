@@ -32,6 +32,8 @@ const PORTAL_ORDER_SELECT = {
   addressDetail: true,
   note: true,
   totalAmount: true,
+  paymentStatus: true,
+  paidAmount: true,
   orderStatus: true,
   deliveryStatus: true,
   deliveryProofUrl: true,

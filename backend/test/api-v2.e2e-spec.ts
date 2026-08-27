@@ -142,6 +142,10 @@ describe('ursGAL v2 API (e2e)', () => {
         ],
       },
     });
+    // Төлбөрүүд (v4) — захиалгаас өмнө устгана (FK)
+    await prisma.payment.deleteMany({
+      where: { orderId: { in: orderIds } },
+    });
     await prisma.stockMovement.deleteMany({
       where: { OR: [{ productId }, { refId: { in: orderIds } }] },
     });
@@ -1143,20 +1147,124 @@ describe('ursGAL v2 API (e2e)', () => {
       ).toBe(true);
     });
 
-    it('DELIVERED мөчид авто INCOME (category ORDER), давхардахгүй', async () => {
+    it('V4: DELIVERED-д орлого ҮҮСЭХГҮЙ — авлагад гарна (operator 403)', async () => {
+      // orderId хүргэгдсэн ч төлөгдөөгүй — INCOME байхгүй
       const res = await api()
         .get('/api/finance/entries?type=INCOME&limit=100')
         .set(auth(tok.admin))
         .expect(200);
-      const auto = res.body.items.filter(
-        (e: { refOrderId: string | null }) => e.refOrderId === orderId,
+      expect(
+        res.body.items.filter(
+          (e: { refOrderId: string | null }) => e.refOrderId === orderId,
+        ),
+      ).toHaveLength(0);
+
+      await api()
+        .get('/api/finance/receivables')
+        .set(auth(tok.operator))
+        .expect(403);
+      const rec = await api()
+        .get('/api/finance/receivables')
+        .set(auth(tok.manager))
+        .expect(200);
+      const row = rec.body.items.find(
+        (r: { id: string }) => r.id === orderId,
       );
-      expect(auto).toHaveLength(1);
-      expect(auto[0].category).toBe('ORDER');
-      expect(auto[0].amount).toBe('4000');
+      expect(row).toBeDefined();
+      expect(row.remaining).toBe('4000');
+      expect(row.paymentStatus).toBe('UNPAID');
+      expect(row.daysOutstanding).toBe(0);
+      expect(Number(rec.body.totalRemaining)).toBeGreaterThanOrEqual(4000);
     });
 
-    it('гараар COMPLETED болгоход ч авто орлого бүртгэгдэнэ', async () => {
+    it('V4: төлбөр — PARTIAL→PAID, илүү 400, устгал буцаана', async () => {
+      // Хэсэгчилсэн төлбөр → PARTIAL + тэр дүнгээр INCOME (PAYMENT)
+      const p1 = await api()
+        .post(`/api/orders/${orderId}/payments`)
+        .set(auth(tok.manager))
+        .send({ amount: '1500.00', method: 'CASH' })
+        .expect(201);
+      expect(p1.body.order.paymentStatus).toBe('PARTIAL');
+      expect(p1.body.order.paidAmount).toBe('1500');
+
+      const inc = await api()
+        .get('/api/finance/entries?type=INCOME&limit=100')
+        .set(auth(tok.admin))
+        .expect(200);
+      const pe = inc.body.items.find(
+        (e: { refPaymentId: string | null }) => e.refPaymentId === p1.body.id,
+      );
+      expect(pe.category).toBe('PAYMENT');
+      expect(pe.amount).toBe('1500');
+
+      // Үлдэгдлээс их → 400
+      await api()
+        .post(`/api/orders/${orderId}/payments`)
+        .set(auth(tok.manager))
+        .send({ amount: '3000.00', method: 'CASH' })
+        .expect(400);
+
+      // Бүрэн төлөлт → PAID, авлагаас алга болно
+      const p2 = await api()
+        .post(`/api/orders/${orderId}/payments`)
+        .set(auth(tok.manager))
+        .send({ amount: '2500.00', method: 'TRANSFER' })
+        .expect(201);
+      expect(p2.body.order.paymentStatus).toBe('PAID');
+      const rec = await api()
+        .get('/api/finance/receivables')
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(
+        rec.body.items.some((r: { id: string }) => r.id === orderId),
+      ).toBe(false);
+
+      // PAID дээр дахин төлөх → 400
+      await api()
+        .post(`/api/orders/${orderId}/payments`)
+        .set(auth(tok.manager))
+        .send({ amount: '1.00', method: 'CASH' })
+        .expect(400);
+
+      // Устгахад буцаж PARTIAL + INCOME нь устна
+      await api()
+        .delete(`/api/payments/${p2.body.id}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      const detail = await api()
+        .get(`/api/orders/${orderId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(detail.body.paymentStatus).toBe('PARTIAL');
+      expect(detail.body.paidAmount).toBe('1500');
+      expect(detail.body.payments).toHaveLength(1);
+      const inc2 = await api()
+        .get('/api/finance/entries?type=INCOME&limit=100')
+        .set(auth(tok.admin))
+        .expect(200);
+      expect(
+        inc2.body.items.some(
+          (e: { refPaymentId: string | null }) =>
+            e.refPaymentId === p2.body.id,
+        ),
+      ).toBe(false);
+
+      // Дахин бүрэн төлье (дараагийн тестүүдэд PAID байх нь зүйтэй)
+      await api()
+        .post(`/api/orders/${orderId}/payments`)
+        .set(auth(tok.manager))
+        .send({ amount: '2500.00', method: 'TRANSFER' })
+        .expect(201);
+
+      // operator төлбөр бүртгэх эрхгүй
+      await api()
+        .post(`/api/orders/${orderId}/payments`)
+        .set(auth(tok.operator))
+        .send({ amount: '1.00', method: 'CASH' })
+        .expect(403);
+    });
+
+    it('V4: гараар COMPLETED болгоход орлого үүсэхгүй, авлагад орно', async () => {
       const ord = await api()
         .post('/api/orders')
         .set(auth(tok.operator))
@@ -1175,15 +1283,25 @@ describe('ursGAL v2 API (e2e)', () => {
           .send({ status: s })
           .expect(200);
       }
+      // V4: гараар COMPLETED болгоход ч орлого үүсэхгүй — авлагад орно
       const res = await api()
         .get('/api/finance/entries?type=INCOME&limit=100')
         .set(auth(tok.admin))
         .expect(200);
-      const auto = res.body.items.filter(
-        (e: { refOrderId: string | null }) => e.refOrderId === financeOrderId,
+      expect(
+        res.body.items.filter(
+          (e: { refOrderId: string | null }) =>
+            e.refOrderId === financeOrderId,
+        ),
+      ).toHaveLength(0);
+      const rec = await api()
+        .get('/api/finance/receivables')
+        .set(auth(tok.manager))
+        .expect(200);
+      const row = rec.body.items.find(
+        (r: { id: string }) => r.id === financeOrderId,
       );
-      expect(auto).toHaveLength(1);
-      expect(auto[0].amount).toBe('1000');
+      expect(row.remaining).toBe('1000');
     });
 
     it('summary: өдөр тутмын мөрүүд + нийлбэрүүд', async () => {
@@ -1192,8 +1310,8 @@ describe('ursGAL v2 API (e2e)', () => {
         .set(auth(tok.manager))
         .expect(200);
       expect(res.body.byDay).toHaveLength(1);
-      // Өнөөдрийн тестийн гүйлгээнүүд: 5000 + авто 4000 + 1000 орлого, 3000.5 зарлага
-      expect(Number(res.body.income)).toBeGreaterThanOrEqual(10000);
+      // Өнөөдрийнх: гар орлого 5000 + orderId-ийн төлбөрүүд 4000 = 9000
+      expect(Number(res.body.income)).toBeGreaterThanOrEqual(9000);
       expect(Number(res.body.expense)).toBeGreaterThanOrEqual(3000.5);
       expect(Number(res.body.net)).toBe(
         Number(res.body.income) - Number(res.body.expense),
