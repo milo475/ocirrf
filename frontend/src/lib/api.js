@@ -128,6 +128,20 @@ export async function restoreSession() {
 }
 
 /**
+ * Гарахад refresh token-ыг сервер талд revoke хийнэ (V4-08).
+ * Алдаа гарсан ч гарах үйлдлийг саатуулахгүй.
+ */
+export async function serverLogout() {
+  const refreshToken = getRefreshToken()
+  if (!refreshToken) return
+  try {
+    await rawRequest('/auth/logout', { method: 'POST', body: { refreshToken } })
+  } catch {
+    /* сүлжээгүй үед ч local гарах үргэлжилнэ */
+  }
+}
+
+/**
  * Файл (CSV г.м.) татах — auth header-тэй fetch, 401-д нэг удаа refresh.
  * {blob, filename} буцаана.
  */

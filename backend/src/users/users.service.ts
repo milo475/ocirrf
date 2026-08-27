@@ -141,6 +141,14 @@ export class UsersService {
     return this.prisma.$transaction(async (tx) => {
       await tx.user.update({ where: { id }, data });
 
+      // Идэвхгүй болгоход бүх refresh token шууд унтарна (V4-08)
+      if (dto.isActive === false) {
+        await tx.refreshToken.updateMany({
+          where: { userId: id, revokedAt: null },
+          data: { revokedAt: new Date() },
+        });
+      }
+
       const willBeDriver = (dto.role ?? user.role) === 'DRIVER';
       const profileTouched =
         dto.feePerDelivery !== undefined || dto.vehicleInfo !== undefined;
@@ -196,8 +204,11 @@ export class UsersService {
         mustChangePassword: true,
       },
     });
-    // Refresh token-ууд DB-д хадгалагдаж эхлэхээр (V4-08) энд бүгдийг
-    // revoke хийнэ. Одоогоор шинэ нэвтрэлт бүр DB-ээс дахин шалгагддаг.
+    // Бүх refresh token шууд унтарна (V4-08) — идэвхтэй session тасарна
+    await this.prisma.refreshToken.updateMany({
+      where: { userId: id, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
     return { tempPassword };
   }
 

@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { createHash, randomUUID } from 'node:crypto';
 import { Role } from '../generated/prisma/client';
 import type { User } from '../generated/prisma/client';
 import { PermissionsService } from '../permissions/permissions.service';
@@ -17,7 +18,13 @@ import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { RegisterDto } from './dto/register.dto';
 
-export type JwtPayload = { sub: string; role: string };
+export type JwtPayload = { sub: string; role: string; jti?: string };
+
+const REFRESH_TTL_MS = 7 * 24 * 60 * 60_000; // 7 хоног — token-ий expiresIn-тэй ижил
+
+function sha256(value: string): string {
+  return createHash('sha256').update(value).digest('hex');
+}
 
 @Injectable()
 export class AuthService {
@@ -95,24 +102,84 @@ export class AuthService {
     return this.issueTokens(user);
   }
 
+  /**
+   * Refresh + ROTATION (V4-08): хуучин token revoke хийгдэж шинэ хос
+   * олгогдоно. Revoke-логдсон token ДАХИН ирвэл — хулгайн шинж —
+   * хэрэглэгчийн БҮХ token унтарна.
+   */
   async refresh(dto: RefreshDto) {
+    const invalid = new UnauthorizedException('Refresh token хүчингүй');
     let payload: JwtPayload;
     try {
       payload = await this.jwt.verifyAsync<JwtPayload>(dto.refreshToken, {
         secret: process.env.JWT_REFRESH_SECRET,
       });
     } catch {
-      throw new UnauthorizedException('Refresh token хүчингүй');
+      throw invalid;
+    }
+    if (!payload.jti) {
+      throw invalid; // хуучин (rotation-гүй) token-ууд хүчингүй
+    }
+
+    const record = await this.prisma.refreshToken.findUnique({
+      where: { id: payload.jti },
+    });
+    if (!record || record.tokenHash !== sha256(dto.refreshToken)) {
+      throw invalid;
+    }
+    if (record.revokedAt) {
+      // Хулгайн шинж: гэр бүлээр нь revoke
+      await this.revokeAllTokens(record.userId);
+      throw invalid;
+    }
+    if (record.expiresAt < new Date()) {
+      throw invalid;
     }
 
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
     });
     if (!user || !user.isActive) {
-      throw new UnauthorizedException('Refresh token хүчингүй');
+      throw invalid;
     }
 
-    return this.issueTokens(user);
+    // Хугацаа дууссан token-уудыг энд дайрч цэвэрлэнэ (өдөр тутмын cleanup)
+    await this.prisma.refreshToken.deleteMany({
+      where: { expiresAt: { lt: new Date() } },
+    });
+
+    const tokens = await this.issueTokens(user);
+    await this.prisma.refreshToken.update({
+      where: { id: record.id },
+      data: { revokedAt: new Date(), replacedById: tokens.refreshJti },
+    });
+    return tokens;
+  }
+
+  /** Logout (V4-08): тухайн refresh token-ыг revoke */
+  async logout(refreshToken: string) {
+    try {
+      const payload = await this.jwt.verifyAsync<JwtPayload>(refreshToken, {
+        secret: process.env.JWT_REFRESH_SECRET,
+      });
+      if (payload.jti) {
+        await this.prisma.refreshToken.updateMany({
+          where: { id: payload.jti, revokedAt: null },
+          data: { revokedAt: new Date() },
+        });
+      }
+    } catch {
+      // Хүчингүй token-д ч logout амжилттай гэж үзнэ
+    }
+    return { ok: true };
+  }
+
+  /** Хэрэглэгчийн бүх refresh token-ыг унтраана (идэвхгүй болгох, нууц үг сэргээх) */
+  async revokeAllTokens(userId: string) {
+    await this.prisma.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
   }
 
   /**
@@ -138,23 +205,33 @@ export class AuthService {
         mustChangePassword: false,
       },
     });
-    // Шинэ token — хуучин session-ийн mustChangePassword төлөв цэвэрлэгдэнэ
+    // Хуучин session-ууд бүгд унтарч (V4-08) шинэ хос token олгогдоно
+    await this.revokeAllTokens(userId);
     return this.issueTokens(updated);
   }
 
   private async issueTokens(user: User) {
-    const payload: JwtPayload = { sub: user.id, role: user.role };
-
+    // jti (V4-08): refresh token DB-д hash-аар бүртгэгдэж rotation хийгдэнэ
+    const jti = randomUUID();
     const [accessToken, refreshToken] = await Promise.all([
-      this.jwt.signAsync(payload, {
-        secret: process.env.JWT_SECRET,
-        expiresIn: '15m',
-      }),
-      this.jwt.signAsync(payload, {
-        secret: process.env.JWT_REFRESH_SECRET,
-        expiresIn: '7d',
-      }),
+      this.jwt.signAsync(
+        { sub: user.id, role: user.role } satisfies JwtPayload,
+        { secret: process.env.JWT_SECRET, expiresIn: '15m' },
+      ),
+      this.jwt.signAsync(
+        { sub: user.id, role: user.role, jti } satisfies JwtPayload,
+        { secret: process.env.JWT_REFRESH_SECRET, expiresIn: '7d' },
+      ),
     ]);
+
+    await this.prisma.refreshToken.create({
+      data: {
+        id: jti,
+        userId: user.id,
+        tokenHash: sha256(refreshToken),
+        expiresAt: new Date(Date.now() + REFRESH_TTL_MS),
+      },
+    });
 
     // Frontend цэс/товчоо effective permission-оор нуудаг
     const permissions = await this.permissionsService.getEffectivePermissions(
@@ -165,6 +242,7 @@ export class AuthService {
     return {
       accessToken,
       refreshToken,
+      refreshJti: jti,
       user: {
         id: user.id,
         email: user.username,

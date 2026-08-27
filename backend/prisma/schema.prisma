@@ -88,6 +88,23 @@ model User {
   customerOrders Order[]         @relation("CustomerOrders")
   paymentsReceived Payment[]     @relation("PaymentsReceived")
   returnsCreated   OrderReturn[] @relation("ReturnsCreated")
+  refreshTokens    RefreshToken[]
+}
+
+/// Refresh token rotation (V4-08): id = jti claim, DB-д зөвхөн hash.
+/// revokedAt тавигдсан token ДАХИН ирвэл хулгайн шинж — эзний бүх
+/// token revoke хийгдэнэ.
+model RefreshToken {
+  id           String    @id @default(uuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash    String
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  replacedById String?
+  createdAt    DateTime  @default(now())
+
+  @@index([userId])
 }
 
 /// Хүргэлтийн тариф (v4): district=null → тухайн region-ий default

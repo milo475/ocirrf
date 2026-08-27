@@ -181,6 +181,10 @@ describe('ursGAL v2 API (e2e)', () => {
     await prisma.activityLog.deleteMany({
       where: { createdAt: { gte: testStartedAt } },
     });
+    // Тестийн үеэр үүссэн refresh token-ууд (бодит хэрэглэгчдийнх ч)
+    await prisma.refreshToken.deleteMany({
+      where: { createdAt: { gte: testStartedAt } },
+    });
     // Тестийн тохиргоонуудыг цэвэрлэнэ
     await prisma.setting.deleteMany({
       where: {
@@ -2689,6 +2693,80 @@ describe('ursGAL v2 API (e2e)', () => {
       });
       expect(dbUser?.failedLoginCount).toBe(0);
       expect(dbUser?.lastLoginAt).toBeTruthy();
+    });
+  });
+
+  // ────────────────────────────────────────────── V4: REFRESH ROTATION
+  describe('V4: Refresh rotation + logout ⭐', () => {
+    const rtEmail = `e2e-rt-${T}@ursgal.mn`;
+    let rtUserId: string;
+
+    afterAll(async () => {
+      if (rtUserId) {
+        await prisma.user.deleteMany({ where: { id: rtUserId } });
+      }
+    });
+
+    const rtLogin = () =>
+      api()
+        .post('/api/auth/login')
+        .send({ email: rtEmail, password: 'rtpass11' })
+        .expect(200);
+    const rtRefresh = (token: string) =>
+      api().post('/api/auth/refresh').send({ refreshToken: token });
+
+    it('rotation: хуучин token хүчингүй, дахин хэрэглэвэл гэр бүлээрээ унтарна', async () => {
+      const created = await api()
+        .post('/api/users')
+        .set(auth(tok.admin))
+        .send({
+          name: 'Э2Э Rotation Тест',
+          email: rtEmail,
+          password: 'rtpass11',
+          role: 'OPERATOR',
+        })
+        .expect(201);
+      rtUserId = created.body.id;
+
+      const login = await rtLogin();
+      const rt1 = login.body.refreshToken;
+
+      const rotated = await rtRefresh(rt1).expect(200);
+      const rt2 = rotated.body.refreshToken;
+      expect(rt2).not.toBe(rt1);
+
+      // rt1 ДАХИН ирвэл — хулгайн шинж: 401 + rt2 ч унтарна
+      await rtRefresh(rt1).expect(401);
+      await rtRefresh(rt2).expect(401);
+    });
+
+    it('logout: refresh token revoke хийгдэж дахин ажиллахгүй', async () => {
+      const login = await rtLogin();
+      const rt = login.body.refreshToken;
+
+      await api()
+        .post('/api/auth/logout')
+        .set(auth(login.body.accessToken))
+        .send({ refreshToken: rt })
+        .expect(200);
+      await rtRefresh(rt).expect(401);
+    });
+
+    it('идэвхгүй болгосон хэрэглэгчийн session шууд тасарна', async () => {
+      const login = await rtLogin();
+
+      await api()
+        .patch(`/api/users/${rtUserId}`)
+        .set(auth(tok.admin))
+        .send({ isActive: false })
+        .expect(200);
+
+      // Access token ч (DB-ээс шалгадаг) ажиллахгүй, refresh ч 401
+      await api()
+        .get('/api/auth/me')
+        .set(auth(login.body.accessToken))
+        .expect(401);
+      await rtRefresh(login.body.refreshToken).expect(401);
     });
   });
 });

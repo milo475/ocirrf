@@ -57,6 +57,14 @@ export class AuthController {
     return this.authService.refresh(dto);
   }
 
+  /** V4-08: гарахад refresh token revoke хийгдэнэ */
+  @Post('logout')
+  @AllowTempPassword()
+  @HttpCode(HttpStatus.OK)
+  logout(@Body() dto: RefreshDto) {
+    return this.authService.logout(dto.refreshToken);
+  }
+
   /** V4-06: түр нууц үгээ солино — mustChangePassword үед ганц нээлттэй үйлдэл */
   @Post('change-password')
   @AllowTempPassword()

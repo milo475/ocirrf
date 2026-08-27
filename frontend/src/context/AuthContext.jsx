@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
-import { api, clearTokens, restoreSession, setTokens } from '../lib/api'
+import { api, clearTokens, restoreSession, serverLogout, setTokens } from '../lib/api'
 
 const AuthContext = createContext(null)
 
@@ -47,6 +47,8 @@ export function AuthProvider({ children }) {
   }, [])
 
   const logout = useCallback(() => {
+    // Сервер талд refresh token-ыг revoke хийнэ (V4-08) — хариуг хүлээхгүй
+    void serverLogout()
     clearTokens()
     setUser(null)
   }, [])
