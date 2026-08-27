@@ -464,6 +464,8 @@ export class DeliveryService {
           ...mine,
           deliveryStatus: DeliveryStatus.DELIVERED,
           payoutId: null,
+          // V4: цалингаас хасах буцаалттай захиалга тооцогдохгүй
+          returns: { none: { excludeFromPayroll: true } },
         },
       }),
       this.prisma.driverPayout.groupBy({

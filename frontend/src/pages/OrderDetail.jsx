@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router'
 import AssignDriverModal from '../components/orders/AssignDriverModal'
 import PaymentBadge from '../components/orders/PaymentBadge'
 import RegionBadge from '../components/orders/RegionBadge'
+import ReturnBadge from '../components/orders/ReturnBadge'
 import Input from '../components/ui/Input'
 import Select from '../components/ui/Select'
 import Badge from '../components/ui/Badge'
@@ -111,6 +112,7 @@ export default function OrderDetail() {
         <span className="flex items-center gap-2">
           <Badge status={order.orderStatus} />
           <Badge status={order.deliveryStatus} />
+          <ReturnBadge state={order.returnState} />
         </span>
       </div>
 
@@ -223,6 +225,15 @@ export default function OrderDetail() {
 
       {/* Төлбөр (v4): орлого = төлбөр */}
       <PaymentSection
+        order={order}
+        onChanged={load}
+        t={t}
+        toast={toast}
+        hasPerm={hasPerm}
+      />
+
+      {/* Буцаалт (v4) */}
+      <ReturnSection
         order={order}
         onChanged={load}
         t={t}
@@ -558,6 +569,253 @@ function PaymentSection({ order, onChanged, t, toast, hasPerm }) {
         onConfirm={remove}
         onCancel={() => setDeleting(null)}
       />
+    </section>
+  )
+}
+
+/** Буцаалтын хэсэг: түүх + бүртгэх modal (мөр сонгож, тоо зааж буцаана) */
+function ReturnSection({ order, onChanged, t, toast, hasPerm }) {
+  const [formOpen, setFormOpen] = useState(false)
+  const [rows, setRows] = useState({}) // orderItemId -> qty (сонгосон мөрүүд)
+  const [reason, setReason] = useState('')
+  const [restock, setRestock] = useState(true)
+  const [refundPayment, setRefundPayment] = useState(true)
+  const [excludePayroll, setExcludePayroll] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+
+  // Мөр бүрээр аль хэдийн буцаагдсан тоо
+  const returnedSoFar = {}
+  for (const r of order.returns ?? []) {
+    for (const ri of r.items) {
+      returnedSoFar[ri.orderItemId] = (returnedSoFar[ri.orderItemId] ?? 0) + ri.qty
+    }
+  }
+  const itemName = (orderItemId) =>
+    order.items.find((i) => i.id === orderItemId)?.productName ?? '?'
+
+  const finished =
+    order.orderStatus === 'COMPLETED' || order.deliveryStatus === 'DELIVERED'
+  const canReturn =
+    hasPerm('orders.refund') &&
+    finished &&
+    order.orderStatus !== 'CANCELLED' &&
+    order.returnState !== 'FULL'
+  const returns = order.returns ?? []
+  if (!canReturn && returns.length === 0) return null
+
+  function openForm() {
+    setRows({})
+    setReason('')
+    setRestock(true)
+    setRefundPayment(Number(order.paidAmount ?? 0) > 0)
+    setExcludePayroll(false)
+    setError(null)
+    setFormOpen(true)
+  }
+
+  function toggleRow(item, checked) {
+    setRows((prev) => {
+      const next = { ...prev }
+      if (checked) next[item.id] = item.qty - (returnedSoFar[item.id] ?? 0)
+      else delete next[item.id]
+      return next
+    })
+  }
+
+  async function submit(e) {
+    e.preventDefault()
+    const items = Object.entries(rows).map(([orderItemId, qty]) => ({
+      orderItemId,
+      qty: Number(qty),
+    }))
+    if (items.length === 0) {
+      setError(t('Буцаах бараа сонгоно уу'))
+      return
+    }
+    setBusy(true)
+    setError(null)
+    try {
+      await api(`/orders/${order.id}/return`, {
+        method: 'POST',
+        body: {
+          items,
+          reason: reason.trim(),
+          restock,
+          refundPayment,
+          excludeFromPayroll: excludePayroll,
+        },
+      })
+      toast.show(t('Буцаалт бүртгэгдлээ'))
+      setFormOpen(false)
+      onChanged()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="mt-10 border-t border-rule pt-6">
+      <p className="text-xs uppercase tracking-wide text-ink-muted mb-4 flex items-center gap-2">
+        {t('Буцаалт')}
+        <ReturnBadge state={order.returnState} />
+      </p>
+
+      {/* Буцаалтын түүх */}
+      {returns.length > 0 && (
+        <ul className="divide-y divide-rule border-y border-rule max-w-xl">
+          {returns.map((r) => (
+            <li key={r.id} className="py-2.5 text-sm">
+              <div className="flex items-center gap-3">
+                <span className="font-mono text-xs text-ink-muted tabular-nums">
+                  {formatDateTime(r.createdAt)}
+                </span>
+                <span className="flex-1 truncate">
+                  {r.reason} {r.createdBy && (
+                    <span className="text-ink-muted">· {r.createdBy.fullName}</span>
+                  )}
+                </span>
+                <span className="font-mono tabular-nums text-alarm">
+                  −{formatMoney(r.refundAmount)}
+                </span>
+              </div>
+              <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-ink-muted">
+                {r.items.map((ri) => (
+                  <span key={ri.id} className="border border-rule rounded px-1.5 py-0.5">
+                    {itemName(ri.orderItemId)} ×{ri.qty}
+                  </span>
+                ))}
+                {r.restocked && (
+                  <span className="text-safe">{t('ret.restocked')}</span>
+                )}
+                {r.excludeFromPayroll && (
+                  <span className="text-alarm">{t('ret.excluded')}</span>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {canReturn && (
+        <Button onClick={openForm} className="mt-4" variant="ghost">
+          {t('Буцаалт бүртгэх')}
+        </Button>
+      )}
+
+      <Modal
+        open={formOpen}
+        onClose={() => setFormOpen(false)}
+        title={`${t('Буцаалт бүртгэх')} — ${order.orderNo}`}
+      >
+        <form onSubmit={submit} className="space-y-4">
+          {/* Мөр сонголт: checkbox + буцаах тоо */}
+          <div className="divide-y divide-rule border-y border-rule">
+            {order.items.map((item) => {
+              const left = item.qty - (returnedSoFar[item.id] ?? 0)
+              const checked = item.id in rows
+              return (
+                <label
+                  key={item.id}
+                  className={`flex items-center gap-3 py-2 text-sm ${left === 0 ? 'opacity-40' : 'cursor-pointer'}`}
+                >
+                  <input
+                    type="checkbox"
+                    disabled={left === 0}
+                    checked={checked}
+                    onChange={(e) => toggleRow(item, e.target.checked)}
+                    className="accent-accent"
+                  />
+                  <span className="flex-1">
+                    {item.productName}
+                    <span className="ml-2 text-xs text-ink-muted">
+                      {t('ret.left')}: {left}/{item.qty}
+                    </span>
+                  </span>
+                  {checked && (
+                    <input
+                      type="number"
+                      min={1}
+                      max={left}
+                      value={rows[item.id]}
+                      onChange={(e) =>
+                        setRows((prev) => ({ ...prev, [item.id]: e.target.value }))
+                      }
+                      className="w-16 rounded border border-rule bg-transparent px-2 py-1 font-mono text-right"
+                    />
+                  )}
+                </label>
+              )
+            })}
+          </div>
+
+          <Input
+            id="ret-reason"
+            label={t('Шалтгаан')}
+            required
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          />
+
+          <div className="space-y-2 text-sm">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={restock}
+                onChange={(e) => setRestock(e.target.checked)}
+                className="accent-accent"
+              />
+              {t('Үлдэгдэлд буцаан нэмэх')}
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={refundPayment}
+                onChange={(e) => setRefundPayment(e.target.checked)}
+                className="accent-accent"
+              />
+              {t('Төлсөн дүнгээс буцаан олгох')}
+            </label>
+            <label
+              className={`flex items-center gap-2 ${order.payoutId ? 'opacity-40' : 'cursor-pointer'}`}
+            >
+              <input
+                type="checkbox"
+                disabled={!!order.payoutId}
+                checked={excludePayroll}
+                onChange={(e) => setExcludePayroll(e.target.checked)}
+                className="accent-accent"
+              />
+              {t('Жолоочийн цалингийн тооцооноос хасах')}
+              {order.payoutId && (
+                <span className="text-xs text-ink-muted">
+                  ({t('тооцоо хаагдсан')})
+                </span>
+              )}
+            </label>
+          </div>
+
+          {error && (
+            <p className="text-sm text-alarm border border-alarm rounded px-3 py-2">
+              {error}
+            </p>
+          )}
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              variant="ghost"
+              onClick={() => setFormOpen(false)}
+              disabled={busy}
+            >
+              {t('Болих')}
+            </Button>
+            <Button type="submit" loading={busy}>
+              {t('Хадгалах')}
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </section>
   )
 }

@@ -18,6 +18,11 @@ const DICT = {
     'pay.transfer': 'Шилжүүлэг',
     'pay.card': 'Карт',
     'pay.remaining': 'Үлдэгдэл',
+    'ret.partial': 'Хэсэгчлэн буцаасан',
+    'ret.full': 'Буцаасан',
+    'ret.restocked': 'Үлдэгдэлд нэмсэн',
+    'ret.excluded': 'Цалингаас хассан',
+    'ret.left': 'Үлдсэн',
     'action.create': 'Үүсгэсэн',
     'action.update': 'Зассан',
     'action.delete': 'Устгасан',
@@ -322,6 +327,21 @@ const DICT = {
     'pay.transfer': 'Transfer',
     'pay.card': 'Card',
     'pay.remaining': 'Remaining',
+
+    // — Буцаалт (V4-04) —
+    'Буцаалт': 'Returns',
+    'Буцаалт бүртгэх': 'Record return',
+    'Буцаалт бүртгэгдлээ': 'Return recorded',
+    'Буцаах бараа сонгоно уу': 'Select items to return',
+    'Үлдэгдэлд буцаан нэмэх': 'Restock returned items',
+    'Төлсөн дүнгээс буцаан олгох': 'Refund from paid amount',
+    'Жолоочийн цалингийн тооцооноос хасах': 'Exclude from driver payroll',
+    'тооцоо хаагдсан': 'payout closed',
+    'ret.partial': 'Partial return',
+    'ret.full': 'Returned',
+    'ret.restocked': 'Restocked',
+    'ret.excluded': 'Excluded from payroll',
+    'ret.left': 'Left',
 
     // — Customer portal (V3-14) —
     'Шинэ харилцагч уу?': 'New customer?',

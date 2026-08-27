@@ -187,6 +187,8 @@ export class FinanceService {
         deliveryStatus: DeliveryStatus.DELIVERED,
         payoutId: null,
         assignedDriverId: { not: null },
+        // V4: цалингаас хасах буцаалттай захиалга тооцогдохгүй
+        returns: { none: { excludeFromPayroll: true } },
       },
       _count: { _all: true },
       _min: { deliveredAt: true },
@@ -237,6 +239,8 @@ export class FinanceService {
           assignedDriverId: driverId,
           deliveryStatus: DeliveryStatus.DELIVERED,
           payoutId: null,
+          // V4: цалингаас хасах буцаалттай захиалга тооцогдохгүй
+          returns: { none: { excludeFromPayroll: true } },
         },
         select: { id: true, deliveredAt: true },
       });

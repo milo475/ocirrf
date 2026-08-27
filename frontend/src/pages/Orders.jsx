@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import PaymentBadge from '../components/orders/PaymentBadge'
+import ReturnBadge from '../components/orders/ReturnBadge'
 import RegionBadge from '../components/orders/RegionBadge'
 import Badge, { STATUS_LABELS } from '../components/ui/Badge'
 import Button from '../components/ui/Button'
@@ -109,7 +110,12 @@ export default function Orders() {
     {
       key: 'paymentStatus',
       header: t('Төлбөр'),
-      render: (o) => <PaymentBadge status={o.paymentStatus} />,
+      render: (o) => (
+        <span className="inline-flex items-center gap-1">
+          <PaymentBadge status={o.paymentStatus} />
+          <ReturnBadge state={o.returnState} />
+        </span>
+      ),
     },
     {
       key: 'assignedDriver',

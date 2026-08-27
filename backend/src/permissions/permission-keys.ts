@@ -13,6 +13,7 @@ export const PERM = {
   ORDERS_DELETE: 'orders.delete',
   ORDERS_ASSIGN_DRIVER: 'orders.assign_driver',
   ORDERS_CHANGE_STATUS: 'orders.change_status',
+  ORDERS_REFUND: 'orders.refund',
   // Харилцагч
   CUSTOMERS_VIEW: 'customers.view',
   CUSTOMERS_CREATE: 'customers.create',
@@ -58,6 +59,7 @@ export const PERM_LABELS: Record<PermKey, string> = {
   [PERM.ORDERS_DELETE]: 'Захиалга устгах',
   [PERM.ORDERS_ASSIGN_DRIVER]: 'Жолооч хуваарилах',
   [PERM.ORDERS_CHANGE_STATUS]: 'Захиалгын статус солих',
+  [PERM.ORDERS_REFUND]: 'Буцаалт бүртгэх',
   [PERM.CUSTOMERS_VIEW]: 'Харилцагч харах',
   [PERM.CUSTOMERS_CREATE]: 'Харилцагч бүртгэх',
   [PERM.CUSTOMERS_EDIT]: 'Харилцагч засах',
@@ -95,6 +97,7 @@ export const PERM_GROUPS: { group: string; keys: PermKey[] }[] = [
       PERM.ORDERS_DELETE,
       PERM.ORDERS_ASSIGN_DRIVER,
       PERM.ORDERS_CHANGE_STATUS,
+      PERM.ORDERS_REFUND,
     ],
   },
   {
@@ -162,6 +165,7 @@ export const ROLE_DEFAULTS: Record<Role, PermKey[]> = {
     PERM.ORDERS_EDIT,
     PERM.ORDERS_CHANGE_STATUS,
     PERM.ORDERS_ASSIGN_DRIVER,
+    PERM.ORDERS_REFUND, // V4: буцаалт ADMIN+MANAGER
     PERM.INVENTORY_VIEW,
     PERM.INVENTORY_STOCK_IN,
     PERM.INVENTORY_STOCK_OUT,

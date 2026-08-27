@@ -81,6 +81,33 @@ model User {
   notifications  Notification[]
   customerOrders Order[]         @relation("CustomerOrders")
   paymentsReceived Payment[]     @relation("PaymentsReceived")
+  returnsCreated   OrderReturn[] @relation("ReturnsCreated")
+}
+
+/// Захиалгын буцаалт (v4) — бүтэн/хэсэгчилсэн
+model OrderReturn {
+  id                 String   @id @default(uuid())
+  orderId            String
+  order              Order    @relation(fields: [orderId], references: [id])
+  reason             String
+  refundAmount       Decimal  @db.Decimal(12, 2)
+  restocked          Boolean
+  excludeFromPayroll Boolean  @default(false)
+  createdById        String
+  createdBy          User     @relation("ReturnsCreated", fields: [createdById], references: [id])
+  createdAt          DateTime @default(now())
+
+  items OrderReturnItem[]
+
+  @@index([orderId])
+}
+
+model OrderReturnItem {
+  id          String      @id @default(uuid())
+  returnId    String
+  return      OrderReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  orderItemId String
+  qty         Int
 }
 
 /// Захиалгын төлбөрийн бүртгэл (бэлэн/шилжүүлэг/карт)
@@ -254,6 +281,9 @@ model Order {
   paymentStatus PaymentStatus @default(UNPAID)
   paidAmount    Decimal       @default(0) @db.Decimal(12, 2)
 
+  // Буцаалт (v4): null = буцаалтгүй, PARTIAL / FULL
+  returnState String?
+
   // Жолоочийн маршрутын дараалал (1..n, тухайн жолоочийн идэвхтэй хүргэлтэд)
   routeOrder Int?
 
@@ -266,6 +296,7 @@ model Order {
   customerUser   User?         @relation("CustomerOrders", fields: [customerId], references: [id])
   items          OrderItem[]
   payments       Payment[]
+  returns        OrderReturn[]
 
   @@index([orderStatus])
   @@index([phone])

@@ -91,6 +91,8 @@ describe('ursGAL v2 API (e2e)', () => {
   let e2eMgrId: string; // default матрицын шалгалтын менежер
   let noPhotoOrderId: string; // зураггүй баталгаажуулалтын тест
   let costOrderId: string; // өртгийн snapshot-ын тест
+  let retOrderId: string; // буцаалтын тест (V4-04)
+  let retItemId: string; // буцаалтын тест захиалгын мөр
   let custUserId: string; // portal-ын тест харилцагч
   let custToken: string;
   let custOrderId: string;
@@ -134,6 +136,7 @@ describe('ursGAL v2 API (e2e)', () => {
       custOrder2Id,
       noPhotoOrderId,
       costOrderId,
+      retOrderId,
     ].filter(Boolean);
     await prisma.financeEntry.deleteMany({
       where: {
@@ -146,6 +149,10 @@ describe('ursGAL v2 API (e2e)', () => {
     });
     // Төлбөрүүд (v4) — захиалгаас өмнө устгана (FK)
     await prisma.payment.deleteMany({
+      where: { orderId: { in: orderIds } },
+    });
+    // Буцаалтууд (v4) — мөрүүд нь cascade-аар устна
+    await prisma.orderReturn.deleteMany({
       where: { orderId: { in: orderIds } },
     });
     await prisma.stockMovement.deleteMany({
@@ -2190,6 +2197,179 @@ describe('ursGAL v2 API (e2e)', () => {
         .set(auth(tok.admin))
         .expect(200);
       expect(dash.body).toHaveProperty('totalProfit');
+    });
+  });
+
+  // ────────────────────────────────────────────── V4: БУЦААЛТ
+  describe('V4: Буцаалтын урсгал ⭐', () => {
+    let unitPrice: number; // мөрийн нэгж үнэ (refund тооцоонд)
+
+    it('бэлтгэл: DELIVERED + бүрэн төлсөн 2ш-тэй захиалга', async () => {
+      await api()
+        .post('/api/stock/adjust')
+        .set(auth(tok.manager))
+        .send({ productId, qtyChange: 2, reason: 'PURCHASE_IN' })
+        .expect(201);
+      const ord = await api()
+        .post('/api/orders')
+        .set(auth(tok.operator))
+        .send({
+          customerName: `Э2Э-Буцаалт-${T}`,
+          customerPhone: `6${T}`,
+          ...UB_ADDR,
+          items: [{ productId, qty: 2 }],
+        })
+        .expect(201);
+      retOrderId = ord.body.id;
+      retItemId = ord.body.items[0].id;
+      unitPrice = Number(ord.body.items[0].priceAtOrder);
+
+      await api()
+        .patch(`/api/orders/${retOrderId}/status`)
+        .set(auth(tok.operator))
+        .send({ status: 'CONFIRMED' })
+        .expect(200);
+      const realDriver = await api().get('/api/auth/me').set(auth(tok.driver));
+      await api()
+        .patch(`/api/orders/${retOrderId}/assign-driver`)
+        .set(auth(tok.manager))
+        .send({ driverId: realDriver.body.id })
+        .expect(200);
+      await api()
+        .post(`/api/deliveries/${retOrderId}/complete`)
+        .set(auth(tok.driver))
+        .field('success', 'true')
+        .field('note', 'e2e буцаалтын бэлтгэл')
+        .expect(201);
+
+      const pay = await api()
+        .post(`/api/orders/${retOrderId}/payments`)
+        .set(auth(tok.manager))
+        .send({ amount: ord.body.totalAmount, method: 'CASH' })
+        .expect(201);
+      expect(pay.body.order.paymentStatus).toBe('PAID');
+    });
+
+    it('operator буцаалт бүртгэхгүй (403); дуусаагүй захиалгад 400', async () => {
+      const body = {
+        items: [{ orderItemId: retItemId, qty: 1 }],
+        reason: 'e2e-403',
+      };
+      await api()
+        .post(`/api/orders/${retOrderId}/return`)
+        .set(auth(tok.operator))
+        .send(body)
+        .expect(403);
+      // adminOrderId — CANCELLED (хүргэгдээгүй) тул буцаалт хориглоно
+      await api()
+        .post(`/api/orders/${adminOrderId}/return`)
+        .set(auth(tok.manager))
+        .send(body)
+        .expect(400);
+    });
+
+    it('1ш буцаалт: үлдэгдэл+1, RETURN хөдөлгөөн, EXPENSE REFUND, PARTIAL, payroll-оос хасагдана ⭐', async () => {
+      const before = await api()
+        .get(`/api/products/${productId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      const realDriver = await api().get('/api/auth/me').set(auth(tok.driver));
+      const pendBefore = await api()
+        .get('/api/finance/payroll/pending')
+        .set(auth(tok.admin))
+        .expect(200);
+      const rowBefore = pendBefore.body.find(
+        (r: { driverId: string }) => r.driverId === realDriver.body.id,
+      );
+      expect(rowBefore.deliveredCount).toBeGreaterThanOrEqual(1);
+
+      const res = await api()
+        .post(`/api/orders/${retOrderId}/return`)
+        .set(auth(tok.manager))
+        .send({
+          items: [{ orderItemId: retItemId, qty: 1 }],
+          reason: 'Гэмтэлтэй ирсэн',
+          restock: true,
+          refundPayment: true,
+          excludeFromPayroll: true,
+        })
+        .expect(201);
+      expect(Number(res.body.refundAmount)).toBe(unitPrice);
+      expect(res.body.order.returnState).toBe('PARTIAL');
+      expect(res.body.order.paymentStatus).toBe('PARTIAL');
+      expect(Number(res.body.order.paidAmount)).toBe(unitPrice); // 2ш − 1ш
+
+      // Үлдэгдэл +1, RETURN шалтгаантай хөдөлгөөн
+      const after = await api()
+        .get(`/api/products/${productId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(after.body.stockQty).toBe(before.body.stockQty + 1);
+      const move = await prisma.stockMovement.findFirst({
+        where: { refId: retOrderId, reason: 'RETURN' },
+      });
+      expect(move?.qtyChange).toBe(1);
+
+      // EXPENSE "REFUND" entry
+      const refundEntry = await prisma.financeEntry.findFirst({
+        where: { refOrderId: retOrderId, category: 'REFUND' },
+      });
+      expect(refundEntry?.type).toBe('EXPENSE');
+      expect(Number(refundEntry?.amount)).toBe(unitPrice);
+
+      // Payroll pending-ээс хасагдсан (тоо 1-ээр буурна)
+      const pendAfter = await api()
+        .get('/api/finance/payroll/pending')
+        .set(auth(tok.admin))
+        .expect(200);
+      const rowAfter = pendAfter.body.find(
+        (r: { driverId: string }) => r.driverId === realDriver.body.id,
+      );
+      const countAfter = rowAfter?.deliveredCount ?? 0;
+      expect(countAfter).toBe(rowBefore.deliveredCount - 1);
+    });
+
+    it('давхар буцаалт: үлдсэнээс их → 400; үлдсэн 1ш → FULL + төлбөр бүрэн буцна', async () => {
+      await api()
+        .post(`/api/orders/${retOrderId}/return`)
+        .set(auth(tok.manager))
+        .send({
+          items: [{ orderItemId: retItemId, qty: 2 }],
+          reason: 'e2e-хэтрүүлэг',
+        })
+        .expect(400);
+
+      const res = await api()
+        .post(`/api/orders/${retOrderId}/return`)
+        .set(auth(tok.manager))
+        .send({
+          items: [{ orderItemId: retItemId, qty: 1 }],
+          reason: 'Бүрэн буцаалт',
+          restock: true,
+          refundPayment: true,
+        })
+        .expect(201);
+      expect(res.body.order.returnState).toBe('FULL');
+      expect(res.body.order.paymentStatus).toBe('UNPAID');
+      expect(Number(res.body.order.paidAmount)).toBe(0);
+
+      // Бүх мөр буцаагдсан — цаашид буцаалт авахгүй
+      await api()
+        .post(`/api/orders/${retOrderId}/return`)
+        .set(auth(tok.manager))
+        .send({
+          items: [{ orderItemId: retItemId, qty: 1 }],
+          reason: 'e2e-дахин',
+        })
+        .expect(400);
+
+      // Дэлгэрэнгүйд буцаалтын түүх (2 бичлэг) ирнэ
+      const detail = await api()
+        .get(`/api/orders/${retOrderId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(detail.body.returns).toHaveLength(2);
+      expect(detail.body.returnState).toBe('FULL');
     });
   });
 });

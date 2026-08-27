@@ -351,6 +351,13 @@ export class OrdersService {
           },
           orderBy: { createdAt: 'asc' },
         },
+        returns: {
+          include: {
+            items: true,
+            createdBy: { select: { id: true, fullName: true } },
+          },
+          orderBy: { createdAt: 'asc' },
+        },
       },
     });
     if (!order) {
