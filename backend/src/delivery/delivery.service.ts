@@ -382,9 +382,9 @@ export class DeliveryService {
     const proofUrl = file ? `/api/uploads/${file.filename}` : null;
 
     if (dto.success) {
-      if (!file) {
-        throw new BadRequestException('Баталгаажуулах зураг заавал хэрэгтэй');
-      }
+      // Зураг ЗААВАЛ БИШ: хүлээн авагч гэртээ байгаагүй үед жолооч
+      // тайлбараар (ж: "доод талын дэлгүүрт үлдээсэн") баталгаажуулж
+      // болно — тайлбар нь admin/manager-т захиалгын дэлгэрэнгүйд гарна
       // DELIVERED мөчид авто орлого — нэг transaction
       const delivered = await this.prisma.$transaction(async (tx) => {
         const row = await tx.order.update({

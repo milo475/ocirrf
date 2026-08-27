@@ -89,6 +89,7 @@ describe('ursGAL v2 API (e2e)', () => {
   let roA: string; // маршрутын дарааллын тест захиалгууд
   let roB: string;
   let e2eMgrId: string; // default матрицын шалгалтын менежер
+  let noPhotoOrderId: string; // зураггүй баталгаажуулалтын тест
   let custUserId: string; // portal-ын тест харилцагч
   let custToken: string;
   let custOrderId: string;
@@ -130,6 +131,7 @@ describe('ursGAL v2 API (e2e)', () => {
       roB,
       custOrderId,
       custOrder2Id,
+      noPhotoOrderId,
     ].filter(Boolean);
     await prisma.financeEntry.deleteMany({
       where: {
@@ -689,12 +691,51 @@ describe('ursGAL v2 API (e2e)', () => {
         .expect(403);
     });
 
-    it('зураггүй амжилттай complete → 400', async () => {
+    it('зураггүй + тайлбартай амжилттай complete → DELIVERED (зураг заавал биш)', async () => {
+      // Тусдаа захиалгаар (бодит жолоочид) — үлдэгдлийг урьдчилан нөхнө
       await api()
-        .post(`/api/deliveries/${orderId}/complete`)
-        .set(auth(e2eDriverToken))
+        .post('/api/stock/adjust')
+        .set(auth(tok.manager))
+        .send({ productId, qtyChange: 1, reason: 'PURCHASE_IN' })
+        .expect(201);
+      const ord = await api()
+        .post('/api/orders')
+        .set(auth(tok.operator))
+        .send({
+          customerName: `Э2Э-Зураггүй-${T}`,
+          customerPhone: `5${T}`,
+          ...UB_ADDR,
+          items: [{ productId, qty: 1 }],
+        })
+        .expect(201);
+      noPhotoOrderId = ord.body.id;
+      await api()
+        .patch(`/api/orders/${noPhotoOrderId}/status`)
+        .set(auth(tok.operator))
+        .send({ status: 'CONFIRMED' })
+        .expect(200);
+      const realDriver = await api().get('/api/auth/me').set(auth(tok.driver));
+      await api()
+        .patch(`/api/orders/${noPhotoOrderId}/assign-driver`)
+        .set(auth(tok.manager))
+        .send({ driverId: realDriver.body.id })
+        .expect(200);
+
+      const res = await api()
+        .post(`/api/deliveries/${noPhotoOrderId}/complete`)
+        .set(auth(tok.driver))
         .field('success', 'true')
-        .expect(400);
+        .field('note', 'Гэрт нь байгаагүй — доод талын дэлгүүрт үлдээсэн')
+        .expect(201);
+      expect(res.body.deliveryStatus).toBe('DELIVERED');
+      expect(res.body.deliveryProofUrl).toBeNull();
+
+      // Тайлбар нь admin/manager-т захиалгын дэлгэрэнгүйд харагдана
+      const detail = await api()
+        .get(`/api/orders/${noPhotoOrderId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(detail.body.deliveryNote).toContain('дэлгүүрт үлдээсэн');
     });
 
     it('зурагтай complete → DELIVERED, зураг serve хийгдэнэ', async () => {

@@ -361,6 +361,12 @@ const DICT = {
     'Тээврийн хэрэгсэл': 'Vehicle',
     'Идэвхгүй': 'Inactive',
     'Бүртгэл засах': 'Edit accounts',
+    'Тайлбар': 'Note',
+    'Системээс гарах': 'Sign out',
+    'Та системээс гарахдаа итгэлтэй байна уу?':
+      'Are you sure you want to sign out?',
+    'Ж: Гэрт нь байгаагүй — доод талын дэлгүүрт үлдээсэн':
+      'e.g. Recipient not home — left at the store downstairs',
 
     // — Мэдэгдэл + Үйлдлийн түүх (V3-10) —
     'Мэдэгдэл': 'Notifications',

@@ -231,7 +231,9 @@ function CompleteSheet({ delivery, onClose, onDone, t, toast }) {
     setPreviewUrl(URL.createObjectURL(file))
   }
 
-  const canSubmit = success ? !!photo : note.trim().length > 0
+  // Зураг заавал биш — гэртээ байхгүй үед тайлбараар баталгаажуулж болно.
+  // Амжилтгүйд шалтгаан заавал.
+  const canSubmit = success || note.trim().length > 0
 
   async function handleSubmit() {
     setSubmitting(true)
@@ -298,11 +300,10 @@ function CompleteSheet({ delivery, onClose, onDone, t, toast }) {
             </button>
           </div>
 
-          {/* Зураг — утасны камер шууд нээгдэнэ */}
+          {/* Зураг — утасны камер шууд нээгдэнэ (заавал биш) */}
           <label className="block">
             <span className="block text-xs uppercase tracking-wide text-ink-muted mb-2">
-              {t('Баталгаажуулах зураг')}
-              {success && ' *'}
+              {t('Баталгаажуулах зураг')} {t('(заавал биш)')}
             </span>
             <input
               type="file"
@@ -320,17 +321,26 @@ function CompleteSheet({ delivery, onClose, onDone, t, toast }) {
             />
           )}
 
-          {/* Амжилтгүйн шалтгаан */}
-          {!success && (
+          {/* Тайлбар: амжилттайд заавал биш (ж: дэлгүүрт үлдээсэн),
+              амжилтгүйд шалтгаан заавал */}
+          <label className="block">
+            <span className="block text-xs uppercase tracking-wide text-ink-muted mb-2">
+              {t('Тайлбар')}
+              {success ? ` ${t('(заавал биш)')}` : ' *'}
+            </span>
             <textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              required
+              required={!success}
               rows={2}
-              placeholder={t('Шалтгаан бичнэ үү')}
+              placeholder={t(
+                success
+                  ? 'Ж: Гэрт нь байгаагүй — доод талын дэлгүүрт үлдээсэн'
+                  : 'Шалтгаан бичнэ үү',
+              )}
               className="w-full bg-bg border border-rule rounded px-3 py-2.5 text-base focus:outline-none focus:border-ink-muted"
             />
-          )}
+          </label>
 
           {error && (
             <p className="text-sm text-alarm border border-alarm rounded px-3 py-2">

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router'
 import { Bell, LogOut, PanelLeft, PanelLeftClose, Settings } from 'lucide-react'
+import ConfirmDialog from '../ui/ConfirmDialog'
 import { navFor } from '../../config/nav'
 import { useAuth } from '../../context/AuthContext'
 import { useLang } from '../../context/LanguageContext'
@@ -65,7 +66,11 @@ export default function AppShell() {
     })
   }
 
+  // Санамсаргүй дарж гарахаас хамгаална — эхлээд баталгаажуулна
+  const [logoutOpen, setLogoutOpen] = useState(false)
+
   function handleLogout() {
+    setLogoutOpen(false)
     logout()
     navigate('/login')
   }
@@ -130,7 +135,7 @@ export default function AppShell() {
 
           <button
             type="button"
-            onClick={handleLogout}
+            onClick={() => setLogoutOpen(true)}
             title={collapsed ? t('Гарах') : undefined}
             className={`w-full flex items-center gap-3 rounded px-3 py-2 text-sm text-ink-muted hover:text-alarm transition-colors ${
               collapsed ? 'justify-center px-2' : ''
@@ -186,7 +191,7 @@ export default function AppShell() {
             )}
             <button
               type="button"
-              onClick={handleLogout}
+              onClick={() => setLogoutOpen(true)}
               className="md:hidden text-sm text-ink-muted hover:text-alarm transition-colors"
             >
               {t('Гарах')}
@@ -198,6 +203,17 @@ export default function AppShell() {
           <Outlet />
         </main>
       </div>
+
+      {/* Гарахын өмнөх баталгаажуулалт */}
+      <ConfirmDialog
+        open={logoutOpen}
+        title={t('Системээс гарах')}
+        message={t('Та системээс гарахдаа итгэлтэй байна уу?')}
+        confirmLabel={t('Гарах')}
+        danger
+        onConfirm={handleLogout}
+        onCancel={() => setLogoutOpen(false)}
+      />
 
       {/* ── Mobile доод tab bar ── */}
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-surface border-t border-rule flex">
