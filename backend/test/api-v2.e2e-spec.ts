@@ -221,11 +221,6 @@ describe('ursGAL v2 API (e2e)', () => {
 
   // ────────────────────────────────────────────── AUTH
   describe('Auth', () => {
-    // V4-13 CI demo: зориуд эвдсэн тест — дараагийн commit-оор буцна
-    it('CI улаан болохын жишээ (түр)', () => {
-      expect(1).toBe(2);
-    });
-
     it('4 эрх бүгд нэвтэрч, /me зөв role буцаана', async () => {
       for (const [u, role] of [
         ['admin', 'ADMIN'],
