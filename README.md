@@ -1,5 +1,7 @@
 # ursGAL
 
+[![CI](https://github.com/milo475/ursGAL/actions/workflows/ci.yml/badge.svg)](https://github.com/milo475/ursGAL/actions/workflows/ci.yml)
+
 Дотоод дэлгүүрийн захиалга бүртгэл, агуулах, хүргэлт, санхүүгийн удирдлагын
 систем. Нэг порт дээр NestJS API + React frontend хамт үйлчилнэ.
 

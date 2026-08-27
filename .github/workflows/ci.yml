@@ -1,0 +1,71 @@
+# CI (V4-13): push/PR бүрт backend e2e (жинхэнэ Postgres) + frontend build
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    name: Backend (build + e2e)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ursgal_user
+          POSTGRES_PASSWORD: ursgal123
+          POSTGRES_DB: ursgal
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ursgal_user -d ursgal"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ursgal_user:ursgal123@localhost:5432/ursgal?schema=public
+      # CI-ийн dummy secret-үүд — production-ийнхтай ямар ч холбоогүй
+      JWT_SECRET: ci-dummy-access-secret
+      JWT_REFRESH_SECRET: ci-dummy-refresh-secret
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Prisma migrate
+        run: npx prisma migrate deploy
+      - name: Prisma generate
+        run: npx prisma generate
+      - name: Seed (e2e-ийн 4 хэрэглэгч + тариф)
+        run: npx ts-node prisma/seed.ts
+      - name: Build
+        run: npm run build
+      - name: E2E tests
+        run: npm run test:e2e
+
+  frontend:
+    name: Frontend (build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Build
+        run: npm run build
