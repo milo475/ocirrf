@@ -4,6 +4,8 @@ import type { AuthUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { DeliveryService } from '../delivery/delivery.service';
 import { Role } from '../generated/prisma/client';
+import { PERM } from '../permissions/permission-keys';
+import { RequirePermission } from '../permissions/require-permission.decorator';
 import { DashboardService } from './dashboard.service';
 
 @Controller('dashboard')
@@ -13,8 +15,13 @@ export class DashboardController {
     private readonly deliveryService: DeliveryService,
   ) {}
 
-  /** DASHBOARD.md Алхам 13: ProductHealth[] — v1 нүүр хуудас хэрэглэдэг */
+  /**
+   * DASHBOARD.md Алхам 13: ProductHealth[] — v1 нүүр хуудас хэрэглэдэг.
+   * Барааны SKU, үлдэгдэл, 30 хоногийн борлуулалт задарч гардаг тул
+   * inventory.view шаардана (DRIVER/CUSTOMER-т хаалттай).
+   */
   @Get('stock-health')
+  @RequirePermission(PERM.INVENTORY_VIEW)
   stockHealth() {
     return this.dashboardService.stockHealth();
   }

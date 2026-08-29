@@ -115,7 +115,13 @@ function App() {
                     <Route element={<PermRoute perm="users.manage" />}>
                       <Route path="/users" element={<Users />} />
                     </Route>
-                    <Route element={<PermRoute perm="permissions.manage" />}>
+                    <Route
+                      element={
+                        <PermRoute
+                          allOf={['users.manage', 'permissions.manage']}
+                        />
+                      }
+                    >
                       <Route
                         path="/users/:id/permissions"
                         element={<UserPermissions />}

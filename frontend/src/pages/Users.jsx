@@ -262,7 +262,10 @@ function UserEditModal({ user, self, onClose, onDone, t, toast }) {
 }
 
 export default function Users() {
-  const { user: me } = useAuth()
+  const { user: me, hasPerm } = useAuth()
+  // Backend нь /users/:id/permissions дээр users.manage БА permissions.manage
+  // хоёуланг шаардана — эрхгүй хүнд товчийг харуулбал 403 иднэ
+  const canManagePerms = hasPerm('permissions.manage')
   const toast = useToast()
   const { t } = useLang()
   const navigate = useNavigate()
@@ -439,13 +442,15 @@ export default function Users() {
           >
             {t('Засах')}
           </button>
-          <button
-            type="button"
-            onClick={() => navigate(`/users/${u.id}/permissions`)}
-            className="text-xs text-accent hover:underline underline-offset-2"
-          >
-            {t('Эрхүүд')}
-          </button>
+          {canManagePerms && (
+            <button
+              type="button"
+              onClick={() => navigate(`/users/${u.id}/permissions`)}
+              className="text-xs text-accent hover:underline underline-offset-2"
+            >
+              {t('Эрхүүд')}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setResetting(u)}

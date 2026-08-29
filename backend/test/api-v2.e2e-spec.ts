@@ -1032,10 +1032,24 @@ describe('ursGAL v2 API (e2e)', () => {
         .get(`/api/users/${permUserId}/permissions`)
         .set(auth(permUserToken))
         .expect(403);
+
+      // ⚠ Эрхийн эскалацийн хамгаалалт: ЗӨВХӨН permissions.manage
+      // ХАНГАЛТГҮЙ — /users/* нь users.manage-ыг МӨН шаардана.
       await api()
         .put(`/api/users/${permUserId}/permissions`)
         .set(auth(tok.admin))
         .send({ changes: [{ key: 'permissions.manage', allowed: true }] })
+        .expect(200);
+      await api()
+        .get(`/api/users/${permUserId}/permissions`)
+        .set(auth(permUserToken))
+        .expect(403);
+
+      // Хоёулаа байж гэмээ нь нээгдэнэ
+      await api()
+        .put(`/api/users/${permUserId}/permissions`)
+        .set(auth(tok.admin))
+        .send({ changes: [{ key: 'users.manage', allowed: true }] })
         .expect(200);
       await api()
         .get(`/api/users/${permUserId}/permissions`)
@@ -1049,12 +1063,21 @@ describe('ursGAL v2 API (e2e)', () => {
         .expect(400);
       expect(res.body.message).toContain('боломжгүй');
 
-      // цэвэрлэгээ: admin override-ыг буцаана
+      // цэвэрлэгээ: admin override-уудыг буцаана
       await api()
         .put(`/api/users/${permUserId}/permissions`)
         .set(auth(tok.admin))
-        .send({ changes: [{ key: 'permissions.manage', allowed: null }] })
+        .send({
+          changes: [
+            { key: 'permissions.manage', allowed: null },
+            { key: 'users.manage', allowed: null },
+          ],
+        })
         .expect(200);
+      await api()
+        .get(`/api/users/${permUserId}/permissions`)
+        .set(auth(permUserToken))
+        .expect(403);
     });
 
     it('manager-аас эрх хасах → 403, буцаах → эрх сэргэнэ (V3-18)', async () => {
@@ -1113,6 +1136,68 @@ describe('ursGAL v2 API (e2e)', () => {
         .set(auth(tok.admin))
         .send({ changes: [{ key: 'huurmag.key', allowed: false }] })
         .expect(400);
+    });
+  });
+
+  // ──────────────────────────────── V5: ХАМГААЛАЛТГҮЙ ENDPOINT-УУД
+  /**
+   * Аудитаар илэрсэн: /dashboard/stock-health ба GET /categories дээр
+   * ямар ч guard байгаагүй — DRIVER/CUSTOMER бүх барааны SKU, үлдэгдэл,
+   * борлуулалтыг уншиж чаддаг байсан. Одоо inventory.view шаардана.
+   */
+  describe('V5: Guard байхгүй байсан endpoint-ууд ⭐', () => {
+    it('stock-health: driver → 403, operator/manager → 200', async () => {
+      await api()
+        .get('/api/dashboard/stock-health')
+        .set(auth(tok.driver))
+        .expect(403);
+      await api()
+        .get('/api/dashboard/stock-health')
+        .set(auth(tok.operator))
+        .expect(200);
+      const res = await api()
+        .get('/api/dashboard/stock-health')
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(Array.isArray(res.body)).toBe(true);
+    });
+
+    it('GET /categories: driver → 403, operator → 200', async () => {
+      await api().get('/api/categories').set(auth(tok.driver)).expect(403);
+      const res = await api()
+        .get('/api/categories')
+        .set(auth(tok.operator))
+        .expect(200);
+      expect(Array.isArray(res.body)).toBe(true);
+    });
+
+    it('inventory.view хасагдсан хэрэглэгч хоёуланд нь 403', async () => {
+      await api()
+        .put(`/api/users/${permUserId}/permissions`)
+        .set(auth(tok.admin))
+        .send({ changes: [{ key: 'inventory.view', allowed: false }] })
+        .expect(200);
+      await api()
+        .get('/api/dashboard/stock-health')
+        .set(auth(permUserToken))
+        .expect(403);
+      await api().get('/api/categories').set(auth(permUserToken)).expect(403);
+
+      // цэвэрлэгээ: default руу буцаана
+      await api()
+        .put(`/api/users/${permUserId}/permissions`)
+        .set(auth(tok.admin))
+        .send({ changes: [{ key: 'inventory.view', allowed: null }] })
+        .expect(200);
+      await api()
+        .get('/api/categories')
+        .set(auth(permUserToken))
+        .expect(200);
+    });
+
+    it('нэвтрэлтгүйгээр хоёулаа 401', async () => {
+      await api().get('/api/dashboard/stock-health').expect(401);
+      await api().get('/api/categories').expect(401);
     });
   });
 
