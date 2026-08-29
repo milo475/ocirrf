@@ -26,10 +26,26 @@ import { QueryOrdersDto } from './dto/query-orders.dto';
  * NEW → CONFIRMED → PREPARING (бэлтгэж буй) → READY (гарахад бэлэн) → COMPLETED.
  * COMPLETED болон CANCELLED — эцсийн, цааш шилжихгүй.
  */
+/**
+ * Захиалгын төлөвийн шилжилтүүд.
+ *
+ * PREPARING/READY нь НЯРАВЫН бэлтгэлийн үе шат. Нярав ажилладаггүй
+ * жижиг ачаалалд борлуулагч жолооч хуваарилаад шууд дуусгах хэрэгтэй
+ * болдог тул CONFIRMED/PREPARING-ээс COMPLETED руу шууд явж болно —
+ * бэлтгэлийн хоёр товчийг заавал дарах шаардлагагүй.
+ */
 const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   NEW: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
-  CONFIRMED: [OrderStatus.PREPARING, OrderStatus.CANCELLED],
-  PREPARING: [OrderStatus.READY, OrderStatus.CANCELLED],
+  CONFIRMED: [
+    OrderStatus.PREPARING,
+    OrderStatus.COMPLETED,
+    OrderStatus.CANCELLED,
+  ],
+  PREPARING: [
+    OrderStatus.READY,
+    OrderStatus.COMPLETED,
+    OrderStatus.CANCELLED,
+  ],
   READY: [OrderStatus.COMPLETED],
   COMPLETED: [],
   CANCELLED: [],

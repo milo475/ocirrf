@@ -12,6 +12,32 @@ import { formatMoney } from '../lib/format'
  * ЧУХАЛ: энэ хуудас ЗАХИАЛГА үүсгэхгүй — зөвхөн ХҮСЭЛТ үүсгэнэ.
  * Үлдэгдэл ажилтан баталгаажуулах хүртэл хөдлөхгүй (спамаас хамгаална).
  */
+/**
+ * Талбар бүрийн шалгалт — backend-ийн PublicOrderRequestDto-той ЯГ ижил
+ * дүрэм. Хүсэлт илгээгээд сая мэдэх биш, бөглөж байхад нь улаанаар
+ * харуулахын тулд урд талд давхардуулав.
+ */
+function validate(form) {
+  const e = {}
+  if (form.customerName.trim().length < 2) {
+    e.customerName = 'Нэрээ бүтнээр нь бичнэ үү'
+  }
+  if (!/^\d{8}$/.test(form.phone.trim())) {
+    e.phone = form.phone.trim()
+      ? 'Утасны дугаар 8 оронтой тоо байна'
+      : 'Утасны дугаараа бичнэ үү'
+  }
+  if (form.region === 'ULAANBAATAR') {
+    if (!form.district) e.district = 'Дүүргээ сонгоно уу'
+    if (!form.khoroo) e.khoroo = 'Хороогоо сонгоно уу'
+    if (!form.building.trim()) e.building = 'Байр/хороолол/хашаагаа бичнэ үү'
+  } else {
+    if (!form.province) e.province = 'Аймгаа сонгоно уу'
+    if (!form.soum.trim()) e.soum = 'Сум/суурин газраа бичнэ үү'
+  }
+  return e
+}
+
 export default function PublicOrder() {
   const { token } = useParams()
   const [cfg, setCfg] = useState(null)
@@ -41,10 +67,17 @@ export default function PublicOrder() {
     paid: false,
   })
   const [proof, setProof] = useState(null)
+  /** Аль талбарыг хөндсөн бэ — алдааг ярьж эхлээгүй талбар дээр гаргахгүй */
+  const [touched, setTouched] = useState({})
   const set = (k) => (e) => {
     const v = e.target.type === 'checkbox' ? e.target.checked : e.target.value
     setForm((f) => ({ ...f, [k]: v, ...(k === 'district' ? { khoroo: '' } : {}) }))
+    // Сонголтын талбар (дүүрэг/хороо/аймаг) сонгосон даруйдаа шалгагдана
+    if (e.target.tagName === 'SELECT') {
+      setTouched((t) => ({ ...t, [k]: true }))
+    }
   }
+  const touch = (k) => () => setTouched((t) => ({ ...t, [k]: true }))
 
   useEffect(() => {
     fetch(`/api/public/order-form?token=${encodeURIComponent(token)}`)
@@ -55,6 +88,30 @@ export default function PublicOrder() {
 
   const total = cart.reduce((a, i) => a + Number(i.product.price) * i.qty, 0)
   const isUB = form.region === 'ULAANBAATAR'
+  const errors = validate(form)
+  /** Зөвхөн хөндсөн талбарын алдааг харуулна */
+  const shown = (k) => (touched[k] ? errors[k] : undefined)
+
+  /**
+   * Хаягийн алхмаас цаашлах — алдаатай бол ЦААШ ЯВУУЛАХГҮЙ, бүх талбарыг
+   * хөндсөнд тооцож улаанаар тэмдэглээд эхнийх рүү нь гүйлгэнэ. Өмнө нь
+   * шалгалт зөвхөн сервер дээр байсан тул хэрэглэгч бүгдийг бөглөж
+   * дуусаад «Захиалга илгээх» дарж байж алдаагаа мэдэж байв.
+   */
+  function nextFromAddress() {
+    const keys = Object.keys(errors)
+    if (keys.length === 0) {
+      setStep(3)
+      return
+    }
+    setTouched((t) => ({
+      ...t,
+      ...Object.fromEntries(keys.map((k) => [k, true])),
+    }))
+    document
+      .querySelector(`[data-field="${keys[0]}"]`)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
 
   const groups = useMemo(() => {
     if (!cfg) return []
@@ -310,19 +367,37 @@ export default function PublicOrder() {
             ))}
           </div>
 
-          <Field label="Таны нэр *" value={form.customerName} onChange={set('customerName')} />
+          <Field
+            label="Таны нэр *"
+            name="customerName"
+            value={form.customerName}
+            onChange={set('customerName')}
+            onBlur={touch('customerName')}
+            error={shown('customerName')}
+          />
           <Field
             label="Утас *"
+            name="phone"
             value={form.phone}
             onChange={set('phone')}
+            onBlur={touch('phone')}
+            error={shown('phone')}
             inputMode="numeric"
+            maxLength={8}
             placeholder="99112233"
           />
 
           {isUB ? (
             <>
               <div className="grid grid-cols-2 gap-3">
-                <Sel label="Дүүрэг *" value={form.district} onChange={set('district')}>
+                <Sel
+                  label="Дүүрэг *"
+                  name="district"
+                  value={form.district}
+                  onChange={set('district')}
+                  onBlur={touch('district')}
+                  error={shown('district')}
+                >
                   <option value="">—</option>
                   {DISTRICTS.map((d) => (
                     <option key={d} value={d}>{d}</option>
@@ -330,8 +405,11 @@ export default function PublicOrder() {
                 </Sel>
                 <Sel
                   label="Хороо *"
+                  name="khoroo"
                   value={form.khoroo}
                   onChange={set('khoroo')}
+                  onBlur={touch('khoroo')}
+                  error={shown('khoroo')}
                   disabled={!form.district}
                 >
                   <option value="">{form.district ? '—' : 'Дүүргээ сонго'}</option>
@@ -342,8 +420,11 @@ export default function PublicOrder() {
               </div>
               <Field
                 label="Байр / Хороолол / Хашаа *"
+                name="building"
                 value={form.building}
                 onChange={set('building')}
+                onBlur={touch('building')}
+                error={shown('building')}
               />
               <div className="grid grid-cols-3 gap-3">
                 <Field label="Орц" value={form.entrance} onChange={set('entrance')} />
@@ -353,13 +434,27 @@ export default function PublicOrder() {
             </>
           ) : (
             <>
-              <Sel label="Аймаг *" value={form.province} onChange={set('province')}>
+              <Sel
+                label="Аймаг *"
+                name="province"
+                value={form.province}
+                onChange={set('province')}
+                onBlur={touch('province')}
+                error={shown('province')}
+              >
                 <option value="">—</option>
                 {AIMAGS.map((a) => (
                   <option key={a} value={a}>{a}</option>
                 ))}
               </Sel>
-              <Field label="Сум / Суурин газар *" value={form.soum} onChange={set('soum')} />
+              <Field
+                label="Сум / Суурин газар *"
+                name="soum"
+                value={form.soum}
+                onChange={set('soum')}
+                onBlur={touch('soum')}
+                error={shown('soum')}
+              />
               <Field
                 label="Ямар тээврээр явуулах вэ? (мэдэхгүй бол хоосон орхи)"
                 value={form.transport}
@@ -412,7 +507,7 @@ export default function PublicOrder() {
             <Btn ghost onClick={() => setStep(1)} className="flex-1">
               ← Буцах
             </Btn>
-            <Btn onClick={() => setStep(3)} className="flex-1">
+            <Btn onClick={nextFromAddress} className="flex-1">
               Үргэлжлүүлэх →
             </Btn>
           </div>
@@ -518,32 +613,52 @@ function Shell({ title, children }) {
   )
 }
 
-function Field({ label, ...props }) {
+function Field({ label, error, name, ...props }) {
   return (
-    <label className="block">
-      <span className="block text-xs uppercase tracking-wide text-ink-muted mb-1.5">
+    <label className="block" data-field={name}>
+      <span
+        className={`block text-xs uppercase tracking-wide mb-1.5 ${
+          error ? 'text-alarm' : 'text-ink-muted'
+        }`}
+      >
         {label}
       </span>
       <input
         {...props}
-        className="w-full bg-bg border border-rule rounded px-3 py-2.5 text-base focus:outline-none focus:border-ink-muted"
+        aria-invalid={error ? 'true' : undefined}
+        className={`w-full bg-bg border rounded px-3 py-2.5 text-base focus:outline-none ${
+          error
+            ? 'border-alarm text-alarm focus:border-alarm'
+            : 'border-rule focus:border-ink-muted'
+        }`}
       />
+      {error && <span className="block mt-1 text-xs text-alarm">{error}</span>}
     </label>
   )
 }
 
-function Sel({ label, children, ...props }) {
+function Sel({ label, error, name, children, ...props }) {
   return (
-    <label className="block">
-      <span className="block text-xs uppercase tracking-wide text-ink-muted mb-1.5">
+    <label className="block" data-field={name}>
+      <span
+        className={`block text-xs uppercase tracking-wide mb-1.5 ${
+          error ? 'text-alarm' : 'text-ink-muted'
+        }`}
+      >
         {label}
       </span>
       <select
         {...props}
-        className="w-full bg-bg border border-rule rounded px-3 py-2.5 text-base focus:outline-none focus:border-ink-muted disabled:opacity-50"
+        aria-invalid={error ? 'true' : undefined}
+        className={`w-full bg-bg border rounded px-3 py-2.5 text-base focus:outline-none disabled:opacity-50 ${
+          error
+            ? 'border-alarm text-alarm focus:border-alarm'
+            : 'border-rule focus:border-ink-muted'
+        }`}
       >
         {children}
       </select>
+      {error && <span className="block mt-1 text-xs text-alarm">{error}</span>}
     </label>
   )
 }

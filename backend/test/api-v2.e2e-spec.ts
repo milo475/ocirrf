@@ -4017,6 +4017,87 @@ describe('ursGAL v2 API (e2e)', () => {
     });
   });
 
+  // ────────────────────── V5: БЭЛТГЭЛГҮЙ ШУУД ДУУСГАХ
+  describe('V5: Бэлтгэлийн алхмыг алгасаж дуусгах ⭐', () => {
+    beforeAll(async () => {
+      // Өмнөх тестүүд үлдэгдлийг барсан байж болно — нөөцөө нэмнэ
+      await api()
+        .post('/api/stock/adjust')
+        .set(auth(tok.manager))
+        .send({ productId, qtyChange: 5, reason: 'PURCHASE_IN' })
+        .expect(201);
+    });
+
+    it('CONFIRMED-ээс шууд COMPLETED болно ⭐', async () => {
+      const res = await api()
+        .post('/api/orders')
+        .set(auth(tok.manager))
+        .send({
+          customerName: `Э2Э-Шууд-Дуусгах-${T}`,
+          customerPhone: `9${T}`,
+          ...UB_ADDR,
+          items: [{ productId, qty: 1 }],
+        })
+        .expect(201);
+      feeOrderIds.push(res.body.id);
+
+      await api()
+        .patch(`/api/orders/${res.body.id}/status`)
+        .set(auth(tok.manager))
+        .send({ status: 'CONFIRMED' })
+        .expect(200);
+      // ⭐ PREPARING/READY-г алгасана
+      const done = await api()
+        .patch(`/api/orders/${res.body.id}/status`)
+        .set(auth(tok.manager))
+        .send({ status: 'COMPLETED' })
+        .expect(200);
+      expect(done.body.orderStatus).toBe('COMPLETED');
+
+      // COMPLETED-ээс цааш явахгүй хэвээр
+      await api()
+        .patch(`/api/orders/${res.body.id}/status`)
+        .set(auth(tok.manager))
+        .send({ status: 'CANCELLED' })
+        .expect(400);
+    });
+
+    it('PREPARING-ээс ч шууд дуусгана, буцаж NEW руу явахгүй', async () => {
+      const res = await api()
+        .post('/api/orders')
+        .set(auth(tok.manager))
+        .send({
+          customerName: `Э2Э-Бэлтгэл-Дуусгах-${T}`,
+          customerPhone: `9${T}`,
+          ...UB_ADDR,
+          items: [{ productId, qty: 1 }],
+        })
+        .expect(201);
+      feeOrderIds.push(res.body.id);
+
+      for (const status of ['CONFIRMED', 'PREPARING']) {
+        await api()
+          .patch(`/api/orders/${res.body.id}/status`)
+          .set(auth(tok.manager))
+          .send({ status })
+          .expect(200);
+      }
+      // Ухрах хориотой хэвээр
+      await api()
+        .patch(`/api/orders/${res.body.id}/status`)
+        .set(auth(tok.manager))
+        .send({ status: 'NEW' })
+        .expect(400);
+
+      const done = await api()
+        .patch(`/api/orders/${res.body.id}/status`)
+        .set(auth(tok.manager))
+        .send({ status: 'COMPLETED' })
+        .expect(200);
+      expect(done.body.orderStatus).toBe('COMPLETED');
+    });
+  });
+
   // ────────────────────────────────────────────── V4-16: EDGE ГҮЙЦЭЭЛТ
   describe('V4-16: Edge гүйцээлт ⭐', () => {
 

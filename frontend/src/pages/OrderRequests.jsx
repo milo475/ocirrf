@@ -59,7 +59,9 @@ export default function OrderRequests() {
     try {
       const order = await api(`/order-requests/${r.id}/convert`, { method: 'POST' })
       toast.show(t('Захиалга {no} үүслээ', { no: order.orderNo }))
-      navigate(`/orders/${order.id}`)
+      // Батласан даруйд дараагийн ажил нь ЖОЛООЧ ХУВААРИЛАХ — цонхыг
+      // нь шууд нээж өгнө, ажилтан нэмэлт товч хайхгүй
+      navigate(`/orders/${order.id}`, { state: { assign: true } })
     } catch (e) {
       toast.show(e.message, { type: 'error' })
       setBusyId(null)

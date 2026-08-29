@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { Link, useLocation, useParams } from 'react-router'
 import AssignDriverModal from '../components/orders/AssignDriverModal'
 import PaymentBadge from '../components/orders/PaymentBadge'
 import RegionBadge from '../components/orders/RegionBadge'
@@ -42,6 +42,8 @@ export default function OrderDetail() {
   const [busy, setBusy] = useState(false)
   const [cancelOpen, setCancelOpen] = useState(false)
   const [assignOpen, setAssignOpen] = useState(false)
+  // Хүсэлтийг батласны дараа шууд хуваарилах цонхтой ирнэ (V5)
+  const { state: navState } = useLocation()
   const [proofOpen, setProofOpen] = useState(false)
   const [history, setHistory] = useState(false)
 
@@ -55,6 +57,14 @@ export default function OrderDetail() {
   useEffect(() => {
     load()
   }, [load])
+
+  // Батласны дараа ирсэн бол хуваарилах цонхыг өөрөө нээнэ — гэхдээ
+  // захиалга ачаалагдаж, жолоочгүй нь тодорхой болсны дараа
+  useEffect(() => {
+    if (navState?.assign && order && !order.assignedDriver) {
+      setAssignOpen(true)
+    }
+  }, [navState, order])
 
   /**
    * Бэлтгэх хуудас хэвлэх. Orders.jsx-тэй ижил: SKU-г бараануудаас
@@ -130,11 +140,27 @@ export default function OrderDetail() {
     hasPerm('orders.change_status') &&
     (user?.role !== 'OPERATOR' || order.createdBy?.id === user?.id)
   const nextStatuses = canManage ? (TRANSITIONS[order.orderStatus] ?? []) : []
-  const forward = nextStatuses.filter((s) => s !== 'CANCELLED')
   const canCancel = nextStatuses.includes('CANCELLED')
   const canAssign =
     hasPerm('orders.assign_driver') &&
     (order.orderStatus === 'CONFIRMED' || order.orderStatus === 'PREPARING')
+
+  /**
+   * Товчны хэт олон сонголтыг цэгцлэв (V5):
+   * 1) Жолоочгүй байхад хийх ганц зүйл нь ЖОЛООЧ ХУВААРИЛАХ — бэлтгэлийн
+   *    товчнууд түүнээс өмнө утгагүй тул нуугдана.
+   * 2) «Бэлтгэж эхлэх»/«Бэлэн болсон» нь НЯРАВЫН алхмууд — тэднийхээ
+   *    самбар дээр байдаг. Няравын эрхгүй хүнд эндээс харагдахгүй,
+   *    оронд нь шууд «Дуусгах».
+   */
+  const isKeeper = hasPerm('warehouse.handover')
+  const needsDriver = canAssign && !order.assignedDriver
+  const forward = nextStatuses.filter((s) => {
+    if (s === 'CANCELLED') return false
+    if (needsDriver) return false
+    if (!isKeeper && (s === 'PREPARING' || s === 'READY')) return false
+    return true
+  })
 
   return (
     <div className="max-w-3xl">
@@ -374,7 +400,10 @@ export default function OrderDetail() {
             </Button>
           ))}
           {canAssign && (
-            <Button variant="ghost" onClick={() => setAssignOpen(true)}>
+            <Button
+              variant={needsDriver ? 'primary' : 'ghost'}
+              onClick={() => setAssignOpen(true)}
+            >
               {/* ОН-д ачааны тээврээр явдаг тул текст өөр, үйлдэл адилхан */}
               {order.region === 'ORON_NUTAG'
                 ? t('Тээвэрт гаргах')
