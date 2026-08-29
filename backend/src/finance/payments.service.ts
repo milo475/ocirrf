@@ -11,6 +11,7 @@ import {
   PaymentStatus,
   Prisma,
 } from '../generated/prisma/client';
+import { lockOrderForUpdate } from '../prisma/lock.util';
 import { PrismaService } from '../prisma/prisma.service';
 
 const METHOD_MN: Record<PaymentMethod, string> = {
@@ -39,30 +40,34 @@ export class PaymentsService {
     dto: { amount: string; method: PaymentMethod; note?: string },
     user: AuthUser,
   ) {
-    const order = await this.prisma.order.findUnique({
-      where: { id: orderId },
-    });
-    if (!order) {
-      throw new NotFoundException('Захиалга олдсонгүй');
-    }
-    if (order.orderStatus === OrderStatus.CANCELLED) {
-      throw new BadRequestException(
-        'Цуцлагдсан захиалгад төлбөр бүртгэх боломжгүй',
-      );
-    }
-
     const amount = new Prisma.Decimal(dto.amount);
     if (amount.lte(0)) {
       throw new BadRequestException('Дүн 0-ээс их байна');
     }
-    const remaining = order.totalAmount.sub(order.paidAmount);
-    if (amount.gt(remaining)) {
-      throw new BadRequestException(
-        `Үлдэгдлээс их дүн (үлдэгдэл: ${remaining.toString()}₮)`,
-      );
-    }
 
     return this.prisma.$transaction(async (tx) => {
+      // ⭐ Захиалгыг ТРАНЗАКЦ ДОТОР, түгжсэний ДАРАА уншина. Ингэснээр
+      // зэрэг орсон хоёр төлбөр дараалалд орж, хоёр дахь нь эхнийхийн
+      // ДАРААХ paidAmount-ыг харна (өмнө нь хоёулаа хуучин утгыг уншиж,
+      // хоёр дахь бичилт эхнийхийг дарж мөнгө алдагддаг байсан).
+      if (!(await lockOrderForUpdate(tx, orderId))) {
+        throw new NotFoundException('Захиалга олдсонгүй');
+      }
+      const order = await tx.order.findUniqueOrThrow({
+        where: { id: orderId },
+      });
+      if (order.orderStatus === OrderStatus.CANCELLED) {
+        throw new BadRequestException(
+          'Цуцлагдсан захиалгад төлбөр бүртгэх боломжгүй',
+        );
+      }
+      const remaining = order.totalAmount.sub(order.paidAmount);
+      if (amount.gt(remaining)) {
+        throw new BadRequestException(
+          `Үлдэгдлээс их дүн (үлдэгдэл: ${remaining.toString()}₮)`,
+        );
+      }
+
       const payment = await tx.payment.create({
         data: {
           orderId,
@@ -102,15 +107,28 @@ export class PaymentsService {
 
   /** Алдаатай бүртгэлийг арилгана — paidAmount + INCOME entry хамт буцна */
   async deletePayment(id: string) {
-    const payment = await this.prisma.payment.findUnique({
+    // Аль захиалгынх болохыг мэдэхийн тулд эхлээд уншина (түгжээ нь
+    // орderId дээр тавигдана); дараа нь бүх зүйл транзакц дотор дахин уншигдана
+    const found = await this.prisma.payment.findUnique({
       where: { id },
-      include: { order: true },
+      select: { orderId: true },
     });
-    if (!payment) {
+    if (!found) {
       throw new NotFoundException('Төлбөр олдсонгүй');
     }
 
     return this.prisma.$transaction(async (tx) => {
+      // addPayment-тэй ижил түгжээ — зэрэг устгал/нэмэлт дарж бичихгүй
+      if (!(await lockOrderForUpdate(tx, found.orderId))) {
+        throw new NotFoundException('Захиалга олдсонгүй');
+      }
+      const payment = await tx.payment.findUnique({
+        where: { id },
+        include: { order: true },
+      });
+      if (!payment) {
+        throw new NotFoundException('Төлбөр олдсонгүй');
+      }
       await tx.payment.delete({ where: { id } });
       await tx.financeEntry.deleteMany({ where: { refPaymentId: id } });
       const newPaid = payment.order.paidAmount.sub(payment.amount);

@@ -8,6 +8,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
+import { PaymentsService } from '../src/finance/payments.service';
 import { NotificationsService } from '../src/notifications/notifications.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { UPLOADS_DIR } from '../src/uploads.config';
@@ -90,6 +91,8 @@ describe('ursGAL v2 API (e2e)', () => {
   let permUserId: string; // permission panel-ын тестийн оператор
   let permUserToken: string;
   let financeOrderId: string; // гараар COMPLETED болгох санхүүгийн тест
+  let raceOrderId: string; // зэрэг төлбөрийн TOCTOU тест
+  let raceProductId: string; // тухайн тестийн тусдаа бараа
   const financeEntryIds: string[] = []; // гараар бүртгэсэн гүйлгээнүүд
   let payoutId: string; // жолоочийн цалингийн тооцоо
   let roA: string; // маршрутын дарааллын тест захиалгууд
@@ -137,6 +140,7 @@ describe('ursGAL v2 API (e2e)', () => {
       order2Id,
       adminOrderId,
       financeOrderId,
+      raceOrderId,
       roA,
       roB,
       custOrderId,
@@ -163,12 +167,15 @@ describe('ursGAL v2 API (e2e)', () => {
     await prisma.orderReturn.deleteMany({
       where: { orderId: { in: orderIds } },
     });
+    const productIds = [productId, raceProductId].filter(Boolean);
     await prisma.stockMovement.deleteMany({
-      where: { OR: [{ productId }, { refId: { in: orderIds } }] },
+      where: {
+        OR: [{ productId: { in: productIds } }, { refId: { in: orderIds } }],
+      },
     });
     await prisma.order.deleteMany({ where: { id: { in: orderIds } } });
-    if (productId) {
-      await prisma.product.deleteMany({ where: { id: productId } });
+    if (productIds.length) {
+      await prisma.product.deleteMany({ where: { id: { in: productIds } } });
     }
     if (categoryId) {
       await prisma.category.deleteMany({ where: { id: categoryId } });
@@ -179,7 +186,7 @@ describe('ursGAL v2 API (e2e)', () => {
     }
     // Тестийн үеэр үүссэн мэдэгдэл (бодит admin/manager-т очсон) + үйлдлийн түүх
     await prisma.notification.deleteMany({
-      where: { refId: { in: [...orderIds, productId].filter(Boolean) } },
+      where: { refId: { in: [...orderIds, ...productIds] } },
     });
     await prisma.activityLog.deleteMany({
       where: { createdAt: { gte: testStartedAt } },
@@ -1408,6 +1415,97 @@ describe('ursGAL v2 API (e2e)', () => {
         .set(auth(tok.operator))
         .send({ amount: '1.00', method: 'CASH' })
         .expect(403);
+    });
+
+    /**
+     * TOCTOU: addPayment захиалгыг транзакцийн ГАДНА уншиж, дотор нь тэр
+     * хуучин `paidAmount`-аар тооцдог байсан. Зэрэг ирсэн N төлбөр
+     * бүгд шалгалтыг давж, сүүлийнх нь бусдыг дарж бичдэг байв →
+     * Payment мөрүүд бүгд үлдээд захиалгын paidAmount ганцыг л тусгана.
+     * Одоо мөр `FOR UPDATE`-ээр түгжигдэж, дараалалд орно.
+     */
+    it('V4: зэрэг ирсэн төлбөр — мөнгө алдагдахгүй (TOCTOU) ⭐', async () => {
+      // Хуваалцсан барааны үлдэгдэл/LOW_STOCK тестүүдэд нөлөөлөхгүйн тулд
+      // энэ тест өөрийн бараатай
+      const prod = await api()
+        .post('/api/products')
+        .set(auth(tok.manager))
+        .send({
+          sku: `${SKU}-RACE`,
+          name: `Э2Э Раце ${T}`,
+          price: '2000.00',
+          lowStockLimit: 0,
+        })
+        .expect(201);
+      raceProductId = prod.body.id;
+      await api()
+        .post('/api/stock/adjust')
+        .set(auth(tok.manager))
+        .send({ productId: raceProductId, qtyChange: 5, reason: 'PURCHASE_IN' })
+        .expect(201);
+      const ord = await api()
+        .post('/api/orders')
+        .set(auth(tok.operator))
+        .send({
+          customerName: `Э2Э-Раце-${T}`,
+          customerPhone: `7${T}`,
+          ...UB_ADDR,
+          items: [{ productId: raceProductId, qty: 1 }],
+        })
+        .expect(201);
+      raceOrderId = ord.body.id;
+      const total: string = ord.body.totalAmount;
+
+      // БҮТЭН дүнгийн 4 төлбөрийг ЗЭРЭГ илгээнэ — ердөө нэг нь л багтана.
+      // Supertest-ийн хүсэлтүүд энэ орчинд практикт дараалдаг тул уралдааныг
+      // service давхаргад ШУУД дуудаж үүсгэнэ (бүх уншилт нэг tick-д эхэлнэ).
+      const payments = app.get(PaymentsService);
+      const mgr = await api()
+        .get('/api/auth/me')
+        .set(auth(tok.manager))
+        .expect(200);
+      const results = await Promise.allSettled(
+        [0, 1, 2, 3].map(() =>
+          payments.addPayment(
+            raceOrderId,
+            { amount: total, method: 'CASH' },
+            mgr.body,
+          ),
+        ),
+      );
+      expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+      const rejected = results.filter(
+        (r): r is PromiseRejectedResult => r.status === 'rejected',
+      );
+      expect(rejected).toHaveLength(3);
+      for (const r of rejected) {
+        expect(String(r.reason.message)).toContain('Үлдэгдлээс их дүн');
+      }
+
+      const detail = await api()
+        .get(`/api/orders/${raceOrderId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(detail.body.paymentStatus).toBe('PAID');
+      expect(detail.body.paidAmount).toBe(total);
+      // ⭐ Гол инвариант: Payment мөрүүдийн нийлбэр = paidAmount
+      expect(detail.body.payments).toHaveLength(1);
+      const sum = detail.body.payments.reduce(
+        (a: number, p: { amount: string }) => a + Number(p.amount),
+        0,
+      );
+      expect(sum).toBe(Number(detail.body.paidAmount));
+
+      // INCOME бичилт ч ганцхан — санхүүгийн дэвтэр хоёр дахин бичихгүй
+      const inc = await api()
+        .get('/api/finance/entries?type=INCOME&limit=100')
+        .set(auth(tok.admin))
+        .expect(200);
+      const mine = inc.body.items.filter(
+        (e: { refOrderId: string | null }) => e.refOrderId === raceOrderId,
+      );
+      expect(mine).toHaveLength(1);
+      expect(Number(mine[0].amount)).toBe(Number(total));
     });
 
     it('V4: гараар COMPLETED болгоход орлого үүсэхгүй, авлагад орно', async () => {
