@@ -718,6 +718,57 @@ describe('ursGAL v2 API (e2e)', () => {
       expect(mine.items[0].qty).toBe(4);
     });
 
+    /**
+     * ON_THE_WAY төлөв нь enum, ops самбарын багана, ачааллын тоололд
+     * нийт 12 газарт УНШИГДДАГ байсан ч түүнийг БИЧДЭГ код байгаагүй —
+     * жолооч ASSIGNED-аас шууд DELIVERED рүү үсэрдэг байв.
+     */
+    it('«замд гарлаа»: ASSIGNED → ON_THE_WAY, ops самбарт гарна ⭐', async () => {
+      // Өөрийн биш хүргэлт → 403
+      await api()
+        .post(`/api/deliveries/${orderId}/start`)
+        .set(auth(tok.driver))
+        .expect(403);
+      // Жолооч биш → 403 (role guard)
+      await api()
+        .post(`/api/deliveries/${orderId}/start`)
+        .set(auth(tok.manager))
+        .expect(403);
+
+      const res = await api()
+        .post(`/api/deliveries/${orderId}/start`)
+        .set(auth(e2eDriverToken))
+        .expect(200);
+      expect(res.body.deliveryStatus).toBe('ON_THE_WAY');
+
+      // Идемпотент — офлайн дараалал давхар илгээж болно
+      await api()
+        .post(`/api/deliveries/${orderId}/start`)
+        .set(auth(e2eDriverToken))
+        .expect(200);
+
+      // Жолоочийн жагсаалтаас алга болохгүй
+      const my = await api()
+        .get('/api/deliveries/my')
+        .set(auth(e2eDriverToken))
+        .expect(200);
+      expect(my.body.some((d: { id: string }) => d.id === orderId)).toBe(true);
+
+      // Диспетчерийн самбарт ON_THE_WAY баганад орсон
+      const board = await api()
+        .get('/api/delivery-ops/board')
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(
+        board.body.board.ON_THE_WAY.some(
+          (o: { id: string }) => o.id === orderId,
+        ),
+      ).toBe(true);
+      expect(
+        board.body.board.ASSIGNED.some((o: { id: string }) => o.id === orderId),
+      ).toBe(false);
+    });
+
     it('өөр жолооч complete хийх гэвэл → 403', async () => {
       await api()
         .post(`/api/deliveries/${orderId}/complete`)

@@ -376,6 +376,9 @@ const DICT = {
     'Түр (хуучин) нууц үг': 'Temporary (old) password',
     'Хадгалж байна…': 'Saving…',
     'Нууц үг солих': 'Change password',
+    'Одоогийн нууц үг': 'Current password',
+    'Нууц үг солигдлоо': 'Password changed',
+    'Замд гарлаа': 'On my way',
 
     // — Нэршил: Харилцагч = бараа нийлүүлэгч түнш (OPERATOR эрх) —
     'Хүлээн авагч': 'Recipient',

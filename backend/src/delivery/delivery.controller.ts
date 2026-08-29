@@ -4,6 +4,8 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -80,6 +82,17 @@ export class DeliveryController {
   @Roles(Role.DRIVER)
   myDeliveries(@CurrentUser() user: AuthUser) {
     return this.deliveryService.myDeliveries(user.id);
+  }
+
+  /** Жолооч замд гарлаа: ASSIGNED → ON_THE_WAY */
+  @Post('deliveries/:orderId/start')
+  @HttpCode(HttpStatus.OK)
+  @Roles(Role.DRIVER)
+  start(
+    @Param('orderId', ParseUUIDPipe) orderId: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.deliveryService.start(orderId, user.id);
   }
 
   /** Жолоочийн гүйцэтгэл + цалин */

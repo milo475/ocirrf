@@ -23,12 +23,34 @@ export default function MyDeliveries() {
   const [sheet, setSheet] = useState(null) // баталгаажуулж буй захиалга
   const [routeView, setRouteView] = useState(false) // Миний маршрут хураангуй
 
+  const [starting, setStarting] = useState(null) // «замд гарлаа» илгээж буй id
+
   const load = useCallback(() => {
     setError(null)
     api('/deliveries/my')
       .then(setDeliveries)
       .catch((e) => setError(e))
   }, [])
+
+  /**
+   * «Замд гарлаа» — ASSIGNED → ON_THE_WAY. Диспетчер самбар дээр
+   * жолооч гарсан эсэхийг бодитоор харна.
+   */
+  const start = useCallback(
+    async (d) => {
+      setStarting(d.id)
+      try {
+        await api(`/deliveries/${d.id}/start`, { method: 'POST' })
+        toast.show(t('Замд гарлаа'))
+        load()
+      } catch (e) {
+        toast.show(e.message, { type: 'error' })
+      } finally {
+        setStarting(null)
+      }
+    },
+    [load, t, toast],
+  )
 
   useEffect(() => {
     load()
@@ -208,6 +230,20 @@ export default function MyDeliveries() {
                 <MapIcon size={18} />
                 {t('Замын зураг')}
               </a>
+              {d.deliveryStatus === 'ON_THE_WAY' ? (
+                <p className="mt-2 text-center text-base text-accent">
+                  {t('Замд яваа')}
+                </p>
+              ) : (
+                <Button
+                  variant="ghost"
+                  loading={starting === d.id}
+                  onClick={() => start(d)}
+                  className="w-full mt-2 py-3 text-base"
+                >
+                  {t('Замд гарлаа')}
+                </Button>
+              )}
               <Button
                 onClick={() => setSheet(d)}
                 className="w-full mt-2 py-3.5 text-lg"
