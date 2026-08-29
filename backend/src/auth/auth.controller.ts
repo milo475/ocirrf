@@ -25,6 +25,12 @@ import { RegisterDto } from './dto/register.dto';
 const ENV_LIMIT = parseInt(process.env.AUTH_RATE_LIMIT ?? '', 10);
 const LOGIN_LIMIT = Number.isFinite(ENV_LIMIT) ? ENV_LIMIT : 5;
 const REGISTER_LIMIT = Number.isFinite(ENV_LIMIT) ? ENV_LIMIT : 3;
+// change-password нь ХУУЧИН нууц үгийг хязгааргүй таах суваг байсан —
+// login-тэй ижил хатуу лимиттэй болголоо.
+const CHANGE_PASSWORD_LIMIT = Number.isFinite(ENV_LIMIT) ? ENV_LIMIT : 5;
+// refresh нь хэвийн ажиллагаанд 15 минутад нэг л удаа дуудагддаг тул
+// 20/мин нь бодит хэрэглээнд саад болохгүй, харин token brute-force-ыг хаана.
+const REFRESH_LIMIT = Number.isFinite(ENV_LIMIT) ? ENV_LIMIT : 20;
 
 @Controller('auth')
 export class AuthController {
@@ -53,6 +59,8 @@ export class AuthController {
   @Public()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthThrottlerGuard)
+  @Throttle({ default: { limit: REFRESH_LIMIT, ttl: 60_000 } })
   refresh(@Body() dto: RefreshDto) {
     return this.authService.refresh(dto);
   }
@@ -69,6 +77,8 @@ export class AuthController {
   @Post('change-password')
   @AllowTempPassword()
   @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthThrottlerGuard)
+  @Throttle({ default: { limit: CHANGE_PASSWORD_LIMIT, ttl: 60_000 } })
   changePassword(@Body() dto: ChangePasswordDto, @CurrentUser() user: AuthUser) {
     return this.authService.changePassword(user.id, dto);
   }

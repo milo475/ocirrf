@@ -176,13 +176,45 @@ export class PortalService {
     return { totalOrders, activeOrders, recentOrders };
   }
 
+  /**
+   * Нэр/утас/нууц үг солих.
+   *
+   * Нууц үг солиход `currentPassword` ЗААВАЛ — /auth/change-password-тэй
+   * ижил хатуу дүрэм. Урьд нь шалгалтгүй байсан тул хулгайлагдсан эсвэл
+   * зээлдсэн access token-той хэн ч бүртгэлийг бүрмөсөн эзэмшиж авах
+   * боломжтой байв. Сольсны дараа бүх refresh token revoke хийгдэнэ.
+   * (Портал UI нь нууц үгэнд /auth/change-password-ыг ашигладаг — тэр нь
+   * шинэ хос token буцаадаг тул хэрэглэгч гарахгүй. Энэ зам нь хуучин
+   * PWA client болон шууд API дуудлагад зориулсан хамгаалалт.)
+   */
   async updateProfile(userId: string, dto: UpdateProfileDto) {
     const data: Prisma.UserUpdateInput = {};
     if (dto.name !== undefined) data.fullName = dto.name.trim();
     if (dto.phone !== undefined) data.phone = dto.phone;
+
     if (dto.password !== undefined) {
+      if (!dto.currentPassword) {
+        throw new BadRequestException('Одоогийн нууц үгээ оруулна уу');
+      }
+      const current = await this.prisma.user.findUnique({
+        where: { id: userId },
+      });
+      if (!current) {
+        throw new NotFoundException('Хэрэглэгч олдсонгүй');
+      }
+      const ok = await bcrypt.compare(
+        dto.currentPassword,
+        current.passwordHash,
+      );
+      if (!ok) {
+        throw new BadRequestException('Одоогийн нууц үг буруу');
+      }
+      if (dto.currentPassword === dto.password) {
+        throw new BadRequestException('Шинэ нууц үг хуучинтай ижил байна');
+      }
       data.passwordHash = await bcrypt.hash(dto.password, 10);
     }
+
     if (Object.keys(data).length === 0) {
       throw new BadRequestException('Өөрчлөх зүйл алга');
     }
@@ -191,11 +223,21 @@ export class PortalService {
       data,
       select: { id: true, username: true, fullName: true, phone: true },
     });
+
+    // Нууц үг сольсон бол хуучин бүх session унтарна (V4-08-тай ижил)
+    if (data.passwordHash) {
+      await this.prisma.refreshToken.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+    }
+
     return {
       id: user.id,
       email: user.username,
       name: user.fullName,
       phone: user.phone,
+      passwordChanged: !!data.passwordHash,
     };
   }
 

@@ -2050,11 +2050,42 @@ describe('ursGAL v2 API (e2e)', () => {
       expect(res.body.phone).toBe('99887711');
       expect(res.body.email).toBe(`e2e-cust-${T}@mail.mn`);
 
-      await api()
+      // ⚠ Нууц үг солиход одоогийн нууц үг ЗААВАЛ — эс тэгвэл хулгайлагдсан
+      // access token-той хэн ч бүртгэлийг бүрмөсөн эзэмшинэ
+      const noCurrent = await api()
         .patch('/api/portal/profile')
         .set(auth(custToken))
         .send({ password: 'newpass99' })
+        .expect(400);
+      expect(noCurrent.body.message).toContain('Одоогийн нууц үг');
+      await api()
+        .patch('/api/portal/profile')
+        .set(auth(custToken))
+        .send({ password: 'newpass99', currentPassword: 'buruu-nuuts' })
+        .expect(400);
+      await api()
+        .patch('/api/portal/profile')
+        .set(auth(custToken))
+        .send({ password: 'custpass1', currentPassword: 'custpass1' })
+        .expect(400);
+      // Хуучин нууц үг хэвээр ажиллаж байна (өөрчлөгдөөгүйн баталгаа)
+      const stillOld = await api()
+        .post('/api/auth/login')
+        .send({ email: `e2e-cust-${T}@mail.mn`, password: 'custpass1' })
         .expect(200);
+      const oldRefresh = stillOld.body.refreshToken;
+
+      const changed = await api()
+        .patch('/api/portal/profile')
+        .set(auth(custToken))
+        .send({ password: 'newpass99', currentPassword: 'custpass1' })
+        .expect(200);
+      expect(changed.body.passwordChanged).toBe(true);
+      // Хуучин session-ууд унтарсан
+      await api()
+        .post('/api/auth/refresh')
+        .send({ refreshToken: oldRefresh })
+        .expect(401);
       await api()
         .post('/api/auth/login')
         .send({ email: `e2e-cust-${T}@mail.mn`, password: 'custpass1' })
