@@ -1043,9 +1043,30 @@ describe('ursGAL v2 API (e2e)', () => {
         override: null,
         effective: true,
       });
-      expect(orders.find((i) => i.key === 'orders.delete')?.effective).toBe(
-        false,
+      // Хэрэглэгддэггүй түлхүүрүүд (orders.edit/delete гэх мэт) панелаас
+      // бүрмөсөн хасагдсан — "юу ч хийхгүй" checkbox үлдээхгүй
+      const allKeys: string[] = panel.body.groups.flatMap(
+        (g: { items: Item[] }) => g.items.map((i) => i.key),
       );
+      for (const dead of [
+        'orders.edit',
+        'orders.delete',
+        'customers.create',
+        'customers.delete',
+        'inventory.stock_in',
+        'inventory.stock_out',
+      ]) {
+        expect(allKeys).not.toContain(dead);
+      }
+      // Панелын түлхүүр бүр backend-ийн ямар нэг route-д хэрэглэгддэг
+      expect(allKeys).toHaveLength(25);
+
+      // Хасагдсан түлхүүрийг олгох гэвэл валидацид унана
+      await api()
+        .put(`/api/users/${permUserId}/permissions`)
+        .set(auth(tok.admin))
+        .send({ changes: [{ key: 'orders.delete', allowed: true }] })
+        .expect(400);
     });
 
     it('override хасах → ШУУД 403 (cache invalidate); null → default буцна', async () => {

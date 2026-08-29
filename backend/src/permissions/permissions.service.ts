@@ -26,6 +26,9 @@ type CacheEntry = { role: Role; perms: Set<PermKey>; expires: number };
 
 const CACHE_TTL_MS = 60_000;
 
+/** Хүчинтэй түлхүүрүүд — DB дэх хуучирсан override мөрийг шүүхэд */
+const KNOWN_PERMISSIONS: ReadonlySet<string> = new Set(ALL_PERMISSIONS);
+
 @Injectable()
 export class PermissionsService {
   private readonly cache = new Map<string, CacheEntry>();
@@ -58,6 +61,9 @@ export class PermissionsService {
     });
     const perms = new Set<PermKey>(ROLE_DEFAULTS[role] ?? []);
     for (const o of overrides) {
+      // Танигдахгүй түлхүүрийг үл тоомсорлоно: permission жагсаалтаас
+      // хасагдсан түлхүүрийн хуучин UserPermission мөр DB-д үлдэж болно
+      if (!KNOWN_PERMISSIONS.has(o.permKey)) continue;
       if (o.allowed) {
         perms.add(o.permKey as PermKey);
       } else {
