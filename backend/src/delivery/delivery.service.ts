@@ -56,13 +56,20 @@ export class DeliveryService {
       );
     }
 
-    // Зөвхөн CONFIRMED эсвэл PREPARING(=PACKED) захиалгад хуваарилна
-    if (
-      order.orderStatus !== OrderStatus.CONFIRMED &&
-      order.orderStatus !== OrderStatus.PREPARING
-    ) {
+    // CONFIRMED / PREPARING(=PACKED) / READY захиалгад хуваарилна.
+    // READY нь "гарахад бэлэн" — жолооч хуваарилах хамгийн байгалийн
+    // мөч. Урьд нь зөвшөөрөгддөггүй байсан тул PREPARING үед хуваарилаад
+    // READY болгосны дараа хүргэлт нь FAILED болвол дахин хуваарилах
+    // ямар ч арга үлддэггүй байв (мухардмал: захиалга COMPLETED руу ч
+    // явахгүй, шинэ жолоочид ч өгөгдөхгүй).
+    const ASSIGNABLE: OrderStatus[] = [
+      OrderStatus.CONFIRMED,
+      OrderStatus.PREPARING,
+      OrderStatus.READY,
+    ];
+    if (!ASSIGNABLE.includes(order.orderStatus)) {
       throw new BadRequestException(
-        `${order.orderStatus} төлөвтэй захиалгад жолооч хуваарилах боломжгүй (CONFIRMED эсвэл PREPARING байх ёстой)`,
+        `${order.orderStatus} төлөвтэй захиалгад жолооч хуваарилах боломжгүй (CONFIRMED, PREPARING эсвэл READY байх ёстой)`,
       );
     }
 

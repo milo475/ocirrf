@@ -1,0 +1,33 @@
+# Root .gitignore — backend/ ба frontend/ дотроо өөрийн дүрэмтэй.
+# ЭНЭ файл байхгүй үед DEPLOY.md-ийн зааврын дагуу root-д үүсгэсэн
+# `.env` (docker compose-ын DB нууц үг, JWT secret-үүд) ямар ч дүрэмд
+# баригдахгүй тул санамсаргүй commit хийгдэх эрсдэлтэй байсан.
+
+# Орчны нууц утгууд — .env.example л track хийгдэнэ
+.env
+.env.*
+!.env.example
+
+# Хамаарлууд / бүтээгдсэн файлууд
+node_modules/
+dist/
+build/
+
+# Лог, түр файлууд
+logs/
+*.log
+*.tmp
+
+# Нөөцлөлт (scripts/backup-db.sh гаралт)
+backups/
+*.dump
+*.sql.gz
+
+# Хүргэлтийн баталгаажуулах зургууд (UPLOADS_DIR default)
+uploads/
+
+# OS / редактор
+.DS_Store
+Thumbs.db
+.idea/
+*.swp

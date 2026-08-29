@@ -94,6 +94,8 @@ describe('ursGAL v2 API (e2e)', () => {
   let raceOrderId: string; // зэрэг төлбөрийн TOCTOU тест
   let raceProductId: string; // тухайн тестийн тусдаа бараа
   let lowStockProductId: string; // бага үлдэгдлийн БОСГЫН тестийн бараа
+  let readyOrderId: string; // READY төлөвт хуваарилалтын тест
+  let readyProductId: string;
   const financeEntryIds: string[] = []; // гараар бүртгэсэн гүйлгээнүүд
   let payoutId: string; // жолоочийн цалингийн тооцоо
   let roA: string; // маршрутын дарааллын тест захиалгууд
@@ -142,6 +144,7 @@ describe('ursGAL v2 API (e2e)', () => {
       adminOrderId,
       financeOrderId,
       raceOrderId,
+      readyOrderId,
       roA,
       roB,
       custOrderId,
@@ -168,9 +171,12 @@ describe('ursGAL v2 API (e2e)', () => {
     await prisma.orderReturn.deleteMany({
       where: { orderId: { in: orderIds } },
     });
-    const productIds = [productId, raceProductId, lowStockProductId].filter(
-      Boolean,
-    );
+    const productIds = [
+      productId,
+      raceProductId,
+      lowStockProductId,
+      readyProductId,
+    ].filter(Boolean);
     await prisma.stockMovement.deleteMany({
       where: {
         OR: [{ productId: { in: productIds } }, { refId: { in: orderIds } }],
@@ -916,6 +922,77 @@ describe('ursGAL v2 API (e2e)', () => {
         .send({ driverId: e2eDriverId })
         .expect(200);
       expect(re.body.deliveryStatus).toBe('ASSIGNED');
+    });
+
+    /**
+     * Мухардмал урсгал: PREPARING үед жолооч хуваарилаад READY болгоод
+     * хүргэлт нь FAILED болвол дахин хуваарилах ямар ч арга үлддэггүй
+     * байв — assignDriver зөвхөн CONFIRMED/PREPARING зөвшөөрдөг, READY
+     * нь COMPLETED-аас өөр рүү шилжихгүй. Одоо READY ч хуваарилагдана.
+     */
+    it('READY төлөвт жолооч хуваарилагдана (мухардмал урсгал)', async () => {
+      const prod = await api()
+        .post('/api/products')
+        .set(auth(tok.manager))
+        .send({
+          sku: `${SKU}-READY`,
+          name: `Э2Э Бэлэн ${T}`,
+          price: '1000.00',
+          lowStockLimit: 0,
+        })
+        .expect(201);
+      readyProductId = prod.body.id;
+      await api()
+        .post('/api/stock/adjust')
+        .set(auth(tok.manager))
+        .send({ productId: readyProductId, qtyChange: 3, reason: 'PURCHASE_IN' })
+        .expect(201);
+      const ord = await api()
+        .post('/api/orders')
+        .set(auth(tok.operator))
+        .send({
+          customerName: `Э2Э-Бэлэн-${T}`,
+          customerPhone: `7${T}`,
+          ...UB_ADDR,
+          items: [{ productId: readyProductId, qty: 1 }],
+        })
+        .expect(201);
+      readyOrderId = ord.body.id;
+
+      for (const s of ['CONFIRMED', 'PREPARING', 'READY']) {
+        await api()
+          .patch(`/api/orders/${readyOrderId}/status`)
+          .set(auth(tok.manager))
+          .send({ status: s })
+          .expect(200);
+      }
+
+      const onReady = await api()
+        .patch(`/api/orders/${readyOrderId}/assign-driver`)
+        .set(auth(tok.manager))
+        .send({ driverId: e2eDriverId })
+        .expect(200);
+      expect(onReady.body.deliveryStatus).toBe('ASSIGNED');
+      expect(onReady.body.orderStatus).toBe('READY');
+
+      // COMPLETED хэвээр хориотой
+      await api()
+        .patch(`/api/orders/${readyOrderId}/status`)
+        .set(auth(tok.manager))
+        .send({ status: 'COMPLETED' })
+        .expect(200);
+      await api()
+        .patch(`/api/orders/${readyOrderId}/assign-driver`)
+        .set(auth(tok.manager))
+        .send({ driverId: e2eDriverId })
+        .expect(400);
+
+      // Энэ захиалга жолоочид ХУВААРИЛАГДСАН хэвээр үлдэх тул дараагийн
+      // тестүүдийн ачаалал/цалингийн тоололд нөлөөлнө — шууд устгана
+      // (API-аар unassign хийх зам байхгүй)
+      await prisma.stockMovement.deleteMany({ where: { refId: readyOrderId } });
+      await prisma.order.delete({ where: { id: readyOrderId } });
+      readyOrderId = '';
     });
 
     it('цуцлалт: үлдэгдэл буцаж, жолооч unassign болно', async () => {
