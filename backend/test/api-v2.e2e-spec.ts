@@ -1199,6 +1199,45 @@ describe('ursGAL v2 API (e2e)', () => {
       await api().get('/api/dashboard/stock-health').expect(401);
       await api().get('/api/categories').expect(401);
     });
+
+    /**
+     * Permission cache нь userId-оор түлхүүрлэгддэг ч утга нь role-оос
+     * хамаардаг байсан тул role солиход 60 секунд хүртэл ХУУЧИН role-ийн
+     * эрх хэвээр үлддэг байв. Одоо шууд үйлчлэх ёстой.
+     */
+    it('role солиход эрх ШУУД шинэчлэгдэнэ (cache invalidate)', async () => {
+      // 1. Cache-ыг халаана: OPERATOR-т drivers.view байхгүй → 403
+      await api()
+        .get('/api/auth/me')
+        .set(auth(permUserToken))
+        .expect(200);
+      await api().get('/api/drivers').set(auth(permUserToken)).expect(403);
+
+      // 2. ADMIN role-ыг MANAGER болгоно (token хэвээр — role нь DB-ээс)
+      await api()
+        .patch(`/api/users/${permUserId}`)
+        .set(auth(tok.admin))
+        .send({ role: 'MANAGER' })
+        .expect(200);
+
+      // 3. ХҮЛЭЭЛГҮЙГЭЭР MANAGER-ийн эрх үйлчилнэ
+      await api().get('/api/drivers').set(auth(permUserToken)).expect(200);
+      const me = await api()
+        .get('/api/auth/me')
+        .set(auth(permUserToken))
+        .expect(200);
+      expect(me.body.role).toBe('MANAGER');
+      expect(me.body.permissions).toContain('drivers.view');
+      expect(me.body.permissions).not.toContain('orders.create');
+
+      // 4. Буцаахад мөн адил шууд — эрх нэн даруй хумигдана
+      await api()
+        .patch(`/api/users/${permUserId}`)
+        .set(auth(tok.admin))
+        .send({ role: 'OPERATOR' })
+        .expect(200);
+      await api().get('/api/drivers').set(auth(permUserToken)).expect(403);
+    });
   });
 
   // ────────────────────────────────────────────── FINANCE (V3)
