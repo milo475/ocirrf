@@ -38,6 +38,11 @@ function getRefreshToken() {
   }
 }
 
+/** SSE (V4-09): EventSource header дэмждэггүй тул token-ыг query-гээр өгнө */
+export function getAccessToken() {
+  return accessToken
+}
+
 function normalizeError(status, payload) {
   let message = 'Алдаа гарлаа'
   if (payload && payload.message) {

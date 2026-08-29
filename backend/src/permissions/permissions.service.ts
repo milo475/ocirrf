@@ -17,10 +17,17 @@ import {
 
 export type PermissionChange = { key: PermKey; allowed?: boolean | null };
 
-/** Cache-ийн нэг мөр: тооцсон permission олонлог + дуусах хугацаа */
-type CacheEntry = { perms: Set<PermKey>; expires: number };
+/**
+ * Cache-ийн нэг мөр: тооцсон permission олонлог + дуусах хугацаа.
+ * `role`-ыг хамт хадгална: түлхүүр нь userId боловч УТГА нь role-оос
+ * хамаардаг тул эрх солигдоход хуучин мөрийг ашиглаж болохгүй.
+ */
+type CacheEntry = { role: Role; perms: Set<PermKey>; expires: number };
 
 const CACHE_TTL_MS = 60_000;
+
+/** Хүчинтэй түлхүүрүүд — DB дэх хуучирсан override мөрийг шүүхэд */
+const KNOWN_PERMISSIONS: ReadonlySet<string> = new Set(ALL_PERMISSIONS);
 
 @Injectable()
 export class PermissionsService {
@@ -42,8 +49,10 @@ export class PermissionsService {
       return new Set(ALL_PERMISSIONS);
     }
 
+    // role таарахгүй бол cache-ийг үл тоомсорлоно — UsersService.update
+    // invalidate дуудахаас гадна энэ нь хоёр дахь хамгаалалтын давхарга
     const hit = this.cache.get(userId);
-    if (hit && hit.expires > Date.now()) {
+    if (hit && hit.role === role && hit.expires > Date.now()) {
       return hit.perms;
     }
 
@@ -52,6 +61,9 @@ export class PermissionsService {
     });
     const perms = new Set<PermKey>(ROLE_DEFAULTS[role] ?? []);
     for (const o of overrides) {
+      // Танигдахгүй түлхүүрийг үл тоомсорлоно: permission жагсаалтаас
+      // хасагдсан түлхүүрийн хуучин UserPermission мөр DB-д үлдэж болно
+      if (!KNOWN_PERMISSIONS.has(o.permKey)) continue;
       if (o.allowed) {
         perms.add(o.permKey as PermKey);
       } else {
@@ -59,7 +71,11 @@ export class PermissionsService {
       }
     }
 
-    this.cache.set(userId, { perms, expires: Date.now() + CACHE_TTL_MS });
+    this.cache.set(userId, {
+      role,
+      perms,
+      expires: Date.now() + CACHE_TTL_MS,
+    });
     return perms;
   }
 
@@ -68,7 +84,7 @@ export class PermissionsService {
     return perms.has(key);
   }
 
-  /** Override өөрчлөгдөхөд заавал дуудна — cache шинэчлэгдэнэ */
+  /** Override ЭСВЭЛ role өөрчлөгдөхөд заавал дуудна — cache шинэчлэгдэнэ */
   invalidate(userId: string): void {
     this.cache.delete(userId);
   }

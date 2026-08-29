@@ -21,4 +21,14 @@ export class UpdateProfileDto {
   @IsString()
   @MinLength(6, { message: 'Нууц үг хамгийн багадаа 6 тэмдэгт байна' })
   password?: string;
+
+  /**
+   * Нууц үг солих үед ЗААВАЛ — эс тэгвэл хулгайлагдсан access token-той
+   * хэн ч бүртгэлийг бүрмөсөн эзэмшиж авна. `password` илгээгдсэн эсэхээс
+   * хамаарах тул шалгалт нь service дотор (ValidateIf нь whitelist-тэй
+   * хослоход төөрөгдөл үүсгэдэг).
+   */
+  @IsOptional()
+  @IsString()
+  currentPassword?: string;
 }

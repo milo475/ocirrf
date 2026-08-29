@@ -20,9 +20,9 @@ const GROUP_LABELS = {
 const ROLE_LABELS = {
   ADMIN: 'Админ',
   MANAGER: 'Менежер',
-  OPERATOR: 'Оператор',
+  OPERATOR: 'Харилцагч', // бараа нийлүүлдэг түнш — захиалга шивэх эрхтэй
   DRIVER: 'Жолооч',
-  CUSTOMER: 'Харилцагч',
+  CUSTOMER: 'Портал хэрэглэгч',
 }
 
 /**

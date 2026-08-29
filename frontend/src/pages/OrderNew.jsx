@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router'
-import ProductPicker from '../components/orders/ProductPicker'
+import ProductCatalog from '../components/orders/ProductCatalog'
 import Button from '../components/ui/Button'
 import EmptyState from '../components/ui/EmptyState'
 import Input from '../components/ui/Input'
@@ -109,15 +109,9 @@ export default function OrderNew({ portal = false }) {
   const [errors, setErrors] = useState({})
   const [items, setItems] = useState([])
   const [submitting, setSubmitting] = useState(false)
-
-  // Хүргэлтийн тариф (V4-05): хаягаас автоматаар, staff гараар засаж болно
-  const [tariffs, setTariffs] = useState([])
-  const [feeOverride, setFeeOverride] = useState(null) // null = автомат
-  useEffect(() => {
-    api('/settings/tariffs')
-      .then(setTariffs)
-      .catch(() => setTariffs([]))
-  }, [])
+  // Төлбөр төлсөн эсэх — "Төлсөн" бол бүтэн төлбөр захиалгатай хамт бүртгэгдэнэ
+  const [paid, setPaid] = useState(false)
+  const [payMethod, setPayMethod] = useState('CASH')
 
   const isUB = form.region === 'ULAANBAATAR'
   const set = (key) => (e) => {
@@ -161,25 +155,11 @@ export default function OrderNew({ portal = false }) {
   const removeItem = (productId) =>
     setItems((list) => list.filter((i) => i.product.id !== productId))
 
-  const itemsTotal = items.reduce(
+  // Хүргэлтийн хөлс шинэ захиалгад нэмэгдэхгүй — нийт = барааны нийлбэр
+  const total = items.reduce(
     (a, i) => a + Number(i.product.price) * (Number(i.qty) || 0),
     0,
   )
-  // Дүүргийн тусгай тариф байвал түүнийг, үгүй бол region-ий default
-  const autoFee = (() => {
-    if (isUB && form.district) {
-      const d = tariffs.find(
-        (x) => x.region === 'ULAANBAATAR' && x.district === form.district,
-      )
-      if (d) return Number(d.fee)
-    }
-    const def = tariffs.find(
-      (x) => x.region === form.region && x.district === null,
-    )
-    return def ? Number(def.fee) : 0
-  })()
-  const fee = feeOverride === null ? autoFee : Number(feeOverride) || 0
-  const total = itemsTotal + fee
   const canSubmit =
     items.length > 0 &&
     items.every((i) => Number.isInteger(Number(i.qty)) && Number(i.qty) >= 1)
@@ -225,9 +205,8 @@ export default function OrderNew({ portal = false }) {
           ...(form.extraPhone.trim() ? { extraPhone: form.extraPhone.trim() } : {}),
           ...(form.note.trim() ? { note: form.note.trim() } : {}),
           ...addr,
-          // Staff: дэлгэц дээр харагдсан хөлсөө илгээнэ (override);
-          // portal-д server тарифаас өөрөө тооцно
-          ...(portal ? {} : { deliveryFee: String(fee) }),
+          // "Төлсөн" сонгосон бол бүтэн төлбөр хамт бүртгэгдэнэ (staff л)
+          ...(!portal && paid ? { paid: true, paymentMethod: payMethod } : {}),
           items: items.map((i) => ({
             productId: i.product.id,
             qty: Number(i.qty),
@@ -438,7 +417,7 @@ export default function OrderNew({ portal = false }) {
 
       {step === 2 && (
         <div className="mt-8">
-          <ProductPicker
+          <ProductCatalog
             onPick={addProduct}
             excludeIds={items.map((i) => i.product.id)}
             endpoint={portal ? '/portal/products' : '/products'}
@@ -447,8 +426,8 @@ export default function OrderNew({ portal = false }) {
           {items.length === 0 ? (
             <div className="mt-4">
               <EmptyState
-                title={t('Бараа сонгогдоогүй')}
-                note={t('Дээрх хайлтаар бараа нэмнэ үү')}
+                title={t('Сагс хоосон')}
+                note={t('Дээрх каталогоос бараа сонгож сагслана уу')}
               />
             </div>
           ) : (
@@ -521,39 +500,54 @@ export default function OrderNew({ portal = false }) {
                   {t('Засах')}
                 </button>
               </div>
-              <div className="text-right space-y-1.5">
-                <p className="text-sm text-ink-muted">
-                  {t('Бараа')}{' '}
-                  <span className="font-mono text-ink tabular-nums ml-2">
-                    {formatMoney(itemsTotal)}
-                  </span>
-                </p>
-                <p className="text-sm text-ink-muted flex items-center justify-end gap-2">
-                  {t('Хүргэлтийн хөлс')}
-                  {portal ? (
-                    <span className="font-mono text-ink tabular-nums">
-                      {formatMoney(fee)}
-                    </span>
-                  ) : (
-                    <input
-                      type="number"
-                      min="0"
-                      step="100"
-                      value={feeOverride === null ? autoFee : feeOverride}
-                      onChange={(e) => setFeeOverride(e.target.value)}
-                      aria-label={t('Хүргэлтийн хөлс')}
-                      className="w-24 bg-bg border border-rule rounded px-2 py-1 text-sm font-mono text-right focus:outline-none focus:border-ink-muted"
-                    />
-                  )}
-                </p>
-                <p className="text-sm text-ink-muted">
-                  {t('Нийт')}{' '}
-                  <span className="font-mono text-2xl text-ink tabular-nums ml-2">
-                    {formatMoney(total)}
-                  </span>
-                </p>
-              </div>
+              <p className="text-sm text-ink-muted">
+                {t('Нийт')}{' '}
+                <span className="font-mono text-2xl text-ink tabular-nums ml-2">
+                  {formatMoney(total)}
+                </span>
+              </p>
             </div>
+
+            {/* Төлбөр төлсөн эсэх — staff-д л (portal-д харагдахгүй) */}
+            {!portal && (
+              <div className="mt-6 flex items-center justify-end gap-3 flex-wrap">
+                <span className="text-xs uppercase tracking-wide text-ink-muted">
+                  {t('Төлбөр')}
+                </span>
+                <div className="grid grid-cols-2 border border-rule rounded overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setPaid(true)}
+                    className={`px-5 py-2 text-sm font-medium transition-colors ${
+                      paid ? 'bg-safe/15 text-safe' : 'text-ink-muted hover:text-ink'
+                    }`}
+                  >
+                    ✓ {t('Төлсөн')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaid(false)}
+                    className={`px-5 py-2 text-sm font-medium transition-colors ${
+                      !paid ? 'bg-alarm/15 text-alarm' : 'text-ink-muted hover:text-ink'
+                    }`}
+                  >
+                    {t('Төлөөгүй')}
+                  </button>
+                </div>
+                {paid && (
+                  <select
+                    value={payMethod}
+                    onChange={(e) => setPayMethod(e.target.value)}
+                    aria-label={t('Хэлбэр')}
+                    className="bg-bg border border-rule rounded px-2 py-2 text-sm focus:outline-none focus:border-ink-muted"
+                  >
+                    <option value="CASH">{t('pay.cash')}</option>
+                    <option value="TRANSFER">{t('pay.transfer')}</option>
+                    <option value="CARD">{t('pay.card')}</option>
+                  </select>
+                )}
+              </div>
+            )}
 
             <div className="mt-6 flex justify-end">
               <Button

@@ -2,6 +2,7 @@ import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsEnum,
   IsInt,
   IsNotEmpty,
@@ -14,7 +15,7 @@ import {
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
-import { DeliveryRegion } from '../../generated/prisma/client';
+import { DeliveryRegion, PaymentMethod } from '../../generated/prisma/client';
 
 export class OrderItemInput {
   @IsUUID('4', { message: 'productId буруу форматтай' })
@@ -112,14 +113,30 @@ export class CreateOrderDto {
   note?: string;
 
   /**
-   * Хүргэлтийн хөлс (V4-05) — staff-ийн гар override. Орхивол тарифаас
-   * автоматаар; CUSTOMER-ийн илгээснийг service үл тоомсорлоно.
+   * Хүргэлтийн хөлс (V4-05) — staff-ийн ГАР оруулга. Орхивол 0 болно:
+   * шинэ захиалгад хөлс автоматаар НЭМЭГДЭХГҮЙ (9a97f4b-ийн шийдвэр),
+   * DeliveryTariff хүснэгт нь Settings дэх ЛАВЛАГАА болж үлдсэн.
+   * CUSTOMER-ийн илгээснийг service үл тоомсорлоно.
    */
   @IsOptional()
   @Matches(/^\d{1,10}(\.\d{1,2})?$/, {
     message: 'Хүргэлтийн хөлс буруу форматтай',
   })
   deliveryFee?: string;
+
+  /**
+   * "Төлсөн" гэж үүсгэх — бүтэн төлбөр нь захиалгатай нэг transaction-д
+   * бүртгэгдэнэ (Payment + INCOME). Зөвхөн staff; customer-ийнхийг
+   * service үл тоомсорлоно.
+   */
+  @IsOptional()
+  @IsBoolean()
+  paid?: boolean;
+
+  /** Төлсөн үеийн хэлбэр (default CASH) */
+  @IsOptional()
+  @IsEnum(PaymentMethod, { message: 'Төлбөрийн хэлбэр буруу' })
+  paymentMethod?: PaymentMethod;
 
   @IsArray()
   @ArrayMinSize(1, { message: 'Дор хаяж 1 бараа сонгоно' })

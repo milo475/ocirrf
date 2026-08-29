@@ -5,17 +5,13 @@ import {
   Prisma,
   Role,
 } from '../generated/prisma/client';
+import { parseDateRange } from '../date-range.util';
 import { PrismaService } from '../prisma/prisma.service';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** from/to → createdAt хүрээ (default: сүүлийн 30 хоног) */
-function range(from?: string, to?: string) {
-  const start = from ? new Date(from) : new Date(Date.now() - 29 * DAY_MS);
-  if (!from) start.setHours(0, 0, 0, 0);
-  const end = to ? new Date(to) : new Date();
-  return { start, end };
-}
+const range = (from?: string, to?: string) => parseDateRange(from, to, 30);
 
 const dayKey = (d: Date) =>
   new Date(d.getTime() - d.getTimezoneOffset() * 60_000)

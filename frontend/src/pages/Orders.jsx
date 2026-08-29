@@ -11,8 +11,11 @@ import Spinner from '../components/ui/Spinner'
 import Table from '../components/ui/Table'
 import { useAuth } from '../context/AuthContext'
 import { useLang } from '../context/LanguageContext'
+import ConfirmDialog from '../components/ui/ConfirmDialog'
+import { useToast } from '../components/ui/Toast'
 import { api } from '../lib/api'
 import { formatDateTime, formatMoney } from '../lib/format'
+import { openPickingSheet } from '../lib/pickingSheet'
 
 const LIMIT = 20
 const DELIVERY_LABELS = {
@@ -25,10 +28,14 @@ const DELIVERY_LABELS = {
 
 const STATUS_TABS = ['', 'NEW', 'CONFIRMED', 'PREPARING', 'READY', 'COMPLETED', 'CANCELLED']
 
+/** Бэлтгэх хуудсанд сонгож болох статусууд (V4-11) */
+const PICKABLE = ['CONFIRMED', 'PREPARING']
+
 export default function Orders() {
   const navigate = useNavigate()
   const { t } = useLang()
   const { hasPerm } = useAuth()
+  const toast = useToast()
 
   // /customers-аас ?search=утас-аар шүүгдэж ирж болно
   const [params] = useSearchParams()
@@ -65,13 +72,105 @@ export default function Orders() {
     load()
   }, [load])
 
+  // ── Бэлтгэх хуудас (V4-11) ──
+  const [selected, setSelected] = useState(() => new Set())
+  const [sheetBusy, setSheetBusy] = useState(false)
+  const [prepareAsk, setPrepareAsk] = useState(null) // [{id, orderNo, orderStatus}]
+  const [preparing, setPreparing] = useState(false)
+
+  function toggleSelect(o) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(o.id)) next.delete(o.id)
+      else next.add(o.id)
+      return next
+    })
+  }
+
+  async function openSheet(ids) {
+    setSheetBusy(true)
+    try {
+      const details = await Promise.all(ids.map((id) => api(`/orders/${id}`)))
+      // SKU best effort — inventory.view эрхтэй бол бараануудаас татна
+      const skuById = {}
+      if (hasPerm('inventory.view')) {
+        const pids = [...new Set(details.flatMap((o) => o.items.map((i) => i.productId)))]
+        await Promise.all(
+          pids.slice(0, 30).map((pid) =>
+            api(`/products/${pid}`)
+              .then((p) => {
+                skuById[pid] = p.sku
+              })
+              .catch(() => {}),
+          ),
+        )
+      }
+      if (!openPickingSheet(details, t, skuById)) {
+        toast.show(t('Popup хориглогдсон — зөвшөөрнө үү'), { type: 'error' })
+        return
+      }
+      // Хэвлэсний дараа PREPARING руу шилжүүлэх санал (CONFIRMED-уудад)
+      const confirmed = details.filter((o) => o.orderStatus === 'CONFIRMED')
+      if (confirmed.length > 0 && hasPerm('orders.change_status')) {
+        setPrepareAsk(confirmed)
+      }
+    } catch (e) {
+      toast.show(e.message, { type: 'error' })
+    } finally {
+      setSheetBusy(false)
+    }
+  }
+
+  async function markPreparing() {
+    setPreparing(true)
+    let ok = 0
+    const failed = []
+    for (const o of prepareAsk) {
+      try {
+        await api(`/orders/${o.id}/status`, {
+          method: 'PATCH',
+          body: { status: 'PREPARING' },
+        })
+        ok++
+      } catch {
+        failed.push(o.orderNo)
+      }
+    }
+    setPreparing(false)
+    setPrepareAsk(null)
+    setSelected(new Set())
+    if (ok > 0) toast.show(t('{n} захиалга Бэлтгэж буй боллоо', { n: ok }))
+    if (failed.length > 0) {
+      toast.show(
+        t('Шилжүүлж чадсангүй: {list}', { list: failed.join(', ') }),
+        { type: 'error' },
+      )
+    }
+    load()
+  }
+
   const columns = [
+    {
+      key: '_pick',
+      header: '',
+      render: (o) =>
+        PICKABLE.includes(o.orderStatus) ? (
+          <input
+            type="checkbox"
+            checked={selected.has(o.id)}
+            onChange={() => toggleSelect(o)}
+            onClick={(e) => e.stopPropagation()}
+            aria-label={`${o.orderNo} ${t('сонгох')}`}
+            className="accent-accent w-4 h-4 align-middle"
+          />
+        ) : null,
+    },
     {
       key: 'orderNo',
       header: t('№'),
       render: (o) => <span className="font-mono">{o.orderNo}</span>,
     },
-    { key: 'customerName', header: t('Харилцагч') },
+    { key: 'customerName', header: t('Хүлээн авагч') },
     {
       key: 'phone',
       header: t('Утас'),
@@ -148,11 +247,22 @@ export default function Orders() {
     <div>
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <h1 className="font-serif text-4xl font-medium">{t('Захиалга')}</h1>
-        {hasPerm('orders.create') && (
-          <Button onClick={() => navigate('/orders/new')}>
-            {t('+ Шинэ захиалга')}
-          </Button>
-        )}
+        <span className="flex items-center gap-2">
+          {selected.size > 0 && (
+            <Button
+              variant="ghost"
+              loading={sheetBusy}
+              onClick={() => openSheet([...selected])}
+            >
+              🖨 {t('Бэлтгэх хуудас')} ({selected.size})
+            </Button>
+          )}
+          {hasPerm('orders.create') && (
+            <Button onClick={() => navigate('/orders/new')}>
+              {t('+ Шинэ захиалга')}
+            </Button>
+          )}
+        </span>
       </div>
 
       {/* Статусын tab-ууд */}
@@ -237,6 +347,20 @@ export default function Orders() {
           />
         )}
       </div>
+
+      {/* Хэвлэсний дараах шилжүүлэлт (V4-11) */}
+      <ConfirmDialog
+        open={!!prepareAsk}
+        title={t('Бэлтгэж буй болгох')}
+        message={t(
+          'Сонгосон {n} захиалгыг «Бэлтгэж буй» болгох уу?',
+          { n: prepareAsk?.length ?? 0 },
+        )}
+        confirmLabel={t('Бэлтгэж буй болгох')}
+        loading={preparing}
+        onConfirm={markPreparing}
+        onCancel={() => setPrepareAsk(null)}
+      />
     </div>
   )
 }

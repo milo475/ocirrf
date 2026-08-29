@@ -50,6 +50,7 @@ const DICT = {
     'Гарах': 'Log out',
     'Админ': 'Admin',
     'Оператор': 'Operator',
+    'Харилцагч': 'Partner',
     'Харанхуй': 'Dark',
     'Цайвар': 'Light',
     'Тема солих': 'Toggle theme',
@@ -151,7 +152,6 @@ const DICT = {
     '+ Шинэ захиалга': '+ New order',
     '№, нэр, утас…': 'No., name, phone…',
     '№': 'No.',
-    'Харилцагч': 'Customer',
     'Үүсгэсэн': 'Created by',
     'Захиалга олдсонгүй': 'No orders found',
     'Шинэ': 'New',
@@ -376,6 +376,74 @@ const DICT = {
     'Түр (хуучин) нууц үг': 'Temporary (old) password',
     'Хадгалж байна…': 'Saving…',
     'Нууц үг солих': 'Change password',
+    'Одоогийн нууц үг': 'Current password',
+    'Нууц үг солигдлоо': 'Password changed',
+    'Замд гарлаа': 'On my way',
+
+    // — Нэршил: Харилцагч = бараа нийлүүлэгч түнш (OPERATOR эрх) —
+    'Хүлээн авагч': 'Recipient',
+    'Нийт хүлээн авагч': 'Total recipients',
+    'Захиалгын хүлээн авагчид': 'Order recipients',
+    'Портал хэрэглэгчид': 'Portal users',
+    'Портал хэрэглэгч': 'Portal user',
+    'Харилцагч алга — Хэрэглэгчид хуудаснаас «Харилцагч» эрхтэйгээр бүртгэнэ':
+      'No partners yet — register them on the Users page with the "Partner" role',
+    'Шинэ хэрэглэгч үү?': 'New user?',
+    'Хэрэглэгчийн бүртгэл': 'User sign-up',
+
+    // — Харилцагчид —
+    'Захиалгын харилцагчид': 'Order customers',
+    'Бүртгэлтэй (portal)': 'Registered (portal)',
+    'Бүртгэлтэй харилцагч алга — portal-аар бүртгүүлсэн хэрэглэгчид энд гарна':
+      'No registered customers — users who sign up via the portal appear here',
+
+    // — Барааны каталог (сагс) —
+    'Бараа шүүх — нэр, SKU, barcode…': 'Filter products — name, SKU, barcode…',
+    'Ангилалгүй': 'Uncategorized',
+    'Сагслах': 'Add to cart',
+    'Сагсанд': 'In cart',
+    'Сагс хоосон': 'Cart is empty',
+    'Дээрх каталогоос бараа сонгож сагслана уу': 'Pick products from the catalog above',
+    'Бараа ачаалж чадсангүй': 'Could not load products',
+
+    // — Алдааны лог (V4-14) —
+    'Системийн алдаа': 'System errors',
+    '{n} алдаа': '{n} errors',
+    'Энэ өдөр серверийн алдаа бүртгэгдээгүй ✅': 'No server errors recorded on this day ✅',
+
+    // — CSV импорт + barcode (V4-12) —
+    'Импорт': 'Import',
+    'Бараа CSV импорт': 'Product CSV import',
+    'SKU байвал шинэчилж, байхгүй бол шинээр үүсгэнэ. Эхний үлдэгдэл нь агуулахын INITIAL хөдөлгөөнөөр бүртгэгдэнэ.':
+      'Existing SKUs are updated, new ones are created. Initial stock is recorded as an INITIAL stock movement.',
+    'Загвар татах (CSV)': 'Download template (CSV)',
+    'CSV файл': 'CSV file',
+    'Шинээр үүссэн': 'Created',
+    'Шинэчилсэн': 'Updated',
+    'Алдаатай мөр': 'Rows with errors',
+    'Мөр': 'Row',
+    'Импортлох': 'Import',
+    'Barcode скан': 'Scan barcode',
+    'Barcode-ыг камерт ойртуулна уу': 'Point the camera at the barcode',
+
+    // — Бэлтгэх хуудас (V4-11) —
+    'Бэлтгэх хуудас': 'Picking list',
+    'Нэгтгэсэн бараа (агуулахаас түүх)': 'Aggregated items (pick from warehouse)',
+    'Захиалга тус бүр (баглах)': 'Per order (packing)',
+    'Бэлтгэж буй болгох': 'Mark as preparing',
+    'Сонгосон {n} захиалгыг «Бэлтгэж буй» болгох уу?':
+      'Mark the {n} selected orders as "Preparing"?',
+    '{n} захиалга Бэлтгэж буй боллоо': '{n} orders marked as preparing',
+    'Шилжүүлж чадсангүй: {list}': 'Could not update: {list}',
+    'Popup хориглогдсон — зөвшөөрнө үү': 'Popup blocked — please allow popups',
+    'сонгох': 'select',
+
+    // — PWA + offline (V4-10) —
+    'Офлайн': 'Offline',
+    'Офлайн — дараа илгээгдэнэ': 'Offline — will be sent later',
+    'Илгээгдээгүй баталгаажуулалт: {n} — online болмогц автоматаар илгээгдэнэ':
+      'Unsent confirmations: {n} — they will be sent automatically once online',
+    '{n} баталгаажуулалт илгээгдлээ': '{n} confirmation(s) sent',
 
     // — Нэвтрэлтийн хамгаалалт (V4-07) —
     'Сүүлд нэвтэрсэн': 'Last login',
@@ -507,6 +575,8 @@ const DICT = {
     'Өөрчлөлт': 'Change',
     'Холбоос': 'Reference',
     'Захиалга харах': 'View order',
+    'Захиалгын төлбөр': 'Order payment',
+    'Дараалал хадгалах эрх байхгүй': 'No permission to save the order',
     'reason.order': 'Order',
     'Цуцлалт': 'Cancellation',
     'Эхний орлого': 'Initial stock',

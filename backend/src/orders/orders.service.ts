@@ -5,12 +5,18 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { AuthUser } from '../auth/decorators/current-user.decorator';
-import { OrderStatus, Prisma } from '../generated/prisma/client';
+import {
+  DeliveryStatus,
+  FinanceType,
+  OrderStatus,
+  PaymentMethod,
+  PaymentStatus,
+  Prisma,
+} from '../generated/prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PERM } from '../permissions/permission-keys';
 import { PermissionsService } from '../permissions/permissions.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { SettingsService } from '../settings/settings.service';
 import { formatFullAddress, formatShortAddress } from './address.util';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { QueryOrdersDto } from './dto/query-orders.dto';
@@ -48,7 +54,6 @@ export class OrdersService {
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
     private readonly permissions: PermissionsService,
-    private readonly settings: SettingsService,
   ) {}
 
   /**
@@ -95,12 +100,13 @@ export class OrdersService {
       throw new BadRequestException('Нэг бараа давхардаж орсон байна');
     }
 
-    // Хүргэлтийн хөлс (V4-05): staff гараар override хийж болно,
-    // customer-т үргэлж тарифаас автоматаар
+    // Хүргэлтийн хөлс: хэрэглэгчийн хүсэлтээр шинэ захиалгад автоматаар
+    // НЭМЭГДЭХГҮЙ (default 0). Staff dto.deliveryFee-ээр гараар өгч болно;
+    // тарифын хүснэгт (V4-05) лавлагаа болж үлдсэн.
     const deliveryFee =
       !isCustomer && dto.deliveryFee !== undefined
         ? new Prisma.Decimal(dto.deliveryFee)
-        : await this.settings.feeFor(dto.region, dto.district);
+        : new Prisma.Decimal(0);
 
     const MAX_ATTEMPTS = 3;
     for (let attempt = 1; ; attempt++) {
@@ -113,6 +119,8 @@ export class OrdersService {
           customerName,
           isCustomer ? user.id : null,
           deliveryFee,
+          // "Төлсөн" флаг зөвхөн staff-д — customer өөрөө тэмдэглэхгүй
+          !isCustomer && dto.paid === true,
         );
         // Transaction амжилттай болсны ДАРАА мэдэгдэнэ (rollback-д илгээхгүй)
         for (const p of lowStockCrossed) {
@@ -139,6 +147,7 @@ export class OrdersService {
     customerName: string | null,
     customerId: string | null,
     deliveryFee: Prisma.Decimal,
+    markPaid: boolean,
   ) {
     const lowStockCrossed: {
       id: string;
@@ -178,14 +187,19 @@ export class OrdersService {
         String(now.getDate()).padStart(2, '0'),
       ].join('');
       const prefix = `ORD-${ymd}-`;
-      const last = await tx.order.findFirst({
+      // Дугаарыг ТООГООР олно. `orderBy: { orderNo: 'desc' }` нь мөрийн
+      // (string) эрэмбэ тул өдөрт 9999-ээс дээш захиалга орвол '9999' нь
+      // '10000'-ээс их гэж тооцогдож дугаар давхардаж эхэлдэг байсан.
+      // Нэг өдрийн мөрүүд цөөн (нэг богино багана) тул ачаалал өчүүхэн.
+      const todays = await tx.order.findMany({
         where: { orderNo: { startsWith: prefix } },
-        orderBy: { orderNo: 'desc' },
         select: { orderNo: true },
       });
-      const nextNum = last
-        ? parseInt(last.orderNo.slice(prefix.length), 10) + 1
-        : 1;
+      const maxNum = todays.reduce((max, o) => {
+        const n = parseInt(o.orderNo.slice(prefix.length), 10);
+        return Number.isFinite(n) && n > max ? n : max;
+      }, 0);
+      const nextNum = maxNum + 1;
       const orderNo = prefix + String(nextNum).padStart(4, '0');
 
       // 3–4. Snapshot + нийт дүн (Decimal — float хэрэглэхгүй).
@@ -248,10 +262,11 @@ export class OrdersService {
             `«${updated.name}» үлдэгдэл хүрэлцэхгүй`,
           );
         }
-        // Лимитээс доош ОРОХ МӨЧ: өмнө нь ≥ лимит, одоо < лимит
+        // Лимитэд ХҮРЭХ/ДООШ ОРОХ МӨЧ: өмнө нь > лимит, одоо ≤ лимит.
+        // Босго нь Products хуудасны lowStock шүүлттэй (`<=`) ижил.
         if (
-          updated.stockQty < updated.lowStockLimit &&
-          updated.stockQty + item.qty >= updated.lowStockLimit
+          updated.stockQty <= updated.lowStockLimit &&
+          updated.stockQty + item.qty > updated.lowStockLimit
         ) {
           lowStockCrossed.push(updated);
         }
@@ -264,6 +279,44 @@ export class OrdersService {
             userId,
           },
         });
+      }
+
+      // 8. "Төлсөн" гэж бүртгэсэн бол бүтэн төлбөрийг ЭНД шууд бүртгэнэ —
+      // ОРЛОГО = ТӨЛБӨР зарчмаар Payment + INCOME entry нэг transaction-д.
+      // (customer-ийн илгээсэн paid флагийг create() дээр хаясан байдаг.)
+      if (markPaid && totalAmount.gt(0)) {
+        const METHOD_MN: Record<string, string> = {
+          CASH: 'Бэлэн',
+          TRANSFER: 'Шилжүүлэг',
+          CARD: 'Карт',
+        };
+        const method = dto.paymentMethod ?? PaymentMethod.CASH;
+        const payment = await tx.payment.create({
+          data: {
+            orderId: order.id,
+            amount: totalAmount,
+            method,
+            note: 'Захиалга үүсгэхэд төлсөн',
+            receivedById: userId,
+          },
+        });
+        await tx.financeEntry.create({
+          data: {
+            type: FinanceType.INCOME,
+            category: 'PAYMENT',
+            amount: totalAmount,
+            note: `Төлбөр ${orderNo} (${METHOD_MN[method]})`,
+            refOrderId: order.id,
+            refPaymentId: payment.id,
+            createdById: userId,
+          },
+        });
+        const paidOrder = await tx.order.update({
+          where: { id: order.id },
+          data: { paidAmount: totalAmount, paymentStatus: PaymentStatus.PAID },
+          include: { items: true, createdBy: CREATED_BY_SELECT },
+        });
+        return paidOrder;
       }
 
       return order;
@@ -300,9 +353,14 @@ export class OrdersService {
           where: { id },
           data: {
             orderStatus: OrderStatus.CANCELLED,
-            // Жолооч хуваарилагдсан байсан бол хуваарилалтыг цуцална
+            // Жолооч хуваарилагдсан байсан бол хуваарилалтыг цуцална.
+            // deliveryStatus-ыг МӨН буцаана: өмнө нь ASSIGNED хэвээр үлдэж,
+            // жолоочийн жагсаалт/ачааллын тоолуур/маршрутын дараалалд
+            // цуцлагдсан захиалга мөнхөд тоологддог байсан.
             assignedDriverId: null,
             assignedAt: null,
+            deliveryStatus: DeliveryStatus.PENDING,
+            routeOrder: null,
           },
           include: { items: true, createdBy: CREATED_BY_SELECT },
         });

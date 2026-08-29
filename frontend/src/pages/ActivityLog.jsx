@@ -45,6 +45,7 @@ const ACTION_LABEL = {
 
 export default function ActivityLog() {
   const { t } = useLang()
+  const [tab, setTab] = useState('log') // log | errors
 
   const [entity, setEntity] = useState('')
   const [userId, setUserId] = useState('')
@@ -141,8 +142,31 @@ export default function ActivityLog() {
     <div>
       <h1 className="font-serif text-4xl font-medium">{t('Үйлдлийн түүх')}</h1>
 
+      {/* Таб: үйлдлийн түүх / системийн алдаа (V4-14) */}
+      <div className="mt-6 flex gap-1 border-b border-rule pb-3">
+        {[
+          ['log', 'Үйлдлийн түүх'],
+          ['errors', 'Системийн алдаа'],
+        ].map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setTab(key)}
+            className={`px-3 py-1.5 rounded text-sm transition-colors ${
+              tab === key ? 'bg-surface text-ink' : 'text-ink-muted hover:text-ink'
+            }`}
+          >
+            {t(label)}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'errors' ? (
+        <ErrorsTab t={t} />
+      ) : (
+        <>
       {/* Шүүлтүүрүүд */}
-      <div className="mt-8 flex items-end gap-3 flex-wrap border-b border-rule pb-4">
+      <div className="mt-6 flex items-end gap-3 flex-wrap border-b border-rule pb-4">
         <label className="block">
           <span className="block text-xs uppercase tracking-wide text-ink-muted mb-1.5">
             {t('Объект')}
@@ -228,6 +252,95 @@ export default function ActivityLog() {
             onPageChange={setPage}
             empty={t('Бичилт олдсонгүй')}
           />
+        )}
+      </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+/** Системийн алдааны таб (V4-14): өдрөөр сонгож, stack эвхэгдэнэ */
+function ErrorsTab({ t }) {
+  const todayStr = () => {
+    const d = new Date()
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60_000)
+      .toISOString()
+      .slice(0, 10)
+  }
+  const [date, setDate] = useState(todayStr)
+  const [data, setData] = useState(null)
+  const [error, setError] = useState(null)
+
+  const load = useCallback(() => {
+    setError(null)
+    setData(null)
+    api(`/admin/errors?date=${date}`)
+      .then(setData)
+      .catch((e) => setError(e))
+  }, [date])
+
+  useEffect(() => {
+    load()
+  }, [load])
+
+  return (
+    <div className="mt-6">
+      <div className="flex items-end gap-3 flex-wrap">
+        <Input
+          id="err-date"
+          label={t('Огноо')}
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+        />
+        {data && (
+          <p className="pb-2.5 text-sm text-ink-muted">
+            {t('{n} алдаа', { n: data.count })}
+          </p>
+        )}
+      </div>
+
+      <div className="mt-4">
+        {error ? (
+          <EmptyState
+            title={t('Жагсаалт ачаалж чадсангүй')}
+            note={error.message}
+            action={<Button onClick={load}>{t('Дахин оролдох')}</Button>}
+          />
+        ) : !data ? (
+          <div className="py-16 text-center">
+            <Spinner size={22} />
+          </div>
+        ) : data.items.length === 0 ? (
+          <EmptyState title={t('Энэ өдөр серверийн алдаа бүртгэгдээгүй ✅')} />
+        ) : (
+          <ul className="divide-y divide-rule border-y border-rule">
+            {data.items.map((e2, i) => (
+              <li key={`${e2.timestamp}-${i}`} className="py-3">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className="font-mono text-xs text-ink-muted tabular-nums">
+                    {formatDateTime(e2.timestamp)}
+                  </span>
+                  <span className="font-mono text-[10px] uppercase border border-alarm/40 bg-alarm/10 text-alarm rounded px-1 py-0.5">
+                    {e2.method}
+                  </span>
+                  <span className="font-mono text-xs">{e2.path}</span>
+                </div>
+                <p className="mt-1 text-sm text-alarm">{e2.message}</p>
+                {e2.stack && (
+                  <details className="mt-1 text-xs">
+                    <summary className="cursor-pointer text-ink-muted hover:text-ink select-none">
+                      Stack
+                    </summary>
+                    <pre className="mt-1 p-2 bg-bg border border-rule rounded font-mono text-[11px] overflow-x-auto whitespace-pre-wrap">
+                      {e2.stack}
+                    </pre>
+                  </details>
+                )}
+              </li>
+            ))}
+          </ul>
         )}
       </div>
     </div>

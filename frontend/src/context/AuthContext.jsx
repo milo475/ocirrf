@@ -59,6 +59,14 @@ export function AuthProvider({ children }) {
     setUser(data.user)
   }, [])
 
+  /**
+   * Профайл сольсны дараа context-ийг шинэчилнэ — эс тэгвэл дахин
+   * нэвтрэх хүртэл цэсэнд хуучин нэр харагдана.
+   */
+  const patchUser = useCallback((fields) => {
+    setUser((u) => (u ? { ...u, ...fields } : u))
+  }, [])
+
   // Effective permission шалгалт — backend login/refresh/me-гээс ирдэг массив.
   // ADMIN-д бүх түлхүүр ирдэг тул includes() хангалттай.
   const hasPerm = useCallback(
@@ -68,7 +76,16 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, login, register, logout, hasPerm, applyAuth }}
+      value={{
+        user,
+        loading,
+        login,
+        register,
+        logout,
+        hasPerm,
+        applyAuth,
+        patchUser,
+      }}
     >
       {children}
     </AuthContext.Provider>

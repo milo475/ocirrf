@@ -73,12 +73,15 @@ export class StockService {
       return { product, movement };
     });
 
-    // Лимитээс доош ОРОХ МӨЧИД мэдэгдэнэ (transaction амжилттайн дараа)
+    // Лимитээс доош ОРОХ МӨЧИД мэдэгдэнэ (transaction амжилттайн дараа).
+    // Босго нь ЖАГСААЛТЫН шүүлттэй ижил `<=` байна: өмнө нь мэдэгдэл `<`
+    // байсан тул яг лимит дээр зогссон бараа "бага үлдэгдэл" жагсаалтад
+    // орж ирдэг мөртөө мэдэгдэл нь хэзээ ч ирдэггүй байв.
     const p = result.product;
     if (
       dto.qtyChange < 0 &&
-      p.stockQty < p.lowStockLimit &&
-      p.stockQty - dto.qtyChange >= p.lowStockLimit
+      p.stockQty <= p.lowStockLimit &&
+      p.stockQty - dto.qtyChange > p.lowStockLimit
     ) {
       await this.notifications.notifyLowStock(p);
     }

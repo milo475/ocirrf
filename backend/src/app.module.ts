@@ -1,12 +1,14 @@
 import type { ServerResponse } from 'node:http';
 import { join } from 'node:path';
 import { Module } from '@nestjs/common';
-import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { ActivityLogInterceptor } from './activity-log/activity-log.interceptor';
 import { ActivityLogModule } from './activity-log/activity-log.module';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { PasswordChangeGuard } from './auth/guards/password-change.guard';
+import { AllExceptionsFilter } from './logging/all-exceptions.filter';
+import { LoggingModule } from './logging/logging.module';
 import { AppController } from './app.controller';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
@@ -81,6 +83,7 @@ import { UsersModule } from './users/users.module';
     AnalyticsModule,
     ReportsModule,
     UsersModule,
+    LoggingModule,
   ],
   controllers: [AppController],
   providers: [
@@ -93,6 +96,8 @@ import { UsersModule } from './users/users.module';
     { provide: APP_GUARD, useClass: PermissionsGuard },
     // Амжилттай өөрчлөлт бүрийг ActivityLog-д бичнэ
     { provide: APP_INTERCEPTOR, useClass: ActivityLogInterceptor },
+    // Catch болоогүй 500-уудыг файлд логлоно (V4-14)
+    { provide: APP_FILTER, useClass: AllExceptionsFilter },
   ],
 })
 export class AppModule {}

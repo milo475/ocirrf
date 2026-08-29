@@ -9,23 +9,17 @@ export const PERM = {
   // Захиалга
   ORDERS_VIEW: 'orders.view',
   ORDERS_CREATE: 'orders.create',
-  ORDERS_EDIT: 'orders.edit',
-  ORDERS_DELETE: 'orders.delete',
   ORDERS_ASSIGN_DRIVER: 'orders.assign_driver',
   ORDERS_CHANGE_STATUS: 'orders.change_status',
   ORDERS_REFUND: 'orders.refund',
   // Харилцагч
   CUSTOMERS_VIEW: 'customers.view',
-  CUSTOMERS_CREATE: 'customers.create',
   CUSTOMERS_EDIT: 'customers.edit',
-  CUSTOMERS_DELETE: 'customers.delete',
   // Жолооч
   DRIVERS_VIEW: 'drivers.view',
   DRIVERS_ASSIGN: 'drivers.assign',
   // Агуулах
   INVENTORY_VIEW: 'inventory.view',
-  INVENTORY_STOCK_IN: 'inventory.stock_in',
-  INVENTORY_STOCK_OUT: 'inventory.stock_out',
   INVENTORY_ADJUSTMENT: 'inventory.adjustment',
   // Санхүү
   FINANCE_VIEW_INCOME: 'finance.view_income',
@@ -55,20 +49,14 @@ export const ALL_PERMISSIONS: PermKey[] = Object.values(PERM);
 export const PERM_LABELS: Record<PermKey, string> = {
   [PERM.ORDERS_VIEW]: 'Захиалга харах',
   [PERM.ORDERS_CREATE]: 'Захиалга үүсгэх',
-  [PERM.ORDERS_EDIT]: 'Захиалга засах',
-  [PERM.ORDERS_DELETE]: 'Захиалга устгах',
   [PERM.ORDERS_ASSIGN_DRIVER]: 'Жолооч хуваарилах',
   [PERM.ORDERS_CHANGE_STATUS]: 'Захиалгын статус солих',
   [PERM.ORDERS_REFUND]: 'Буцаалт бүртгэх',
   [PERM.CUSTOMERS_VIEW]: 'Харилцагч харах',
-  [PERM.CUSTOMERS_CREATE]: 'Харилцагч бүртгэх',
   [PERM.CUSTOMERS_EDIT]: 'Харилцагч засах',
-  [PERM.CUSTOMERS_DELETE]: 'Харилцагч устгах',
   [PERM.DRIVERS_VIEW]: 'Жолооч харах',
   [PERM.DRIVERS_ASSIGN]: 'Жолооч томилох',
   [PERM.INVENTORY_VIEW]: 'Агуулах харах',
-  [PERM.INVENTORY_STOCK_IN]: 'Орлого авах',
-  [PERM.INVENTORY_STOCK_OUT]: 'Зарлага гаргах',
   [PERM.INVENTORY_ADJUSTMENT]: 'Тохируулга хийх',
   [PERM.FINANCE_VIEW_INCOME]: 'Орлогын гүйлгээ харах',
   [PERM.FINANCE_CREATE_INCOME]: 'Орлогын гүйлгээ бүртгэх',
@@ -93,8 +81,6 @@ export const PERM_GROUPS: { group: string; keys: PermKey[] }[] = [
     keys: [
       PERM.ORDERS_VIEW,
       PERM.ORDERS_CREATE,
-      PERM.ORDERS_EDIT,
-      PERM.ORDERS_DELETE,
       PERM.ORDERS_ASSIGN_DRIVER,
       PERM.ORDERS_CHANGE_STATUS,
       PERM.ORDERS_REFUND,
@@ -102,22 +88,12 @@ export const PERM_GROUPS: { group: string; keys: PermKey[] }[] = [
   },
   {
     group: 'CUSTOMERS',
-    keys: [
-      PERM.CUSTOMERS_VIEW,
-      PERM.CUSTOMERS_CREATE,
-      PERM.CUSTOMERS_EDIT,
-      PERM.CUSTOMERS_DELETE,
-    ],
+    keys: [PERM.CUSTOMERS_VIEW, PERM.CUSTOMERS_EDIT],
   },
   { group: 'DRIVERS', keys: [PERM.DRIVERS_VIEW, PERM.DRIVERS_ASSIGN] },
   {
     group: 'INVENTORY',
-    keys: [
-      PERM.INVENTORY_VIEW,
-      PERM.INVENTORY_STOCK_IN,
-      PERM.INVENTORY_STOCK_OUT,
-      PERM.INVENTORY_ADJUSTMENT,
-    ],
+    keys: [PERM.INVENTORY_VIEW, PERM.INVENTORY_ADJUSTMENT],
   },
   {
     group: 'FINANCE',
@@ -162,13 +138,10 @@ export const ROLE_DEFAULTS: Record<Role, PermKey[]> = {
   [Role.ADMIN]: ALL_PERMISSIONS,
   [Role.MANAGER]: [
     PERM.ORDERS_VIEW,
-    PERM.ORDERS_EDIT,
     PERM.ORDERS_CHANGE_STATUS,
     PERM.ORDERS_ASSIGN_DRIVER,
     PERM.ORDERS_REFUND, // V4: буцаалт ADMIN+MANAGER
     PERM.INVENTORY_VIEW,
-    PERM.INVENTORY_STOCK_IN,
-    PERM.INVENTORY_STOCK_OUT,
     PERM.INVENTORY_ADJUSTMENT,
     PERM.DRIVERS_VIEW,
     PERM.DRIVERS_ASSIGN,

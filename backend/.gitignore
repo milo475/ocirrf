@@ -46,3 +46,4 @@ lerna-debug.log*
 .temp
 
 /src/generated/prisma
+logs/

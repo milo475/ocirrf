@@ -25,7 +25,7 @@ async function seedUsers() {
     {
       username: 'operator@ursgal.mn',
       password: 'operator123',
-      fullName: 'Туршилт Оператор',
+      fullName: 'Туршилт Харилцагч',
       role: 'OPERATOR' as const,
     },
     {

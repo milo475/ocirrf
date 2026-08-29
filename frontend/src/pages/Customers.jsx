@@ -16,7 +16,9 @@ export default function Customers() {
   const toast = useToast()
   const navigate = useNavigate()
 
-  const [tab, setTab] = useState('registered')
+  // Харилцагч = бараа нийлүүлдэг түнш (системд OPERATOR эрхтэй) — default таб
+  const [tab, setTab] = useState('partners')
+  const [partners, setPartners] = useState(null)
   const [registered, setRegistered] = useState(null)
   const [byPhone, setByPhone] = useState(null)
   const [error, setError] = useState(null)
@@ -26,6 +28,7 @@ export default function Customers() {
 
   const load = useCallback(() => {
     setError(null)
+    api('/customers/partners').then(setPartners).catch((e) => setError(e))
     api('/customers/registered').then(setRegistered).catch((e) => setError(e))
     api('/customers/by-phone').then(setByPhone).catch((e) => setError(e))
   }, [])
@@ -51,6 +54,66 @@ export default function Customers() {
   }
 
   const goOrders = (phone) => navigate(`/orders?search=${phone}`)
+
+  /** Харилцагч (түнш) — нэр, холбоо, захиалгын статистик */
+  const partnerColumns = [
+    { key: 'name', header: t('Нэр') },
+    {
+      key: 'email',
+      header: t('Имэйл'),
+      render: (c) => <span className="font-mono text-sm">{c.email}</span>,
+    },
+    {
+      key: 'phone',
+      header: t('Утас'),
+      render: (c) => (
+        <span className="font-mono tabular-nums">{c.phone ?? '—'}</span>
+      ),
+    },
+    {
+      key: 'orders',
+      header: t('Захиалга'),
+      align: 'right',
+      render: (c) => <span className="font-mono tabular-nums">{c.orders}</span>,
+    },
+    {
+      key: 'total',
+      header: t('Нийт дүн'),
+      align: 'right',
+      render: (c) => (
+        <span className="font-mono tabular-nums">
+          {formatMoney(c.totalAmount)}
+        </span>
+      ),
+    },
+    {
+      key: 'last',
+      header: t('Сүүлийн захиалга'),
+      render: (c) =>
+        c.lastOrderAt ? (
+          <span className="font-mono text-xs text-ink-muted tabular-nums">
+            {formatDateTime(c.lastOrderAt)}
+          </span>
+        ) : (
+          <span className="text-ink-muted">—</span>
+        ),
+    },
+    {
+      key: 'active',
+      header: t('Идэвхтэй'),
+      render: (c) => (
+        <span
+          className={`inline-flex font-mono text-[10px] uppercase tracking-wide border rounded px-1 py-0.5 ${
+            c.isActive
+              ? 'text-safe border-safe/40 bg-safe/12'
+              : 'text-alarm border-alarm/40 bg-alarm/10'
+          }`}
+        >
+          {t(c.isActive ? 'Идэвхтэй' : 'Идэвхгүй')}
+        </span>
+      ),
+    },
+  ]
 
   const registeredColumns = [
     { key: 'name', header: t('Нэр') },
@@ -149,11 +212,12 @@ export default function Customers() {
     <div>
       <h1 className="font-serif text-4xl font-medium">{t('Харилцагчид')}</h1>
 
-      <div className="mt-8 flex gap-1 border-b border-rule pb-3">
+      <div className="mt-8 flex gap-1 border-b border-rule pb-3 flex-wrap">
         {[
-          ['registered', 'Бүртгэлтэй'],
-          ['phone', 'Утасны захиалгаас'],
-        ].map(([key, label]) => (
+          ['partners', 'Харилцагчид', partners],
+          ['phone', 'Захиалгын хүлээн авагчид', byPhone],
+          ['registered', 'Портал хэрэглэгчид', registered],
+        ].map(([key, label, list]) => (
           <button
             key={key}
             type="button"
@@ -163,6 +227,11 @@ export default function Customers() {
             }`}
           >
             {t(label)}
+            {list && (
+              <span className="ml-1.5 font-mono text-xs text-ink-muted">
+                ({list.length})
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -174,6 +243,18 @@ export default function Customers() {
             note={error.message}
             action={<Button onClick={load}>{t('Дахин оролдох')}</Button>}
           />
+        ) : tab === 'partners' ? (
+          !partners ? (
+            <div className="py-16 text-center">
+              <Spinner size={22} />
+            </div>
+          ) : (
+            <Table
+              columns={partnerColumns}
+              rows={partners}
+              empty={t('Харилцагч алга — Хэрэглэгчид хуудаснаас «Харилцагч» эрхтэйгээр бүртгэнэ')}
+            />
+          )
         ) : tab === 'registered' ? (
           !registered ? (
             <div className="py-16 text-center">
@@ -184,7 +265,7 @@ export default function Customers() {
               columns={registeredColumns}
               rows={registered}
               onRowClick={(c) => c.phone && goOrders(c.phone)}
-              empty={t('Бүртгэлтэй харилцагч алга')}
+              empty={t('Бүртгэлтэй харилцагч алга — portal-аар бүртгүүлсэн хэрэглэгчид энд гарна')}
             />
           )
         ) : !byPhone ? (

@@ -60,15 +60,21 @@ export class UsersController {
     return this.usersService.resetPassword(id);
   }
 
-  /** Permission Panel — permissions.manage шаардана (default: зөвхөн ADMIN) */
+  /**
+   * Permission Panel — users.manage БА permissions.manage хоёуланг шаардана.
+   * Reflector.getAllAndOverride нь handler-ийн метаданныг класс-ынхтай
+   * НИЙЛҮҮЛДЭГГҮЙ, СОЛЬДОГ тул class-level users.manage энд автоматаар
+   * үйлчлэхгүй — хоёуланг ил бичнэ. Эс тэгвэл зөвхөн permissions.manage-тэй
+   * хүн users.manage-гүйгээр өөртөө дурын эрх олгож чадна.
+   */
   @Get(':id/permissions')
-  @RequirePermission(PERM.PERMISSIONS_MANAGE)
+  @RequirePermission(PERM.USERS_MANAGE, PERM.PERMISSIONS_MANAGE)
   getPermissions(@Param('id', ParseUUIDPipe) id: string) {
     return this.permissionsService.getPanel(id);
   }
 
   @Put(':id/permissions')
-  @RequirePermission(PERM.PERMISSIONS_MANAGE)
+  @RequirePermission(PERM.USERS_MANAGE, PERM.PERMISSIONS_MANAGE)
   updatePermissions(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateUserPermissionsDto,

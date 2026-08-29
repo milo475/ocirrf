@@ -7,9 +7,11 @@ import Select from '../ui/Select'
 import { useToast } from '../ui/Toast'
 
 /**
- * Жолооч хуваарилах (ADMIN/MANAGER). Жолоочдын жагсаалт + ачааллыг
- * /api/dashboard/manager-ийн driverLoad-оос авдаг (MANAGER-т нээлттэй
- * цорын ганц эх сурвалж).
+ * Жолооч хуваарилах. Жолоочдын жагсаалтыг GET /api/drivers-ээс авна —
+ * тэр endpoint нь drivers.view ЭСВЭЛ orders.assign_driver-ийн аль нэгийг
+ * шаардана. (Өмнө нь @Roles(MANAGER, ADMIN)-тай /api/dashboard/manager-ээс
+ * уншдаг байсан тул orders.assign_driver override авсан OPERATOR-т товч
+ * гарч ирээд dropdown хоосон, 403 алдаа өгдөг байв.)
  */
 export default function AssignDriverModal({ order, onClose, onDone }) {
   const { t } = useLang()
@@ -20,8 +22,8 @@ export default function AssignDriverModal({ order, onClose, onDone }) {
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    api('/dashboard/manager')
-      .then((d) => setDrivers(d.driverLoad))
+    api('/drivers')
+      .then((list) => setDrivers(list.filter((d) => d.isActive)))
       .catch((e) => setError(e.message))
   }, [])
 

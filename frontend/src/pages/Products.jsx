@@ -13,7 +13,7 @@ import Table from '../components/ui/Table'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../context/AuthContext'
 import { useLang } from '../context/LanguageContext'
-import { api } from '../lib/api'
+import { api, apiBlob, apiUpload } from '../lib/api'
 import { formatMoney } from '../lib/format'
 
 const LIMIT = 20
@@ -44,6 +44,10 @@ export default function Products() {
   const [search, setSearch] = useState('')
   const [categoryId, setCategoryId] = useState('')
   const [lowStockOnly, setLowStockOnly] = useState(false)
+  // Backend-ийн default нь isActive=true тул шүүлт илгээхгүй бол
+  // идэвхгүй бараа ХЭЗЭЭ Ч харагдахгүй — "Идэвхгүй" badge-ийн салаа код
+  // үхмэл байсан бөгөөд soft-delete хийсэн барааг эргүүлэх арга ч байгаагүй
+  const [showInactive, setShowInactive] = useState(false)
   const [page, setPage] = useState(1)
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
@@ -71,10 +75,11 @@ export default function Products() {
     if (search) q.set('search', search)
     if (categoryId) q.set('categoryId', categoryId)
     if (lowStockOnly) q.set('lowStock', 'true')
+    if (showInactive) q.set('isActive', 'false')
     api(`/products?${q}`)
       .then(setData)
       .catch((e) => setError(e))
-  }, [search, categoryId, lowStockOnly, page])
+  }, [search, categoryId, lowStockOnly, showInactive, page])
 
   useEffect(() => {
     load()
@@ -251,14 +256,17 @@ export default function Products() {
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <h1 className="font-serif text-4xl font-medium">{t('Бараа')}</h1>
         {canEdit && (
-          <Button
-            onClick={() => {
-              setEditing(null)
-              setFormOpen(true)
-            }}
-          >
-            {t('+ Шинэ бараа')}
-          </Button>
+          <span className="flex items-center gap-2">
+            <ImportButton t={t} onDone={load} />
+            <Button
+              onClick={() => {
+                setEditing(null)
+                setFormOpen(true)
+              }}
+            >
+              {t('+ Шинэ бараа')}
+            </Button>
+          </span>
         )}
       </div>
 
@@ -301,6 +309,20 @@ export default function Products() {
           }`}
         >
           {t('Бага үлдэгдэлтэй')}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setShowInactive((v) => !v)
+            setPage(1)
+          }}
+          className={`px-3 py-2 rounded border text-sm transition-colors ${
+            showInactive
+              ? 'border-ink-muted text-ink bg-surface'
+              : 'border-rule text-ink-muted hover:text-ink'
+          }`}
+        >
+          {t('Идэвхгүй')}
         </button>
       </div>
 
@@ -373,5 +395,123 @@ export default function Products() {
         onCancel={() => setDeactivating(null)}
       />
     </div>
+  )
+}
+
+/** CSV импорт (V4-12): загвар татах + файл илгээх + үр дүнгийн тайлан */
+function ImportButton({ t, onDone }) {
+  const toast = useToast()
+  const [open, setOpen] = useState(false)
+  const [file, setFile] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [result, setResult] = useState(null) // {created, updated, errors}
+
+  async function downloadTemplate() {
+    try {
+      const { blob, filename } = await apiBlob('/products/import-template.csv')
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      toast.show(e.message, { type: 'error' })
+    }
+  }
+
+  async function submit() {
+    if (!file) return
+    setBusy(true)
+    try {
+      const res = await apiUpload('/products/import', { file })
+      setResult(res)
+      setFile(null)
+      onDone()
+    } catch (e) {
+      toast.show(e.message, { type: 'error' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <>
+      <Button variant="ghost" onClick={() => setOpen(true)}>
+        ⬆ {t('Импорт')}
+      </Button>
+      <Modal
+        open={open}
+        onClose={() => {
+          setOpen(false)
+          setResult(null)
+          setFile(null)
+        }}
+        title={t('Бараа CSV импорт')}
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-ink-muted">
+            {t(
+              'SKU байвал шинэчилж, байхгүй бол шинээр үүсгэнэ. Эхний үлдэгдэл нь агуулахын INITIAL хөдөлгөөнөөр бүртгэгдэнэ.',
+            )}
+          </p>
+          <button
+            type="button"
+            onClick={downloadTemplate}
+            className="text-sm text-accent underline underline-offset-2"
+          >
+            ⬇ {t('Загвар татах (CSV)')}
+          </button>
+          <input
+            type="file"
+            accept=".csv,text/csv"
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            aria-label={t('CSV файл')}
+            className="block w-full text-sm text-ink-muted file:mr-3 file:border file:border-rule file:rounded file:bg-bg file:px-3 file:py-1.5 file:text-ink file:text-sm"
+          />
+
+          {result && (
+            <div className="border border-rule rounded p-3 text-sm space-y-1.5">
+              <p>
+                ✅ {t('Шинээр үүссэн')}:{' '}
+                <b className="font-mono">{result.created}</b> ·{' '}
+                {t('Шинэчилсэн')}: <b className="font-mono">{result.updated}</b>
+              </p>
+              {result.errors.length > 0 && (
+                <div className="text-alarm">
+                  <p>
+                    ⚠ {t('Алдаатай мөр')}: {result.errors.length}
+                  </p>
+                  <ul className="mt-1 space-y-0.5 text-xs">
+                    {result.errors.map((e) => (
+                      <li key={e.row} className="font-mono">
+                        {t('Мөр')} {e.row}: {e.reason}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-1">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setOpen(false)
+                setResult(null)
+                setFile(null)
+              }}
+              disabled={busy}
+            >
+              {t('Хаах')}
+            </Button>
+            <Button onClick={submit} loading={busy} disabled={!file}>
+              {t('Импортлох')}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    </>
   )
 }

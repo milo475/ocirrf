@@ -56,13 +56,20 @@ export class DeliveryService {
       );
     }
 
-    // Зөвхөн CONFIRMED эсвэл PREPARING(=PACKED) захиалгад хуваарилна
-    if (
-      order.orderStatus !== OrderStatus.CONFIRMED &&
-      order.orderStatus !== OrderStatus.PREPARING
-    ) {
+    // CONFIRMED / PREPARING(=PACKED) / READY захиалгад хуваарилна.
+    // READY нь "гарахад бэлэн" — жолооч хуваарилах хамгийн байгалийн
+    // мөч. Урьд нь зөвшөөрөгддөггүй байсан тул PREPARING үед хуваарилаад
+    // READY болгосны дараа хүргэлт нь FAILED болвол дахин хуваарилах
+    // ямар ч арга үлддэггүй байв (мухардмал: захиалга COMPLETED руу ч
+    // явахгүй, шинэ жолоочид ч өгөгдөхгүй).
+    const ASSIGNABLE: OrderStatus[] = [
+      OrderStatus.CONFIRMED,
+      OrderStatus.PREPARING,
+      OrderStatus.READY,
+    ];
+    if (!ASSIGNABLE.includes(order.orderStatus)) {
       throw new BadRequestException(
-        `${order.orderStatus} төлөвтэй захиалгад жолооч хуваарилах боломжгүй (CONFIRMED эсвэл PREPARING байх ёстой)`,
+        `${order.orderStatus} төлөвтэй захиалгад жолооч хуваарилах боломжгүй (CONFIRMED, PREPARING эсвэл READY байх ёстой)`,
       );
     }
 
@@ -355,6 +362,39 @@ export class DeliveryService {
       ),
     );
     return { ok: true, count: orderIds.length };
+  }
+
+  /**
+   * Жолооч замд гарлаа гэж тэмдэглэнэ: ASSIGNED → ON_THE_WAY.
+   *
+   * ON_THE_WAY төлөв нь enum-д, ops самбарын баганад, жолоочийн
+   * ачааллын тоололд — нийт 12 газарт УНШИГДДАГ байсан ч түүнийг
+   * БИЧДЭГ код байхгүй байсан (жолооч ASSIGNED-аас шууд DELIVERED рүү
+   * үсэрдэг). Энэ endpoint тэр цоорхойг нөхнө: диспетчер жолооч гарсан
+   * эсэхийг самбар дээр бодитоор харна.
+   */
+  async start(orderId: string, driverId: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+    });
+    if (!order) {
+      throw new NotFoundException('Захиалга олдсонгүй');
+    }
+    if (order.assignedDriverId !== driverId) {
+      throw new ForbiddenException('Энэ хүргэлт танд хуваарилагдаагүй');
+    }
+    if (order.deliveryStatus === DeliveryStatus.ON_THE_WAY) {
+      return order; // идемпотент — офлайн дараалал давхар илгээж болно
+    }
+    if (order.deliveryStatus !== DeliveryStatus.ASSIGNED) {
+      throw new BadRequestException(
+        'Зөвхөн хуваарилагдсан хүргэлтэд «замд гарлаа» гэж тэмдэглэнэ',
+      );
+    }
+    return this.prisma.order.update({
+      where: { id: orderId },
+      data: { deliveryStatus: DeliveryStatus.ON_THE_WAY },
+    });
   }
 
   /** Хүргэлт баталгаажуулах (зурагтай) эсвэл амжилтгүй гэж тэмдэглэх */

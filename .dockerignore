@@ -1,0 +1,11 @@
+# Docker build context-ээс хасах (V4-15)
+**/node_modules
+**/dist
+backend/uploads
+backend/logs
+backend/src/generated
+.git
+.github
+.env
+**/.env
+*.md

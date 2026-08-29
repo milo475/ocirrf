@@ -117,3 +117,74 @@ v3-д нэмэгдсэн зүйлс байршуулалтад нэмэлт то
   хүснэгтэд — UI-ийн /settings хуудаснаас удирдана.
 - Smoke: `bash backend/scripts/smoke-test-v3.sh` (v1: smoke-test.sh,
   v2: smoke-test-v2.sh).
+
+## 8. Жолоочийн PWA (V4-10)
+
+Систем PWA тул жолооч утсандаа app шиг суулгаж болно:
+
+**Android (Chrome):**
+1. Chrome-оор системийн хаягаа нээж жолоочоор нэвтэрнэ.
+2. Баруун дээд ⋮ цэс → **"Add to Home screen" / "Нүүр дэлгэцэд нэмэх"**.
+3. Нэрийг баталгаажуулаад **Add** — нүүр дэлгэц дээр ursGAL icon үүснэ.
+4. Icon-оос нээхэд бүтэн дэлгэцээр (standalone) ажиллана.
+
+**iPhone (Safari):** Share товч → **"Add to Home Screen"**.
+
+Offline горим:
+- Сүлжээгүй үед app нээгдэж, хүргэлтийн жагсаалтын сүүлчийн
+  амжилттай хуулбар харагдана (топбарт улаан "Офлайн" индикатор).
+- Хүргэлт баталгаажуулбал зурагтайгаа төхөөрөмжид (IndexedDB)
+  хадгалагдаж, сүлжээ сэргэмэгц автоматаар илгээгдэнэ —
+  "Миний хүргэлт" дээр хүлээгдэж буй тоо харагдана.
+
+## 9. Алдааны лог (V4-14)
+
+- Catch болоогүй бүх 500 алдаа `backend/logs/error-YYYY-MM-DD.log`
+  файлд JSON мөрөөр бичигдэнэ (timestamp, path, method, userId,
+  message, stack). 14 хоногоос хуучин файл автоматаар устдаг.
+  Байршлыг `LOGS_DIR` env-ээр өөрчилж болно.
+- UI: `/activity-log` → "Системийн алдаа" таб (activity_log.view эрхтэйд).
+- Cron шалгалт:
+
+```bash
+# Өглөө бүр 09:00-д өнөөдрийн алдааны тоог шалгана
+0 9 * * * bash /path/to/ursGAL/backend/scripts/check-errors.sh >> /var/log/ursgal-errors.log 2>&1
+```
+
+## 10. Docker-оор байршуулах (V4-15)
+
+Нэг командаар бүх зүйл (Postgres + app) асна:
+
+```bash
+cp .env.example .env        # JWT нууцуудаа заавал солино (openssl rand -hex 32)
+docker compose up -d        # build → migrate → (эхний удаа) seed → сервер
+```
+
+- `db` — postgres:16, өгөгдөл `dbdata` volume-д хадгалагдана.
+- `app` — backend/Dockerfile (multi-stage: backend + frontend build →
+  node:20-slim runtime). Эхлэхдээ `prisma migrate deploy` ажиллуулж,
+  User хүснэгт ХООСОН үед л seed хийнэ (дараагийн restart бодит
+  өгөгдлийг дарахгүй). Зураг `uploads`, алдааны лог `logs` volume-д.
+- Health: `curl http://localhost:3000/api/health` → `{"status":"ok","db":true}`.
+- Шинэ хувилбар: `git pull && docker compose up -d --build`.
+- Зогсоох: `docker compose down` (өгөгдөл үлдэнэ);
+  `down -v` — volume-уудтай нь БҮРЭН устгана (болгоомжтой!).
+- Smoke: `bash backend/scripts/smoke-test-v3.sh` (host дээрээс).
+
+CI-ийн "Docker compose (smoke)" job push бүрт яг энэ урсгалыг цэвэр
+орчинд бүрэн ажиллуулж баталдаг.
+
+## 11. v4 модулиуд (2026-08 өргөтгөл)
+
+| Модуль | Гол зүйл |
+|---|---|
+| finance/payments | ОРЛОГО = ТӨЛБӨР: POST /orders/:id/payments, авлага GET /finance/receivables |
+| orders/returns | POST /orders/:id/return — restock/refund/payroll хасалт нэг transaction-д |
+| settings/tariffs | GET/PUT /settings/tariffs — тарифын лавлагаа (захиалгад автоматаар нэмэгдэхгүй) |
+| auth хамгаалалт | reset-password (түр нууц үг), rate limit, түгжилт + unlock, refresh rotation, logout revoke |
+| notifications/sse | GET /notifications/stream (token query) — real-time push |
+| products/import | GET import-template.csv, POST /products/import, barcode unique |
+| logging | logs/error-YYYY-MM-DD.log + GET /admin/errors + scripts/check-errors.sh |
+| CI/Docker | .github/workflows/ci.yml (e2e + docker smoke), docker compose up -d |
+
+Smoke: `bash backend/scripts/smoke-test-v4.sh` (v2/v3-ийнхтэй хамт).

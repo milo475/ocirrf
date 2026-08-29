@@ -18,7 +18,9 @@ import { UpdateCategoryDto } from './dto/update-category.dto';
 export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
 
+  /** Барааны хуудас уншина — inventory.view (DRIVER/CUSTOMER-т хаалттай) */
   @Get()
+  @RequirePermission(PERM.INVENTORY_VIEW)
   findAll() {
     return this.categoriesService.findAll();
   }

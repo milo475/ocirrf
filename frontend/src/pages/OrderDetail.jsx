@@ -17,6 +17,7 @@ import { useLang } from '../context/LanguageContext'
 import { useAuth } from '../context/AuthContext'
 import { api } from '../lib/api'
 import { formatDateTime, formatMoney } from '../lib/format'
+import { openPickingSheet } from '../lib/pickingSheet'
 import { TRANSITIONS, TRANSITION_LABELS } from '../lib/orderStatus'
 
 function InfoItem({ label, value }) {
@@ -51,6 +52,37 @@ export default function OrderDetail() {
   useEffect(() => {
     load()
   }, [load])
+
+  /**
+   * Бэлтгэх хуудас хэвлэх. Orders.jsx-тэй ижил: SKU-г бараануудаас
+   * best-effort татаж дамжуулна (өмнө нь 3 дахь аргумент дамждаггүй
+   * тул SKU багана үргэлж хоосон гардаг байсан), popup хаагдсан бол
+   * чимээгүй өнгөрөхгүй.
+   */
+  const [printing, setPrinting] = useState(false)
+  async function printPickingSheet() {
+    setPrinting(true)
+    try {
+      const skuById = {}
+      if (hasPerm('inventory.view')) {
+        const pids = [...new Set(order.items.map((i) => i.productId))]
+        await Promise.all(
+          pids.slice(0, 30).map((pid) =>
+            api(`/products/${pid}`)
+              .then((p) => {
+                skuById[pid] = p.sku
+              })
+              .catch(() => {}),
+          ),
+        )
+      }
+      if (!openPickingSheet([order], t, skuById)) {
+        toast.show(t('Popup хориглогдсон — зөвшөөрнө үү'), { type: 'error' })
+      }
+    } finally {
+      setPrinting(false)
+    }
+  }
 
   async function transition(status) {
     setBusy(true)
@@ -113,12 +145,22 @@ export default function OrderDetail() {
           <Badge status={order.orderStatus} />
           <Badge status={order.deliveryStatus} />
           <ReturnBadge state={order.returnState} />
+          {/* Бэлтгэх хуудас (V4-11) — нэг захиалгаар */}
+          {['CONFIRMED', 'PREPARING'].includes(order.orderStatus) && (
+            <Button
+              variant="ghost"
+              loading={printing}
+              onClick={printPickingSheet}
+            >
+              🖨 {t('Бэлтгэх хуудас')}
+            </Button>
+          )}
         </span>
       </div>
 
       {/* Толгой мэдээлэл */}
       <section className="mt-8 grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-5">
-        <InfoItem label={t('Харилцагч')} value={order.customerName} />
+        <InfoItem label={t('Хүлээн авагч')} value={order.customerName} />
         <InfoItem
           label={t('Утас')}
           value={<span className="font-mono tabular-nums">{order.phone}</span>}

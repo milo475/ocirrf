@@ -12,7 +12,7 @@ import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../context/AuthContext'
 import { useLang } from '../context/LanguageContext'
 import { api } from '../lib/api'
-import { formatDateTime, formatMoney } from '../lib/format'
+import { formatDateTime, formatMoney, formatMoneyRound } from '../lib/format'
 
 const LIMIT = 20
 const CATEGORIES = {
@@ -20,8 +20,15 @@ const CATEGORIES = {
   EXPENSE: ['Түрээс', 'Тээвэр', 'Хангамж', 'Цалин', 'Бусад зарлага'],
 }
 /** Системийн авто ангиллуудын харагдах нэр */
+/**
+ * Backend-ийн автомат ангилалууд. Эдгээр нь FinanceService/PaymentsService/
+ * ReturnsService-ийн бичдэг ЯГ утгууд — 'ORDER' гэсэн утгыг backend хэзээ ч
+ * бичдэггүй байсан тул PAYMENT/REFUND бичилтүүд "авто" гэж танигдахгүй,
+ * захиалга руу линкгүй харагддаг байв.
+ */
 const AUTO_CATEGORY = {
-  ORDER: 'Захиалга (авто)',
+  PAYMENT: 'Захиалгын төлбөр',
+  REFUND: 'Буцаалт',
   DRIVER_PAYROLL: 'Жолоочийн цалин',
 }
 
@@ -184,7 +191,7 @@ export default function Finance() {
       key: 'ref',
       header: '',
       render: (e) =>
-        e.category === 'ORDER' && e.refOrderId ? (
+        e.refOrderId && e.category !== 'DRIVER_PAYROLL' ? (
           <Link
             to={`/orders/${e.refOrderId}`}
             className="text-xs text-accent hover:underline underline-offset-2"
@@ -229,16 +236,16 @@ export default function Finance() {
       {canViewBoth && summary && (
         <section className="mt-8 border-t border-rule pt-6">
           <div className="grid md:grid-cols-[auto_1fr] gap-8 items-start">
-            <div className="flex md:divide-x divide-rule">
+            <div className="flex [&>*]:basis-44 [&>*]:shrink-0 [&>*]:min-w-0 md:divide-x divide-rule">
               <MetricCard
                 label={t('Нийт орлого')}
-                value={formatMoney(summary.income)}
+                value={formatMoneyRound(summary.income)}
               />
               <MetricCard
                 label={t('Нийт зарлага')}
-                value={formatMoney(summary.expense)}
+                value={formatMoneyRound(summary.expense)}
               />
-              <MetricCard label={t('Зөрүү')} value={formatMoney(summary.net)} />
+              <MetricCard label={t('Зөрүү')} value={formatMoneyRound(summary.net)} />
             </div>
             <div className="min-w-0">
               <p className="text-xs uppercase tracking-wide text-ink-muted mb-2">
@@ -335,7 +342,7 @@ function Receivables({ data, t }) {
       header: t('№'),
       render: (r) => <span className="font-mono text-sm">{r.orderNo}</span>,
     },
-    { key: 'customerName', header: t('Харилцагч') },
+    { key: 'customerName', header: t('Хүлээн авагч') },
     {
       key: 'phone',
       header: t('Утас'),
@@ -386,10 +393,10 @@ function Receivables({ data, t }) {
   ]
   return (
     <div>
-      <div className="mb-5 flex md:divide-x divide-rule">
+      <div className="mb-5 flex [&>*]:basis-44 [&>*]:shrink-0 [&>*]:min-w-0 md:divide-x divide-rule">
         <MetricCard
           label={t('Нийт авлага')}
-          value={formatMoney(data.totalRemaining)}
+          value={formatMoneyRound(data.totalRemaining)}
           sub={t('{n} захиалга', { n: data.count })}
         />
       </div>

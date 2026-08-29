@@ -44,6 +44,6 @@ export class QueryProductsDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(100)
+  @Max(200) // каталог нэг дор ачаалагдана
   limit?: number = 20;
 }

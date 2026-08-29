@@ -7,6 +7,7 @@ import {
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'node:crypto';
 import { DeliveryStatus } from '../generated/prisma/client';
+import { PermissionsService } from '../permissions/permissions.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { QueryUsersDto } from './dto/query-users.dto';
@@ -41,7 +42,10 @@ const SAFE_SELECT = {
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly permissions: PermissionsService,
+  ) {}
 
   findAll(query: QueryUsersDto) {
     return this.prisma.user.findMany({
@@ -138,7 +142,7 @@ export class UsersService {
       data.passwordHash = await bcrypt.hash(dto.password, 10);
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       await tx.user.update({ where: { id }, data });
 
       // Идэвхгүй болгоход бүх refresh token шууд унтарна (V4-08)
@@ -176,6 +180,14 @@ export class UsersService {
 
       return tx.user.findUnique({ where: { id }, select: SAFE_SELECT });
     });
+
+    // Permission cache нь userId-оор түлхүүрлэгддэг ч утга нь role-оос
+    // хамаардаг: эрх солигдоход шууд цэвэрлэнэ, эс тэгвэл хуучин role-ийн
+    // permission 60 секунд хүртэл хүчинтэй хэвээр үлдэнэ.
+    if (dto.role !== undefined && dto.role !== user.role) {
+      this.permissions.invalidate(id);
+    }
+    return result;
   }
 
   /**
