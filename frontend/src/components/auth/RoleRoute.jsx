@@ -4,7 +4,6 @@ import { useAuth } from '../../context/AuthContext'
 /** Хэрэглэгчийн эрхээс хамаарсан "нүүр" зам */
 export function homeFor(role) {
   if (role === 'DRIVER') return '/deliveries'
-  if (role === 'CUSTOMER') return '/portal'
   return '/'
 }
 

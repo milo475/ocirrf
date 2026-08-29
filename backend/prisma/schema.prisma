@@ -13,7 +13,6 @@ enum Role {
   MANAGER
   OPERATOR
   DRIVER
-  CUSTOMER
 }
 
 enum OrderStatus {
@@ -65,7 +64,7 @@ model User {
   username     String   @unique
   passwordHash String
   fullName     String
-  phone        String? // CUSTOMER-ийн үндсэн утас (захиалгын default)
+  phone        String? // холбоо барих утас
   role         Role     @default(OPERATOR)
   isActive     Boolean  @default(true)
   /// Түр нууц үгээр нэвтэрсэн — солитол бусад API 403 (V4-06)
@@ -85,7 +84,6 @@ model User {
   driverPayouts  DriverPayout[]  @relation("DriverPayouts")
   payoutsCreated DriverPayout[]  @relation("PayoutsCreated")
   notifications  Notification[]
-  customerOrders Order[]         @relation("CustomerOrders")
   paymentsReceived Payment[]     @relation("PaymentsReceived")
   returnsCreated   OrderReturn[] @relation("ReturnsCreated")
   refreshTokens    RefreshToken[]
@@ -105,16 +103,6 @@ model RefreshToken {
   createdAt    DateTime  @default(now())
 
   @@index([userId])
-}
-
-/// Хүргэлтийн тариф (v4): district=null → тухайн region-ий default
-model DeliveryTariff {
-  id       String         @id @default(uuid())
-  region   DeliveryRegion
-  district String?
-  fee      Decimal        @db.Decimal(12, 2)
-
-  @@unique([region, district])
 }
 
 /// Захиалгын буцаалт (v4) — бүтэн/хэсэгчилсэн
@@ -295,7 +283,6 @@ model Order {
 
   note           String?
   totalAmount    Decimal        @default(0) @db.Decimal(12, 2)
-  deliveryFee    Decimal        @default(0) @db.Decimal(12, 2) // хүргэлтийн хөлс (v4) — totalAmount-д орсон
   orderStatus    OrderStatus    @default(NEW)
   deliveryStatus DeliveryStatus @default(PENDING)
   createdById    String
@@ -322,13 +309,10 @@ model Order {
   // Жолоочийн маршрутын дараалал (1..n, тухайн жолоочийн идэвхтэй хүргэлтэд)
   routeOrder Int?
 
-  // Portal (v3): CUSTOMER хэрэглэгч өөрөө үүсгэсэн бол
-  customerId String?
 
   createdBy      User          @relation("CreatedOrders", fields: [createdById], references: [id])
   assignedDriver User?         @relation("AssignedOrders", fields: [assignedDriverId], references: [id])
   payout         DriverPayout? @relation("PayoutOrders", fields: [payoutId], references: [id])
-  customerUser   User?         @relation("CustomerOrders", fields: [customerId], references: [id])
   items          OrderItem[]
   payments       Payment[]
   returns        OrderReturn[]

@@ -66,31 +66,17 @@ export class OrdersService {
    * зөв байдлыг нь DB-ийн constraint өөрөө баталгаажуулдаг тул энэ аргыг сонгосон.
    */
   async create(dto: CreateOrderDto, user: AuthUser) {
-    // CUSTOMER тусгай зам: permission биш role-оор зөвшөөрөгдөнө,
-    // бусад нь orders.create permission шаардана
-    const isCustomer = user.role === 'CUSTOMER';
-    if (!isCustomer) {
-      const allowed = await this.permissions.has(
-        user.id,
-        user.role,
-        PERM.ORDERS_CREATE,
-      );
-      if (!allowed) {
-        throw new ForbiddenException('Хандах эрх байхгүй');
-      }
+    const allowed = await this.permissions.has(
+      user.id,
+      user.role,
+      PERM.ORDERS_CREATE,
+    );
+    if (!allowed) {
+      throw new ForbiddenException('Хандах эрх байхгүй');
     }
 
-    // Утас: customer орхивол профайлын утас default
-    let phone = dto.customerPhone ?? null;
-    let customerName = dto.customerName ?? null;
-    if (isCustomer && (!phone || !customerName)) {
-      const profile = await this.prisma.user.findUnique({
-        where: { id: user.id },
-        select: { phone: true, fullName: true },
-      });
-      phone = phone ?? profile?.phone ?? null;
-      customerName = customerName ?? profile?.fullName ?? null;
-    }
+    const phone = dto.customerPhone ?? null;
+    const customerName = dto.customerName ?? null;
     if (!phone) {
       throw new BadRequestException('Утасны дугаар заавал');
     }
@@ -100,13 +86,6 @@ export class OrdersService {
       throw new BadRequestException('Нэг бараа давхардаж орсон байна');
     }
 
-    // Хүргэлтийн хөлс: хэрэглэгчийн хүсэлтээр шинэ захиалгад автоматаар
-    // НЭМЭГДЭХГҮЙ (default 0). Staff dto.deliveryFee-ээр гараар өгч болно;
-    // тарифын хүснэгт (V4-05) лавлагаа болж үлдсэн.
-    const deliveryFee =
-      !isCustomer && dto.deliveryFee !== undefined
-        ? new Prisma.Decimal(dto.deliveryFee)
-        : new Prisma.Decimal(0);
 
     const MAX_ATTEMPTS = 3;
     for (let attempt = 1; ; attempt++) {
@@ -117,17 +96,11 @@ export class OrdersService {
           ids,
           phone,
           customerName,
-          isCustomer ? user.id : null,
-          deliveryFee,
-          // "Төлсөн" флаг зөвхөн staff-д — customer өөрөө тэмдэглэхгүй
-          !isCustomer && dto.paid === true,
+          dto.paid === true,
         );
         // Transaction амжилттай болсны ДАРАА мэдэгдэнэ (rollback-д илгээхгүй)
         for (const p of lowStockCrossed) {
           await this.notifications.notifyLowStock(p);
-        }
-        if (isCustomer) {
-          await this.notifications.notifyCustomerOrder(order);
         }
         return order;
       } catch (e) {
@@ -145,8 +118,6 @@ export class OrdersService {
     ids: string[],
     phone: string,
     customerName: string | null,
-    customerId: string | null,
-    deliveryFee: Prisma.Decimal,
     markPaid: boolean,
   ) {
     const lowStockCrossed: {
@@ -202,9 +173,8 @@ export class OrdersService {
       const nextNum = maxNum + 1;
       const orderNo = prefix + String(nextNum).padStart(4, '0');
 
-      // 3–4. Snapshot + нийт дүн (Decimal — float хэрэглэхгүй).
-      // V4-05: нийт дүн = барааны нийлбэр + хүргэлтийн хөлс
-      let totalAmount = deliveryFee;
+      // 3–4. Snapshot + нийт дүн (Decimal — float хэрэглэхгүй)
+      let totalAmount = new Prisma.Decimal(0);
       const itemsData = dto.items.map((item) => {
         const product = byId.get(item.productId)!;
         const lineTotal = product.price.mul(item.qty);
@@ -227,7 +197,6 @@ export class OrdersService {
           orderNo,
           customerName,
           phone,
-          customerId,
           extraPhone: dto.extraPhone ?? null,
           region: dto.region,
           district: isUB ? dto.district : null,
@@ -242,7 +211,6 @@ export class OrdersService {
           addressDetail: isUB ? null : (dto.addressDetail ?? null),
           note: dto.note,
           totalAmount,
-          deliveryFee,
           createdById: userId,
           items: { create: itemsData },
         },
@@ -383,7 +351,6 @@ export class OrdersService {
 
         return cancelled;
       });
-      await this.notifyCustomerStatus(order.customerId, cancelled);
       return cancelled;
     }
 
@@ -396,17 +363,7 @@ export class OrdersService {
       data: { orderStatus: status },
       include: { items: true, createdBy: CREATED_BY_SELECT },
     });
-    await this.notifyCustomerStatus(order.customerId, updated);
     return updated;
-  }
-
-  /** Онлайн захиалагчид статусын өөрчлөлтөө мэдэгдэнэ */
-  private async notifyCustomerStatus(
-    customerId: string | null,
-    order: { id: string; orderNo: string; orderStatus: OrderStatus },
-  ) {
-    if (!customerId) return;
-    await this.notifications.notifyOrderStatus(customerId, order);
   }
 
   async findOne(id: string) {

@@ -18,13 +18,11 @@ import { Public } from './decorators/public.decorator';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
-import { RegisterDto } from './dto/register.dto';
 
-// Rate limit (V4-07): IP тутамд login 5/мин, register 3/мин.
+// Rate limit (V4-07): IP тутамд login 5/мин.
 // Тест орчинд AUTH_RATE_LIMIT env-ээр өндөр лимит тавьдаг.
 const ENV_LIMIT = parseInt(process.env.AUTH_RATE_LIMIT ?? '', 10);
 const LOGIN_LIMIT = Number.isFinite(ENV_LIMIT) ? ENV_LIMIT : 5;
-const REGISTER_LIMIT = Number.isFinite(ENV_LIMIT) ? ENV_LIMIT : 3;
 // change-password нь ХУУЧИН нууц үгийг хязгааргүй таах суваг байсан —
 // login-тэй ижил хатуу лимиттэй болголоо.
 const CHANGE_PASSWORD_LIMIT = Number.isFinite(ENV_LIMIT) ? ENV_LIMIT : 5;
@@ -48,13 +46,6 @@ export class AuthController {
     return this.authService.login(dto);
   }
 
-  @Public()
-  @Post('register')
-  @UseGuards(AuthThrottlerGuard)
-  @Throttle({ default: { limit: REGISTER_LIMIT, ttl: 60_000 } })
-  register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
-  }
 
   @Public()
   @Post('refresh')

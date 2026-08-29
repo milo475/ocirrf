@@ -23,7 +23,6 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { OrdersModule } from './orders/orders.module';
 import { PermissionsGuard } from './permissions/permissions.guard';
 import { PermissionsModule } from './permissions/permissions.module';
-import { PortalModule } from './portal/portal.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { ReportsModule } from './reports/reports.module';
 import { SettingsModule } from './settings/settings.module';
@@ -77,7 +76,6 @@ import { UsersModule } from './users/users.module';
     FinanceModule,
     NotificationsModule,
     ActivityLogModule,
-    PortalModule,
     CustomersModule,
     SettingsModule,
     AnalyticsModule,

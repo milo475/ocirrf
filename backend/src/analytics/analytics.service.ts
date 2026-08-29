@@ -206,7 +206,7 @@ export class AnalyticsService {
     });
   }
 
-  /** Шинэ vs давтан харилцагч (customerId эсвэл утсаар) + TOP-10 */
+  /** Шинэ vs давтан хүлээн авагч (утсаар бүлэглэнэ) + TOP-10 */
   async customers() {
     const groups = await this.prisma.order.groupBy({
       by: ['phone'],
@@ -226,7 +226,7 @@ export class AnalyticsService {
         this.prisma.order.findFirst({
           where: { phone: g.phone },
           orderBy: { createdAt: 'desc' },
-          select: { customerName: true, customerId: true },
+          select: { customerName: true },
         }),
       ),
     );
@@ -237,7 +237,6 @@ export class AnalyticsService {
       topCustomers: top.map((g, i) => ({
         phone: g.phone,
         name: names[i]?.customerName ?? '—',
-        isPortal: !!names[i]?.customerId, // онлайн бүртгэлтэй эсэх
         orders: g._count._all,
         totalAmount: g._sum.totalAmount ?? 0,
       })),

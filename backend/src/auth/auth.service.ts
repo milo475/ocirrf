@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ConflictException,
   HttpException,
   HttpStatus,
   Injectable,
@@ -16,7 +15,6 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
-import { RegisterDto } from './dto/register.dto';
 
 export type JwtPayload = { sub: string; role: string; jti?: string };
 
@@ -82,25 +80,6 @@ export class AuthService {
     return this.issueTokens(updated);
   }
 
-  /** Харилцагчийн өөрийн бүртгэл — үргэлж CUSTOMER эрхтэй */
-  async register(dto: RegisterDto) {
-    const exists = await this.prisma.user.findUnique({
-      where: { username: dto.email },
-    });
-    if (exists) {
-      throw new ConflictException('Энэ имэйл аль хэдийн бүртгэлтэй байна');
-    }
-    const user = await this.prisma.user.create({
-      data: {
-        username: dto.email,
-        fullName: dto.name.trim(),
-        phone: dto.phone,
-        passwordHash: await bcrypt.hash(dto.password, 10),
-        role: Role.CUSTOMER,
-      },
-    });
-    return this.issueTokens(user);
-  }
 
   /**
    * Refresh + ROTATION (V4-08): хуучин token revoke хийгдэж шинэ хос

@@ -31,9 +31,6 @@ const UB_ADDR = {
   entrance: '2',
   floor: '5',
   door: '501',
-  // V4-05: staff override 0 — хуучин тестүүдийн дүн тарифгүй хэвээр.
-  // (CUSTOMER-ийн захиалгад service үл тоомсорлож автомат тариф тавина.)
-  deliveryFee: '0',
 };
 const UB_FULL =
   'ХУД, 11-р хороо, Гоёо хотхон 45-р байр, 2-р орц, 5 давхар, 501 тоот';
@@ -106,10 +103,6 @@ describe('ursGAL v2 API (e2e)', () => {
   let retOrderId: string; // буцаалтын тест (V4-04)
   let retItemId: string; // буцаалтын тест захиалгын мөр
   const feeOrderIds: string[] = []; // тарифын тест захиалгууд (V4-05)
-  let custUserId: string; // portal-ын тест харилцагч
-  let custToken: string;
-  let custOrderId: string;
-  let custOrder2Id: string;
   const testStartedAt = new Date(); // ActivityLog цэвэрлэгээнд
   const proofFiles: string[] = [];
 
@@ -147,8 +140,6 @@ describe('ursGAL v2 API (e2e)', () => {
       readyOrderId,
       roA,
       roB,
-      custOrderId,
-      custOrder2Id,
       noPhotoOrderId,
       costOrderId,
       retOrderId,
@@ -217,10 +208,6 @@ describe('ursGAL v2 API (e2e)', () => {
     if (permUserId) {
       // UserPermission-ууд cascade-аар устна
       await prisma.user.deleteMany({ where: { id: permUserId } });
-    }
-    if (custUserId) {
-      // Захиалгууд нь дээр устсан, мэдэгдэл cascade-аар устна
-      await prisma.user.deleteMany({ where: { id: custUserId } });
     }
     if (e2eMgrId) {
       await prisma.user.deleteMany({ where: { id: e2eMgrId } });
@@ -607,7 +594,6 @@ describe('ursGAL v2 API (e2e)', () => {
           soum: 'Эрдэнэбулган',
           transport: 'Од транс',
           addressDetail: 'Захын хойд талд',
-          deliveryFee: '0',
           items: [{ productId, qty: 1 }],
         })
         .expect(201);
@@ -2270,240 +2256,6 @@ describe('ursGAL v2 API (e2e)', () => {
     });
   });
 
-  // ────────────────────────────────────────────── CUSTOMER PORTAL (V3)
-  describe('V3: Customer Portal ⭐', () => {
-    it('бүртгэл: CUSTOMER үүсч токен авна; давхардсан имэйл → 409', async () => {
-      const reg = await api()
-        .post('/api/auth/register')
-        .send({
-          name: 'Э2Э Портал Харилцагч',
-          email: `e2e-cust-${T}@mail.mn`,
-          phone: '99887700',
-          password: 'custpass1',
-        })
-        .expect(201);
-      custUserId = reg.body.user.id;
-      custToken = reg.body.accessToken;
-      expect(reg.body.user.role).toBe('CUSTOMER');
-      expect(reg.body.user.permissions).toEqual([]);
-
-      await api()
-        .post('/api/auth/register')
-        .send({
-          name: 'Давхар',
-          email: `e2e-cust-${T}@mail.mn`,
-          phone: '99887701',
-          password: 'custpass2',
-        })
-        .expect(409);
-    });
-
-    it('customer staff API-д хандахгүй (бүгд 403)', async () => {
-      for (const path of ['/api/orders', '/api/products', '/api/users']) {
-        await api().get(path).set(auth(custToken)).expect(403);
-      }
-    });
-
-    it('захиалга үүсгэнэ: утас/нэр профайлоос, staff-тай ижил transaction', async () => {
-      const before = await api()
-        .get(`/api/products/${productId}`)
-        .set(auth(tok.manager))
-        .expect(200);
-
-      const ord = await api()
-        .post('/api/orders')
-        .set(auth(custToken))
-        .send({ ...UB_ADDR, items: [{ productId, qty: 1 }] })
-        .expect(201);
-      custOrderId = ord.body.id;
-      expect(ord.body.customerId).toBe(custUserId);
-      expect(ord.body.phone).toBe('99887700'); // профайлын утас
-      expect(ord.body.customerName).toBe('Э2Э Портал Харилцагч');
-
-      const after = await api()
-        .get(`/api/products/${productId}`)
-        .set(auth(tok.manager))
-        .expect(200);
-      expect(after.body.stockQty).toBe(before.body.stockQty - 1);
-
-      // operator-т онлайн захиалгын мэдэгдэл очсон
-      const notifs = await api()
-        .get('/api/notifications?limit=50')
-        .set(auth(tok.operator))
-        .expect(200);
-      const mine = notifs.body.items.find(
-        (n: { type: string; refId: string | null }) =>
-          n.type === 'CUSTOMER_ORDER' && n.refId === custOrderId,
-      );
-      expect(mine.title).toContain('Шинэ онлайн захиалга');
-    });
-
-    it('portal: жагсаалт, дэлгэрэнгүй (хязгаарлагдмал), бусдынх 403', async () => {
-      const list = await api()
-        .get('/api/portal/orders')
-        .set(auth(custToken))
-        .expect(200);
-      expect(
-        list.body.items.some((o: { id: string }) => o.id === custOrderId),
-      ).toBe(true);
-
-      // Статус ахиулахад customer-т мэдэгдэл очно
-      await api()
-        .patch(`/api/orders/${custOrderId}/status`)
-        .set(auth(tok.admin))
-        .send({ status: 'CONFIRMED' })
-        .expect(200);
-      const notifs = await api()
-        .get('/api/notifications?limit=20')
-        .set(auth(custToken))
-        .expect(200);
-      expect(
-        notifs.body.items.some(
-          (n: { type: string; title: string }) =>
-            n.type === 'ORDER_STATUS' && n.title.includes('Баталгаажсан'),
-        ),
-      ).toBe(true);
-
-      const detail = await api()
-        .get(`/api/portal/orders/${custOrderId}`)
-        .set(auth(custToken))
-        .expect(200);
-      expect(detail.body.orderStatus).toBe('CONFIRMED');
-      expect(detail.body.items).toHaveLength(1);
-      expect(detail.body.fullAddress).toBe(UB_FULL);
-      expect(detail.body).not.toHaveProperty('createdById');
-      expect(detail.body.assignedDriver).toBeNull();
-
-      // Бусдын захиалга → 403; staff portal-д хандахгүй → 403
-      await api()
-        .get(`/api/portal/orders/${orderId}`)
-        .set(auth(custToken))
-        .expect(403);
-      await api()
-        .get('/api/portal/orders')
-        .set(auth(tok.admin))
-        .expect(403);
-    });
-
-    it('portal dashboard: тоонууд зөв', async () => {
-      const res = await api()
-        .get('/api/portal/dashboard')
-        .set(auth(custToken))
-        .expect(200);
-      expect(res.body.totalOrders).toBe(1);
-      expect(res.body.activeOrders).toBe(1);
-      expect(res.body.recentOrders[0].id).toBe(custOrderId);
-    });
-
-    it('profile: нэр/утас/нууц үг солино (имэйл хэвээр)', async () => {
-      const res = await api()
-        .patch('/api/portal/profile')
-        .set(auth(custToken))
-        .send({ name: 'Шинэ Нэр', phone: '99887711' })
-        .expect(200);
-      expect(res.body.name).toBe('Шинэ Нэр');
-      expect(res.body.phone).toBe('99887711');
-      expect(res.body.email).toBe(`e2e-cust-${T}@mail.mn`);
-
-      // ⚠ Нууц үг солиход одоогийн нууц үг ЗААВАЛ — эс тэгвэл хулгайлагдсан
-      // access token-той хэн ч бүртгэлийг бүрмөсөн эзэмшинэ
-      const noCurrent = await api()
-        .patch('/api/portal/profile')
-        .set(auth(custToken))
-        .send({ password: 'newpass99' })
-        .expect(400);
-      expect(noCurrent.body.message).toContain('Одоогийн нууц үг');
-      await api()
-        .patch('/api/portal/profile')
-        .set(auth(custToken))
-        .send({ password: 'newpass99', currentPassword: 'buruu-nuuts' })
-        .expect(400);
-      await api()
-        .patch('/api/portal/profile')
-        .set(auth(custToken))
-        .send({ password: 'custpass1', currentPassword: 'custpass1' })
-        .expect(400);
-      // Хуучин нууц үг хэвээр ажиллаж байна (өөрчлөгдөөгүйн баталгаа)
-      const stillOld = await api()
-        .post('/api/auth/login')
-        .send({ email: `e2e-cust-${T}@mail.mn`, password: 'custpass1' })
-        .expect(200);
-      const oldRefresh = stillOld.body.refreshToken;
-
-      const changed = await api()
-        .patch('/api/portal/profile')
-        .set(auth(custToken))
-        .send({ password: 'newpass99', currentPassword: 'custpass1' })
-        .expect(200);
-      expect(changed.body.passwordChanged).toBe(true);
-      // Хуучин session-ууд унтарсан
-      await api()
-        .post('/api/auth/refresh')
-        .send({ refreshToken: oldRefresh })
-        .expect(401);
-      await api()
-        .post('/api/auth/login')
-        .send({ email: `e2e-cust-${T}@mail.mn`, password: 'custpass1' })
-        .expect(401);
-      const relogin = await api()
-        .post('/api/auth/login')
-        .send({ email: `e2e-cust-${T}@mail.mn`, password: 'newpass99' })
-        .expect(200);
-      custToken = relogin.body.accessToken;
-    });
-
-    it('цуцлалт: хаалттай үед 403; нээлттэй үед зөвхөн NEW, үлдэгдэл буцна', async () => {
-      // Тохиргоо Settings-ээс уншигдана (V3-16)
-      await api()
-        .put('/api/settings')
-        .set(auth(tok.admin))
-        .send({ allowCustomerCancel: 'false' })
-        .expect(200);
-      const ord2 = await api()
-        .post('/api/orders')
-        .set(auth(custToken))
-        .send({ ...UB_ADDR, items: [{ productId, qty: 1 }] })
-        .expect(201);
-      custOrder2Id = ord2.body.id;
-
-      await api()
-        .patch(`/api/portal/orders/${custOrder2Id}/cancel`)
-        .set(auth(custToken))
-        .expect(403);
-
-      await api()
-        .put('/api/settings')
-        .set(auth(tok.admin))
-        .send({ allowCustomerCancel: 'true' })
-        .expect(200);
-      // CONFIRMED захиалга цуцлагдахгүй
-      await api()
-        .patch(`/api/portal/orders/${custOrderId}/cancel`)
-        .set(auth(custToken))
-        .expect(400);
-
-      const before = await api()
-        .get(`/api/products/${productId}`)
-        .set(auth(tok.manager))
-        .expect(200);
-      const res = await api()
-        .patch(`/api/portal/orders/${custOrder2Id}/cancel`)
-        .set(auth(custToken))
-        .expect(200);
-      expect(res.body.orderStatus).toBe('CANCELLED');
-      const after = await api()
-        .get(`/api/products/${productId}`)
-        .set(auth(tok.manager))
-        .expect(200);
-      expect(after.body.stockQty).toBe(before.body.stockQty + 1);
-      await api()
-        .put('/api/settings')
-        .set(auth(tok.admin))
-        .send({ allowCustomerCancel: 'false' })
-        .expect(200);
-    });
-  });
-
   // ────────────────────────────────────────────── SETTINGS + ANALYTICS + REPORTS (V3)
   describe('V3: Settings + Analytics + Reports ⭐', () => {
     it('settings: public унших, edit эрхтэйд л, буруу утга 400', async () => {
@@ -2512,7 +2264,6 @@ describe('ursGAL v2 API (e2e)', () => {
         .set(auth(tok.operator))
         .expect(200);
       expect(pub.body).toHaveProperty('companyName');
-      expect(pub.body.allowCustomerCancel).toBe('false');
 
       await api()
         .put('/api/settings')
@@ -2537,11 +2288,6 @@ describe('ursGAL v2 API (e2e)', () => {
         .put('/api/settings')
         .set(auth(tok.admin))
         .send({ huurmagKey: 'x' })
-        .expect(400);
-      await api()
-        .put('/api/settings')
-        .set(auth(tok.admin))
-        .send({ allowCustomerCancel: 'maybe' })
         .expect(400);
     });
 
@@ -2955,140 +2701,6 @@ describe('ursGAL v2 API (e2e)', () => {
   });
 
   // ────────────────────────────────────────────── V4: ХҮРГЭЛТИЙН ТАРИФ
-  describe('V4: Хүргэлтийн тариф ⭐', () => {
-    const DEFAULT_TARIFFS = [
-      { region: 'ULAANBAATAR', district: null, fee: '5000' },
-      { region: 'ORON_NUTAG', district: null, fee: '15000' },
-    ];
-    // deliveryFee override-гүй УБ хаяг (UB_ADDR-д '0' override орсон)
-    const { deliveryFee: _noFee, ...UB_ADDR_AUTO } = UB_ADDR;
-
-    afterAll(async () => {
-      // Тарифуудыг default руу нь буцаана
-      await api()
-        .put('/api/settings/tariffs')
-        .set(auth(tok.admin))
-        .send({ tariffs: DEFAULT_TARIFFS })
-        .expect(200);
-    });
-
-    it('GET tariffs нэвтэрсэн бүгдэд — default-ууд байна', async () => {
-      const res = await api()
-        .get('/api/settings/tariffs')
-        .set(auth(tok.operator))
-        .expect(200);
-      const ub = res.body.find(
-        (t: { region: string; district: string | null }) =>
-          t.region === 'ULAANBAATAR' && t.district === null,
-      );
-      const on = res.body.find(
-        (t: { region: string; district: string | null }) =>
-          t.region === 'ORON_NUTAG' && t.district === null,
-      );
-      expect(Number(ub.fee)).toBe(5000);
-      expect(Number(on.fee)).toBe(15000);
-    });
-
-    it('шинэ захиалгад хөлс автоматаар НЭМЭГДЭХГҮЙ (default 0); staff override болно', async () => {
-      await api()
-        .post('/api/stock/adjust')
-        .set(auth(tok.manager))
-        .send({ productId, qtyChange: 4, reason: 'PURCHASE_IN' })
-        .expect(201);
-
-      const auto = await api()
-        .post('/api/orders')
-        .set(auth(tok.operator))
-        .send({
-          customerName: `Э2Э-Тариф-${T}`,
-          customerPhone: `7${T}`,
-          ...UB_ADDR_AUTO,
-          items: [{ productId, qty: 1 }],
-        })
-        .expect(201);
-      feeOrderIds.push(auto.body.id);
-      expect(Number(auto.body.deliveryFee)).toBe(0);
-      const price = Number(auto.body.items[0].priceAtOrder);
-      expect(Number(auto.body.totalAmount)).toBe(price);
-
-      const manual = await api()
-        .post('/api/orders')
-        .set(auth(tok.operator))
-        .send({
-          customerName: `Э2Э-Тариф2-${T}`,
-          customerPhone: `7${T}`,
-          ...UB_ADDR_AUTO,
-          deliveryFee: '2000',
-          items: [{ productId, qty: 1 }],
-        })
-        .expect(201);
-      feeOrderIds.push(manual.body.id);
-      expect(Number(manual.body.deliveryFee)).toBe(2000);
-      expect(Number(manual.body.totalAmount)).toBe(price + 2000);
-    });
-
-    it('орон нутгийн захиалгад ч хөлс 0 (авто тариф байхгүй)', async () => {
-      const res = await api()
-        .post('/api/orders')
-        .set(auth(tok.operator))
-        .send({
-          customerName: `Э2Э-ТарифОН-${T}`,
-          customerPhone: `7${T}`,
-          region: 'ORON_NUTAG',
-          province: 'Хөвсгөл',
-          soum: 'Мөрөн',
-          transport: 'Тэнүүн транс',
-          items: [{ productId, qty: 1 }],
-        })
-        .expect(201);
-      feeOrderIds.push(res.body.id);
-      expect(Number(res.body.deliveryFee)).toBe(0);
-    });
-
-    it('тарифын лавлагаа: operator PUT 403, өөрчилсөн ч захиалгад нөлөөлөхгүй, default дутвал 400', async () => {
-      await api()
-        .put('/api/settings/tariffs')
-        .set(auth(tok.operator))
-        .send({ tariffs: DEFAULT_TARIFFS })
-        .expect(403);
-
-      // ХУД-д тусгай 7000 тариф
-      await api()
-        .put('/api/settings/tariffs')
-        .set(auth(tok.admin))
-        .send({
-          tariffs: [
-            ...DEFAULT_TARIFFS,
-            { region: 'ULAANBAATAR', district: 'ХУД', fee: '7000' },
-          ],
-        })
-        .expect(200);
-      const ord = await api()
-        .post('/api/orders')
-        .set(auth(tok.operator))
-        .send({
-          customerName: `Э2Э-Тариф3-${T}`,
-          customerPhone: `7${T}`,
-          ...UB_ADDR_AUTO, // district: ХУД — тусгай тариф байсан ч 0
-          items: [{ productId, qty: 1 }],
-        })
-        .expect(201);
-      feeOrderIds.push(ord.body.id);
-      expect(Number(ord.body.deliveryFee)).toBe(0);
-
-      // Region default дутуу бол 400
-      await api()
-        .put('/api/settings/tariffs')
-        .set(auth(tok.admin))
-        .send({
-          tariffs: [
-            { region: 'ULAANBAATAR', district: null, fee: '5000' },
-            { region: 'ORON_NUTAG', district: 'мөрөн', fee: '15000' },
-          ],
-        })
-        .expect(400);
-    });
-  });
 
   // ────────────────────────────────────────────── V4: НУУЦ ҮГ СЭРГЭЭХ
   describe('V4: Нууц үг сэргээх ⭐', () => {
@@ -3571,24 +3183,6 @@ describe('ursGAL v2 API (e2e)', () => {
 
   // ────────────────────────────────────────────── V4-16: EDGE ГҮЙЦЭЭЛТ
   describe('V4-16: Edge гүйцээлт ⭐', () => {
-    it('customer захиалгад ч хөлс нэмэгдэхгүй (override ч үл тоомсорлогдоно)', async () => {
-      await api()
-        .post('/api/stock/adjust')
-        .set(auth(tok.manager))
-        .send({ productId, qtyChange: 1, reason: 'PURCHASE_IN' })
-        .expect(201);
-      // customer-ийн илгээсэн deliveryFee ч, авто тариф ч үйлчлэхгүй — 0
-      const ord = await api()
-        .post('/api/orders')
-        .set(auth(custToken))
-        .send({ ...UB_ADDR, deliveryFee: '9999', items: [{ productId, qty: 1 }] })
-        .expect(201);
-      feeOrderIds.push(ord.body.id);
-      expect(Number(ord.body.deliveryFee)).toBe(0);
-      expect(Number(ord.body.totalAmount)).toBe(
-        Number(ord.body.items[0].lineTotal),
-      );
-    });
 
     it('4 буруу оролдлого түгжихгүй — амжилттай нэвтрэлт counter-ийг 0 болгоно', async () => {
       const email = `e2e-cnt-${T}@ursgal.mn`;
@@ -3649,25 +3243,6 @@ describe('ursGAL v2 API (e2e)', () => {
       expect(income?.type).toBe('INCOME');
     });
 
-    it('customer-ийн paid:true үл тоомсорлогдоно — UNPAID хэвээр', async () => {
-      await api()
-        .post('/api/stock/adjust')
-        .set(auth(tok.manager))
-        .send({ productId, qtyChange: 1, reason: 'PURCHASE_IN' })
-        .expect(201);
-      const ord = await api()
-        .post('/api/orders')
-        .set(auth(custToken))
-        .send({ ...UB_ADDR, paid: true, items: [{ productId, qty: 1 }] })
-        .expect(201);
-      feeOrderIds.push(ord.body.id);
-      expect(ord.body.paymentStatus).toBe('UNPAID');
-      expect(Number(ord.body.paidAmount)).toBe(0);
-      const payment = await prisma.payment.findFirst({
-        where: { orderId: ord.body.id },
-      });
-      expect(payment).toBeNull();
-    });
 
     it('Харилцагчид (түнш = OPERATOR эрхтэй): жагсаалт статистиктай, operator 403', async () => {
       await api()

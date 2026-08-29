@@ -38,13 +38,6 @@ export function AuthProvider({ children }) {
     return data.user
   }, [])
 
-  /** Харилцагчийн бүртгэл — амжилтад шууд нэвтэрнэ */
-  const register = useCallback(async (payload) => {
-    const data = await api('/auth/register', { method: 'POST', body: payload })
-    setTokens(data)
-    setUser(data.user)
-    return data.user
-  }, [])
 
   const logout = useCallback(() => {
     // Сервер талд refresh token-ыг revoke хийнэ (V4-08) — хариуг хүлээхгүй
@@ -80,7 +73,6 @@ export function AuthProvider({ children }) {
         user,
         loading,
         login,
-        register,
         logout,
         hasPerm,
         applyAuth,

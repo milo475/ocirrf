@@ -132,7 +132,6 @@ export const PERM_GROUPS: { group: string; keys: PermKey[] }[] = [
  *   шалгалт хэвээр хариуцна.
  * - DRIVER: юу ч биш — /deliveries/* endpoint-ууд permission биш
  *   @Roles(DRIVER)-оор хэвээр хамгаалагдана.
- * - CUSTOMER: юу ч биш — portal endpoint-ууд тусдаа (Бүлэг 2).
  */
 export const ROLE_DEFAULTS: Record<Role, PermKey[]> = {
   [Role.ADMIN]: ALL_PERMISSIONS,
@@ -163,5 +162,4 @@ export const ROLE_DEFAULTS: Record<Role, PermKey[]> = {
     PERM.INVENTORY_VIEW,
   ],
   [Role.DRIVER]: [],
-  [Role.CUSTOMER]: [],
 };

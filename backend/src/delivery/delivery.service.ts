@@ -435,12 +435,6 @@ export class DeliveryService {
           deliveryNote: dto.note?.trim() || null,
         },
       });
-      if (delivered.customerId) {
-        await this.notifications.notifyOrderStatus(
-          delivered.customerId,
-          delivered,
-        );
-      }
       return delivered;
     }
 

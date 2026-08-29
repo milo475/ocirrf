@@ -39,8 +39,7 @@ export class CreateOrderDto {
   customerName?: string;
 
   /**
-   * Хүлээн авагчийн утас, 8 оронтой. CUSTOMER орхивол профайлын утас
-   * default болно; staff-д заавал (service дотор шалгана).
+   * Хүлээн авагчийн утас, 8 оронтой — заавал (service дотор шалгана).
    */
   @IsOptional()
   @Matches(/^\d{8}$/, { message: 'Утасны дугаар 8 оронтой тоо байна' })
@@ -112,22 +111,10 @@ export class CreateOrderDto {
   @IsString()
   note?: string;
 
-  /**
-   * Хүргэлтийн хөлс (V4-05) — staff-ийн ГАР оруулга. Орхивол 0 болно:
-   * шинэ захиалгад хөлс автоматаар НЭМЭГДЭХГҮЙ (9a97f4b-ийн шийдвэр),
-   * DeliveryTariff хүснэгт нь Settings дэх ЛАВЛАГАА болж үлдсэн.
-   * CUSTOMER-ийн илгээснийг service үл тоомсорлоно.
-   */
-  @IsOptional()
-  @Matches(/^\d{1,10}(\.\d{1,2})?$/, {
-    message: 'Хүргэлтийн хөлс буруу форматтай',
-  })
-  deliveryFee?: string;
 
   /**
    * "Төлсөн" гэж үүсгэх — бүтэн төлбөр нь захиалгатай нэг transaction-д
-   * бүртгэгдэнэ (Payment + INCOME). Зөвхөн staff; customer-ийнхийг
-   * service үл тоомсорлоно.
+   * бүртгэгдэнэ (Payment + INCOME entry).
    */
   @IsOptional()
   @IsBoolean()

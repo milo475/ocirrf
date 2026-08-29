@@ -100,46 +100,7 @@ export class NotificationsService {
     return out;
   }
 
-  /** Онлайн (customer) захиалга үүсэхэд — OPERATOR/MANAGER-үүдэд */
-  async notifyCustomerOrder(order: { id: string; orderNo: string }) {
-    const staff = await this.prisma.user.findMany({
-      where: {
-        role: { in: [Role.OPERATOR, Role.MANAGER] },
-        isActive: true,
-      },
-      select: { id: true },
-    });
-    await this.notify(
-      staff.map((u) => u.id),
-      {
-        type: 'CUSTOMER_ORDER',
-        title: `Шинэ онлайн захиалга: ${order.orderNo}`,
-        refType: 'order',
-        refId: order.id,
-      },
-    );
-  }
 
-  /** Захиалгын статус өөрчлөгдөхөд — тухайн customer-т */
-  async notifyOrderStatus(
-    customerId: string,
-    order: { id: string; orderNo: string; orderStatus: string },
-  ) {
-    const STATUS_MN: Record<string, string> = {
-      NEW: 'Шинэ',
-      CONFIRMED: 'Баталгаажсан',
-      PREPARING: 'Бэлтгэж буй',
-      READY: 'Бэлэн',
-      COMPLETED: 'Хүргэгдсэн',
-      CANCELLED: 'Цуцлагдсан',
-    };
-    await this.notify([customerId], {
-      type: 'ORDER_STATUS',
-      title: `Захиалга ${order.orderNo}: ${STATUS_MN[order.orderStatus] ?? order.orderStatus}`,
-      refType: 'order',
-      refId: order.id,
-    });
-  }
 
   /** Захиалга хуваарилагдахад — жолоочид */
   async notifyDriverAssigned(driverId: string, order: { id: string; orderNo: string }) {

@@ -42,43 +42,7 @@ export const NAV_ITEMS = [
     end: true,
     roles: ['ADMIN', 'MANAGER', 'OPERATOR', 'DRIVER'],
   },
-  // ── CUSTOMER portal ──
-  {
-    key: 'portal-home',
-    label: 'Миний самбар',
-    icon: Home,
-    path: '/portal',
-    end: true,
-    roles: ['CUSTOMER'],
-  },
-  {
-    key: 'portal-new',
-    label: 'Шинэ захиалга',
-    icon: PlusCircle,
-    path: '/portal/new',
-    roles: ['CUSTOMER'],
-  },
-  {
-    key: 'portal-orders',
-    label: 'Миний захиалгууд',
-    icon: PackageSearch,
-    path: '/portal/orders',
-    roles: ['CUSTOMER'],
-  },
-  {
-    key: 'portal-profile',
-    label: 'Профайл',
-    icon: UserRound,
-    path: '/portal/profile',
-    roles: ['CUSTOMER'],
-  },
-  {
-    key: 'portal-notifs',
-    label: 'Мэдэгдэл',
-    icon: Bell,
-    path: '/notifications',
-    roles: ['CUSTOMER'],
-  },
+
   // ── Staff үндсэн цэсүүд (permission-оороо автоматаар) ──
   {
     key: 'orders',

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router'
+import { Navigate, useNavigate } from 'react-router'
 import { homeFor } from '../components/auth/RoleRoute'
 import Modal from '../components/ui/Modal'
 import { useAuth } from '../context/AuthContext'
@@ -130,15 +130,6 @@ export default function Login() {
             </button>
           </form>
 
-          <p className="mt-5 text-center text-sm text-ink-muted">
-            {t('Шинэ хэрэглэгч үү?')}{' '}
-            <Link
-              to="/register"
-              className="text-accent underline underline-offset-2"
-            >
-              {t('Бүртгүүлэх')}
-            </Link>
-          </p>
           <p className="mt-2 text-center text-sm">
             <button
               type="button"
