@@ -12,7 +12,7 @@ import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../context/AuthContext'
 import { useLang } from '../context/LanguageContext'
 import { api } from '../lib/api'
-import { formatDateTime, formatMoney } from '../lib/format'
+import { formatDateTime, formatMoney, formatMoneyRound } from '../lib/format'
 
 const LIMIT = 20
 const CATEGORIES = {
@@ -236,16 +236,16 @@ export default function Finance() {
       {canViewBoth && summary && (
         <section className="mt-8 border-t border-rule pt-6">
           <div className="grid md:grid-cols-[auto_1fr] gap-8 items-start">
-            <div className="flex md:divide-x divide-rule">
+            <div className="flex [&>*]:basis-44 [&>*]:shrink-0 [&>*]:min-w-0 md:divide-x divide-rule">
               <MetricCard
                 label={t('Нийт орлого')}
-                value={formatMoney(summary.income)}
+                value={formatMoneyRound(summary.income)}
               />
               <MetricCard
                 label={t('Нийт зарлага')}
-                value={formatMoney(summary.expense)}
+                value={formatMoneyRound(summary.expense)}
               />
-              <MetricCard label={t('Зөрүү')} value={formatMoney(summary.net)} />
+              <MetricCard label={t('Зөрүү')} value={formatMoneyRound(summary.net)} />
             </div>
             <div className="min-w-0">
               <p className="text-xs uppercase tracking-wide text-ink-muted mb-2">
@@ -393,10 +393,10 @@ function Receivables({ data, t }) {
   ]
   return (
     <div>
-      <div className="mb-5 flex md:divide-x divide-rule">
+      <div className="mb-5 flex [&>*]:basis-44 [&>*]:shrink-0 [&>*]:min-w-0 md:divide-x divide-rule">
         <MetricCard
           label={t('Нийт авлага')}
-          value={formatMoney(data.totalRemaining)}
+          value={formatMoneyRound(data.totalRemaining)}
           sub={t('{n} захиалга', { n: data.count })}
         />
       </div>

@@ -18,6 +18,15 @@ export function formatDateTime(iso) {
   return `${d.toLocaleDateString('en-CA')} ${d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
 }
 
+/**
+ * Бүхэл дүн (мөнгөн тэмдэгттэй, аравтгүй): 1127700 → "1,127,700₮".
+ * Самбар/картын том тоонд — ".00" нь 3 тэмдэгт эзэлж зайг дэмий иддэг,
+ * төгрөгт бутархай ховор. Гүйлгээ/нэхэмжлэхэд formatMoney хэвээр.
+ */
+export function formatMoneyRound(n) {
+  return `${Math.round(Number(n)).toLocaleString('en-US')}₮`
+}
+
 /** Бүтэн дүн: 12500 → "12,500.00₮" (Decimal 12,2-той нийцнэ) */
 export function formatMoney(n) {
   return `${Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}₮`

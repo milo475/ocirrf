@@ -8,7 +8,7 @@ import Spinner from '../components/ui/Spinner'
 import Table from '../components/ui/Table'
 import { useLang } from '../context/LanguageContext'
 import { api } from '../lib/api'
-import { formatMoney, formatMoneyShort } from '../lib/format'
+import { formatMoney, formatMoneyRound, formatMoneyShort } from '../lib/format'
 
 const PRESETS = [7, 30, 90]
 
@@ -158,18 +158,18 @@ export default function Analytics() {
           {/* Борлуулалт */}
           <section className="mt-10 border-t border-rule pt-6">
             <div className="flex items-start gap-10 flex-wrap">
-              <div className="flex md:divide-x divide-rule">
+              <div className="flex [&>*]:basis-44 [&>*]:shrink-0 [&>*]:min-w-0 md:divide-x divide-rule">
                 <MetricCard
                   label={t('Захиалгын тоо')}
                   value={String(data.sales.totals.count)}
                 />
                 <MetricCard
                   label={t('Нийт дүн')}
-                  value={formatMoney(data.sales.totals.amount)}
+                  value={formatMoneyRound(data.sales.totals.amount)}
                 />
                 <MetricCard
                   label={t('Ашиг')}
-                  value={formatMoney(data.sales.totals.profit)}
+                  value={formatMoneyRound(data.sales.totals.profit)}
                   sub={`${t('Өртөг')}: ${formatMoneyShort(data.sales.totals.cost)}`}
                 />
               </div>
@@ -263,7 +263,7 @@ export default function Analytics() {
               <p className="text-xs uppercase tracking-wide text-ink-muted border-b border-rule pb-2 mb-4">
                 {t('Хүлээн авагч')}
               </p>
-              <div className="flex divide-x divide-rule">
+              <div className="flex [&>*]:basis-44 [&>*]:shrink-0 [&>*]:min-w-0 divide-x divide-rule">
                 <MetricCard
                   label={t('Шинэ')}
                   value={String(data.customers.newCustomers)}
