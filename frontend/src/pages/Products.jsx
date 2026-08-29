@@ -14,6 +14,7 @@ import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../context/AuthContext'
 import { useLang } from '../context/LanguageContext'
 import { api, apiBlob, apiUpload } from '../lib/api'
+import { useRef } from 'react'
 import { formatMoney } from '../lib/format'
 
 const LIMIT = 20
@@ -138,6 +139,11 @@ export default function Products() {
       key: 'sku',
       header: 'SKU',
       render: (p) => <span className="font-mono text-ink-muted">{p.sku}</span>,
+    },
+    {
+      key: 'image',
+      header: '',
+      render: (p) => <ProductImageCell product={p} onDone={load} t={t} canEdit={canEdit} />,
     },
     { key: 'name', header: t('Нэр') },
     {
@@ -509,6 +515,72 @@ function ImportButton({ t, onDone }) {
           </div>
         </div>
       </Modal>
+    </>
+  )
+}
+
+/**
+ * Барааны зураг (V5) — нийтийн захиалгын хуудсанд бараа зурагтай
+ * харагддаг тул эндээс байршуулна. Зураг дээр дарахад солигдоно.
+ */
+function ProductImageCell({ product, onDone, t, canEdit }) {
+  const inputRef = useRef(null)
+  const toast = useToast()
+  const [busy, setBusy] = useState(false)
+
+  async function upload(e) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setBusy(true)
+    try {
+      await apiUpload(`/products/${product.id}/image`, { image: file })
+      toast.show(t('Зураг хадгалагдлаа'))
+      onDone()
+    } catch (err) {
+      toast.show(err.message, { type: 'error' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const box =
+    'w-10 h-10 rounded border border-rule object-cover bg-bg flex items-center justify-center text-ink-muted text-xs shrink-0'
+
+  if (!canEdit) {
+    return product.imageUrl ? (
+      <img src={product.imageUrl} alt={product.name} className={box} />
+    ) : (
+      <span className={box}>—</span>
+    )
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={(e) => {
+          e.stopPropagation()
+          inputRef.current?.click()
+        }}
+        title={t('Зураг солих')}
+        className="disabled:opacity-50"
+      >
+        {product.imageUrl ? (
+          <img src={product.imageUrl} alt={product.name} className={box} />
+        ) : (
+          <span className={box}>＋</span>
+        )}
+      </button>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        onChange={upload}
+        className="hidden"
+        aria-label={t('Зураг солих')}
+      />
     </>
   )
 }

@@ -25,6 +25,13 @@ enum OrderStatus {
 }
 
 /// Захиалга ирсэн суваг (V5) — DM-ээс шивэгддэг тул эх сурвалжийг тэмдэглэнэ
+/// Хүсэлтийн төлөв (V5)
+enum OrderRequestStatus {
+  NEW       // ажилтан хараагүй
+  CONVERTED // захиалга болсон
+  REJECTED  // хогийн/буруу хүсэлт
+}
+
 enum OrderChannel {
   INSTAGRAM
   FACEBOOK
@@ -120,6 +127,60 @@ model RefreshToken {
   createdAt    DateTime  @default(now())
 
   @@index([userId])
+}
+
+/// Нийтийн линкээр ирсэн захиалгын хүсэлт (V5).
+/// Хэрэглэгч өөрөө бөглөнө — ҮЛДЭГДЭЛД ХҮРЭХГҮЙ. Ажилтан мөнгө/хаягийг
+/// шалгаад баталгаажуулсны дараа л жинхэнэ захиалга үүсч үлдэгдэл хасагдана.
+model OrderRequest {
+  id     String             @id @default(uuid())
+  status OrderRequestStatus @default(NEW)
+
+  // Хүлээн авагч
+  customerName String
+  phone        String
+  extraPhone   String?
+  /// IG/FB дээрх нэр — ажилтан аль ярианых болохыг таних
+  socialName   String?
+  channel      OrderChannel @default(OTHER)
+
+  // Хаяг
+  region        DeliveryRegion @default(ULAANBAATAR)
+  district      String?
+  khoroo        String?
+  building      String?
+  entrance      String?
+  floor         String?
+  door          String?
+  province      String?
+  soum          String?
+  transport     String?
+  addressDetail String?
+  note          String?
+
+  // Төлбөр — шилжүүлгийн баримтыг хэрэглэгч хавсаргана
+  paid            Boolean @default(false)
+  paymentProofUrl String?
+
+  // Боловсруулалт
+  orderId     String?
+  handledById String?
+  handledAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  items OrderRequestItem[]
+
+  @@index([status, createdAt])
+}
+
+model OrderRequestItem {
+  id        String       @id @default(uuid())
+  requestId String
+  request   OrderRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  productId String
+  qty       Int
+
+  @@index([requestId])
 }
 
 /// Захиалгын буцаалт (v4) — бүтэн/хэсэгчилсэн

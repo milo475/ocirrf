@@ -17,11 +17,13 @@ import DeliveryOps from './pages/DeliveryOps'
 import Drivers from './pages/Drivers'
 import Finance from './pages/Finance'
 import Login from './pages/Login'
+import PublicOrder from './pages/PublicOrder'
 import Notifications from './pages/Notifications'
 import Payroll from './pages/Payroll'
 import MyDeliveries from './pages/MyDeliveries'
 import OrderDetail from './pages/OrderDetail'
 import OrderNew from './pages/OrderNew'
+import OrderRequests from './pages/OrderRequests'
 import Orders from './pages/Orders'
 import Products from './pages/Products'
 import Settings from './pages/Settings'
@@ -39,6 +41,8 @@ function App() {
               <Routes>
                 {/* Login — nav-гүй, хамгаалалтгүй */}
                 <Route path="/login" element={<Login />} />
+                {/* Нийтийн захиалгын линк — нэвтрэлтгүй (V5) */}
+                <Route path="/z/:token" element={<PublicOrder />} />
                 {/* Түр нууц үг солих — ProtectedRoute-ийн ГАДНА (V4-06) */}
                 <Route path="/change-password" element={<ChangePassword />} />
 
@@ -56,6 +60,7 @@ function App() {
                      */}
                     <Route element={<PermRoute perm="orders.view" />}>
                       <Route path="/orders" element={<Orders />} />
+                      <Route path="/order-requests" element={<OrderRequests />} />
                       <Route path="/orders/:id" element={<OrderDetail />} />
                     </Route>
                     <Route element={<PermRoute perm="orders.create" />}>

@@ -16,6 +16,7 @@ import {
   Users,
   UsersRound,
   Wallet,
+  Inbox,
 } from 'lucide-react'
 
 /**
@@ -50,6 +51,13 @@ export const NAV_ITEMS = [
     icon: ClipboardList,
     path: '/orders',
     end: true,
+    perm: 'orders.view',
+  },
+  {
+    key: 'order-requests',
+    label: 'Хүсэлтүүд',
+    icon: Inbox,
+    path: '/order-requests',
     perm: 'orders.view',
   },
   {

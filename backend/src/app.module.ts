@@ -21,6 +21,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { DeliveryModule } from './delivery/delivery.module';
 import { FinanceModule } from './finance/finance.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { OrderRequestsModule } from './order-requests/order-requests.module';
 import { OrdersModule } from './orders/orders.module';
 import { PermissionsGuard } from './permissions/permissions.guard';
 import { PermissionsModule } from './permissions/permissions.module';
@@ -72,6 +73,7 @@ import { UsersModule } from './users/users.module';
     ProductsModule,
     StockModule,
     OrdersModule,
+    OrderRequestsModule,
     DashboardModule,
     DeliveryModule,
     FinanceModule,

@@ -3254,6 +3254,114 @@ describe('ursGAL v2 API (e2e)', () => {
     });
   });
 
+  // ────────────────────────────────────────────── V5: НИЙТИЙН ЗАХИАЛГЫН ЛИНК
+  describe('V5: Нийтийн захиалгын хүсэлт ⭐', () => {
+    let publicToken: string;
+    let requestId: string;
+    let convertedOrderId: string;
+
+    afterAll(async () => {
+      if (requestId) {
+        await prisma.orderRequestItem.deleteMany({ where: { requestId } });
+        await prisma.orderRequest.deleteMany({ where: { id: requestId } });
+      }
+    });
+
+    it('линк: ажилтанд нууц өгөгдөнө, буруу token → 404', async () => {
+      const res = await api()
+        .get('/api/order-requests/link')
+        .set(auth(tok.manager))
+        .expect(200);
+      publicToken = res.body.token;
+      expect(publicToken).toBeTruthy();
+
+      await api().get('/api/public/order-form?token=buruu').expect(404);
+    });
+
+    it('маягт: нэвтрэлтгүй нээгдэнэ, ҮЛДЭГДЭЛ/SKU/ӨРТӨГ гадагш гарахгүй', async () => {
+      const res = await api()
+        .get(`/api/public/order-form?token=${publicToken}`)
+        .expect(200);
+      expect(res.body.products.length).toBeGreaterThan(0);
+      const p = res.body.products[0];
+      expect(p).toHaveProperty('inStock'); // зөвхөн байгаа эсэх
+      expect(p).not.toHaveProperty('stockQty');
+      expect(p).not.toHaveProperty('sku');
+      expect(p).not.toHaveProperty('costPrice');
+    });
+
+    it('хүсэлт: үлдэгдэл ХӨДЛӨХГҮЙ, ажилтанд мэдэгдэл очно ⭐', async () => {
+      const before = await api()
+        .get(`/api/products/${productId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+
+      const res = await api()
+        .post(`/api/public/order-requests?token=${publicToken}`)
+        .field('customerName', `Э2Э Хүсэлт ${T}`)
+        .field('phone', `2${T}`)
+        .field('socialName', '@e2e_test')
+        .field('channel', 'INSTAGRAM')
+        .field('region', 'ULAANBAATAR')
+        .field('district', 'ХУД')
+        .field('khoroo', '11')
+        .field('building', 'Э2Э байр')
+        .field('paid', 'true')
+        .field('items', JSON.stringify([{ productId, qty: 1 }]))
+        .expect(201);
+      requestId = res.body.id;
+
+      // ⭐ Хамгийн чухал: хүсэлт үлдэгдэлд хүрэхгүй
+      const after = await api()
+        .get(`/api/products/${productId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(after.body.stockQty).toBe(before.body.stockQty);
+
+      // Ажилтанд мэдэгдэл очсон
+      const notifs = await api()
+        .get('/api/notifications?limit=20')
+        .set(auth(tok.operator))
+        .expect(200);
+      expect(
+        notifs.body.items.some(
+          (n: { type: string; refId: string }) =>
+            n.type === 'ORDER_REQUEST' && n.refId === requestId,
+        ),
+      ).toBe(true);
+    });
+
+    it('захиалга болгох: үлдэгдэл ЭНД хасагдаж, суваг/төлбөр шилжинэ ⭐', async () => {
+      const before = await api()
+        .get(`/api/products/${productId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+
+      const order = await api()
+        .post(`/api/order-requests/${requestId}/convert`)
+        .set(auth(tok.manager))
+        .expect(201);
+      convertedOrderId = order.body.id;
+      feeOrderIds.push(convertedOrderId);
+
+      expect(order.body.channel).toBe('INSTAGRAM');
+      expect(order.body.paymentStatus).toBe('PAID');
+      expect(order.body.district).toBe('ХУД');
+
+      const after = await api()
+        .get(`/api/products/${productId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(after.body.stockQty).toBe(before.body.stockQty - 1);
+
+      // Давхар хөрвүүлэлт → 400
+      await api()
+        .post(`/api/order-requests/${requestId}/convert`)
+        .set(auth(tok.manager))
+        .expect(400);
+    });
+  });
+
   // ────────────────────────────────────────────── V4-16: EDGE ГҮЙЦЭЭЛТ
   describe('V4-16: Edge гүйцээлт ⭐', () => {
 

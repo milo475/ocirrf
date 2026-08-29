@@ -11,6 +11,7 @@ export function notifTarget(n, role) {
   if (n.refType === 'order' && n.refId) {
     return role === 'DRIVER' ? '/deliveries' : `/orders/${n.refId}`
   }
+  if (n.refType === 'order-request') return '/order-requests'
   if (n.refType === 'product') return '/products'
   if (n.refType === 'payout') return '/finance/payroll'
   return '/notifications'

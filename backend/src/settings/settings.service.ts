@@ -5,6 +5,10 @@ import { PrismaService } from '../prisma/prisma.service';
 export const PUBLIC_SETTINGS: Record<string, string> = {
   companyName: 'ursGAL',
   companyPhone: '',
+  // Нийтийн захиалгын хуудсанд харагдах данс (V5)
+  bankName: '',
+  bankAccount: '',
+  bankHolder: '',
 };
 
 @Injectable()

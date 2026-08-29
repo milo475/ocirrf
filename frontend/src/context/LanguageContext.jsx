@@ -401,6 +401,24 @@ const DICT = {
     'Хуваарилж чадсангүй: {list}': 'Could not assign: {list}',
     'DR%': 'DR%',
 
+    'Зураг солих': 'Change image',
+    'Зураг хадгалагдлаа': 'Image saved',
+
+    // — Захиалгын хүсэлт (V5) —
+    'Хүсэлтүүд': 'Requests',
+    'Хүсэлт алга': 'No requests',
+    'Захиалга болгох': 'Convert to order',
+    'Захиалга болсон': 'Converted',
+    'Хаасан': 'Closed',
+    'Хүсэлт хаах': 'Close request',
+    'Энэ хүсэлтийг хаах уу? Захиалга үүсэхгүй.':
+      'Close this request? No order will be created.',
+    'Хүсэлт хаагдлаа': 'Request closed',
+    'Гүйлгээний баримт': 'Payment receipt',
+    'Төлсөн гэсэн': 'Marked paid',
+    'Захиалгын линк хуулах': 'Copy order link',
+    'Линк хуулагдлаа': 'Link copied',
+
     // — Компани / бүс (V5) —
     'Харилцагч компани': 'Partner company',
     'Компаниуд': 'Companies',
