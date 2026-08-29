@@ -62,6 +62,12 @@ enum PaymentMethod {
   CARD
 }
 
+/// Жолоочийн ажлын төрөл (V5)
+enum EmploymentType {
+  FULL_TIME // үндсэн
+  HOURLY    // цагийн
+}
+
 enum PayoutStatus {
   PENDING
   PAID
@@ -354,6 +360,8 @@ model DriverProfile {
   feePerDelivery Decimal @db.Decimal(12, 2) // хүргэлт тутмын хөлс
   vehicleInfo    String?
   isAvailable    Boolean @default(true)
+  /// Ажлын төрөл (V5): үндсэн ажилтан эсвэл цагийн
+  employmentType EmploymentType @default(FULL_TIME)
 
   user User @relation(fields: [userId], references: [id])
 }

@@ -128,7 +128,7 @@ export const NAV_ITEMS = [
   },
   {
     key: 'users',
-    label: 'Хэрэглэгчид',
+    label: 'User',
     icon: Users,
     path: '/users',
     end: true,

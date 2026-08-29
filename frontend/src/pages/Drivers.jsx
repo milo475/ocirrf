@@ -100,6 +100,31 @@ export default function Drivers() {
       ),
     },
     {
+      key: 'dr',
+      header: t('DR%'),
+      align: 'right',
+      render: (d) =>
+        d.dr === null ? (
+          <span className="text-ink-muted">—</span>
+        ) : (
+          <span
+            className={`font-mono tabular-nums ${d.dr >= 90 ? 'text-safe' : d.dr >= 70 ? '' : 'text-alarm'}`}
+            title={`${d.totalDelivered}/${d.assigned}`}
+          >
+            {d.dr}%
+          </span>
+        ),
+    },
+    {
+      key: 'employment',
+      header: t('Ажлын төрөл'),
+      render: (d) => (
+        <span className="text-sm text-ink-muted">
+          {d.employmentType === 'HOURLY' ? t('Цагийн') : t('Үндсэн')}
+        </span>
+      ),
+    },
+    {
       key: 'fee',
       header: t('Хөлс'),
       align: 'right',

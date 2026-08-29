@@ -32,6 +32,11 @@ export class QueryOrdersDto {
   @IsEnum(OrderChannel, { message: 'Суваг буруу' })
   channel?: OrderChannel;
 
+  /** УБ-ын дүүргээр шүүх (жишээ: ХУД) */
+  @IsOptional()
+  @IsString()
+  district?: string;
+
   /** Тухайн жолоочид хуваарилагдсан захиалгууд */
   @IsOptional()
   @IsUUID('4', { message: 'driverId буруу форматтай' })

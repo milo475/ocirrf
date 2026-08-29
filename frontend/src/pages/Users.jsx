@@ -74,6 +74,7 @@ function UserForm({ submitting, error, onSubmit, onCancel, t }) {
     role: 'OPERATOR',
     feePerDelivery: '3000.00',
     vehicleInfo: '',
+    employmentType: 'FULL_TIME',
   })
   const set = (key) => (e) => setValues((v) => ({ ...v, [key]: e.target.value }))
   const isDriver = values.role === 'DRIVER'
@@ -89,6 +90,7 @@ function UserForm({ submitting, error, onSubmit, onCancel, t }) {
           role: values.role,
           ...(isDriver
             ? {
+                employmentType: values.employmentType,
                 feePerDelivery: String(values.feePerDelivery).trim(),
                 ...(values.vehicleInfo.trim()
                   ? { vehicleInfo: values.vehicleInfo.trim() }
@@ -135,6 +137,15 @@ function UserForm({ submitting, error, onSubmit, onCancel, t }) {
       </Select>
       {isDriver && (
         <>
+          <Select
+            id="u-employment"
+            label={t('Ажлын төрөл')}
+            value={values.employmentType}
+            onChange={set('employmentType')}
+          >
+            <option value="FULL_TIME">{t('Үндсэн')}</option>
+            <option value="HOURLY">{t('Цагийн')}</option>
+          </Select>
           <Input
             id="u-fee"
             label={t('Хүргэлтийн хөлс (₮)')}
@@ -177,6 +188,9 @@ function UserEditModal({ user, self, onClose, onDone, t, toast }) {
   const [role, setRole] = useState(user.role)
   const [fee, setFee] = useState(user.driverProfile?.feePerDelivery ?? '3000.00')
   const [vehicle, setVehicle] = useState(user.driverProfile?.vehicleInfo ?? '')
+  const [employment, setEmployment] = useState(
+    user.driverProfile?.employmentType ?? 'FULL_TIME',
+  )
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
   const isDriver = role === 'DRIVER'
@@ -192,6 +206,7 @@ function UserEditModal({ user, self, onClose, onDone, t, toast }) {
           ...(role !== user.role ? { role } : {}),
           ...(isDriver
             ? {
+                employmentType: employment,
                 feePerDelivery: String(fee).trim(),
                 ...(vehicle.trim() ? { vehicleInfo: vehicle.trim() } : {}),
               }
@@ -225,6 +240,15 @@ function UserEditModal({ user, self, onClose, onDone, t, toast }) {
         </Select>
         {isDriver && (
           <>
+            <Select
+              id="ue-employment"
+              label={t('Ажлын төрөл')}
+              value={employment}
+              onChange={(e) => setEmployment(e.target.value)}
+            >
+              <option value="FULL_TIME">{t('Үндсэн')}</option>
+              <option value="HOURLY">{t('Цагийн')}</option>
+            </Select>
             <Input
               id="ue-fee"
               label={t('Хүргэлтийн хөлс (₮)')}
@@ -421,16 +445,6 @@ export default function Users() {
       ),
     },
     {
-      key: 'fee',
-      header: t('Хөлс'),
-      align: 'right',
-      render: (u) => (
-        <span className="font-mono text-sm tabular-nums text-ink-muted">
-          {u.driverProfile ? u.driverProfile.feePerDelivery : '—'}
-        </span>
-      ),
-    },
-    {
       key: '_edit',
       header: '',
       render: (u) => (
@@ -488,7 +502,7 @@ export default function Users() {
     <div>
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <h1 className="font-serif text-4xl font-medium">
-          {t(roleFilter === 'DRIVER' ? 'Жолооч нар' : 'Хэрэглэгчид')}
+          {t(roleFilter === 'DRIVER' ? 'Жолооч нар' : 'User')}
         </h1>
         <Button onClick={() => setFormOpen(true)}>{t('+ Шинэ хэрэглэгч')}</Button>
       </div>

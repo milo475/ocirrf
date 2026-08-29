@@ -6,7 +6,7 @@ import {
   Matches,
   MinLength,
 } from 'class-validator';
-import { Role } from '../../generated/prisma/client';
+import { Role, EmploymentType } from '../../generated/prisma/client';
 
 export class UpdateUserDto {
   @IsOptional()
@@ -38,4 +38,9 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   vehicleInfo?: string;
+
+  /** Жолоочийн ажлын төрөл (V5): үндсэн / цагийн */
+  @IsOptional()
+  @IsEnum(EmploymentType, { message: 'Ажлын төрөл буруу' })
+  employmentType?: EmploymentType;
 }

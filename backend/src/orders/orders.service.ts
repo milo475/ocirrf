@@ -402,6 +402,7 @@ export class OrdersService {
       deliveryStatus,
       paymentStatus,
       channel,
+      district,
       driverId,
       search,
       page = 1,
@@ -413,6 +414,7 @@ export class OrdersService {
       ...(deliveryStatus ? { deliveryStatus } : {}),
       ...(paymentStatus ? { paymentStatus } : {}),
       ...(channel ? { channel } : {}),
+      ...(district ? { district } : {}),
       ...(driverId ? { assignedDriverId: driverId } : {}),
       ...(search
         ? {

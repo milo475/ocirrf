@@ -35,6 +35,7 @@ const SAFE_SELECT = {
     select: {
       feePerDelivery: true,
       vehicleInfo: true,
+      employmentType: true,
       isAvailable: true,
     },
   },
@@ -78,6 +79,7 @@ export class UsersService {
               userId: user.id,
               feePerDelivery: dto.feePerDelivery!,
               vehicleInfo: dto.vehicleInfo,
+              employmentType: dto.employmentType ?? 'FULL_TIME',
             },
           });
         }
@@ -155,7 +157,9 @@ export class UsersService {
 
       const willBeDriver = (dto.role ?? user.role) === 'DRIVER';
       const profileTouched =
-        dto.feePerDelivery !== undefined || dto.vehicleInfo !== undefined;
+        dto.feePerDelivery !== undefined ||
+        dto.vehicleInfo !== undefined ||
+        dto.employmentType !== undefined;
 
       // DRIVER болж байгаад profile байхгүй бол үүсгэнэ;
       // байгаа жолоочийн хөлс/тээврийг шинэчилнэ
@@ -165,6 +169,9 @@ export class UsersService {
           update: {
             ...(dto.feePerDelivery !== undefined
               ? { feePerDelivery: dto.feePerDelivery }
+              : {}),
+            ...(dto.employmentType !== undefined
+              ? { employmentType: dto.employmentType }
               : {}),
             ...(dto.vehicleInfo !== undefined
               ? { vehicleInfo: dto.vehicleInfo }

@@ -391,6 +391,21 @@ const DICT = {
     'Шинэ хэрэглэгч үү?': 'New user?',
     'Хэрэглэгчийн бүртгэл': 'User sign-up',
 
+    // — Олноор хуваарилах (V5) —
+    'Жолооч хуваарилах': 'Assign driver',
+    'Сонгосон {n} захиалгыг нэг жолоочид хуваарилна.':
+      'Assign the {n} selected orders to one driver.',
+    'Хуваарилах': 'Assign',
+    'идэвхтэй': 'active',
+    '{n} захиалга хуваарилагдлаа': '{n} orders assigned',
+    'Хуваарилж чадсангүй: {list}': 'Could not assign: {list}',
+    'DR%': 'DR%',
+
+    // — Жолооч (V5) —
+    'Ажлын төрөл': 'Employment type',
+    'Үндсэн': 'Full-time',
+    'Цагийн': 'Hourly',
+
     // — Суваг (V5) —
     'Суваг': 'Channel',
     'Захиалга ирсэн суваг': 'Order channel',

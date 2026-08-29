@@ -26,7 +26,10 @@ import {
 } from '../permissions/require-permission.decorator';
 import { UPLOADS_DIR } from '../uploads.config';
 import { DeliveryService } from './delivery.service';
-import { AssignDriverDto } from './dto/assign-driver.dto';
+import {
+  AssignDriverDto,
+  BulkAssignDriverDto,
+} from './dto/assign-driver.dto';
 import { CompleteDeliveryDto } from './dto/complete-delivery.dto';
 import { RouteOrderDto } from './dto/route-order.dto';
 
@@ -57,6 +60,13 @@ export class DeliveryController {
     @Body() dto: AssignDriverDto,
   ) {
     return this.deliveryService.assignDriver(id, dto.driverId);
+  }
+
+  /** V5: олон захиалгад нэг жолоочийг зэрэг хуваарилна */
+  @Patch('orders/assign-driver/bulk')
+  @RequirePermission(PERM.ORDERS_ASSIGN_DRIVER)
+  assignDriverBulk(@Body() dto: BulkAssignDriverDto) {
+    return this.deliveryService.assignDriverBulk(dto.orderIds, dto.driverId);
   }
 
   /**

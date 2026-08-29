@@ -263,7 +263,8 @@ export class DeliveryService {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const [users, activeGroups, todayGroups, totalGroups] = await Promise.all([
+    const [users, activeGroups, todayGroups, totalGroups, assignedGroups] =
+      await Promise.all([
       this.prisma.user.findMany({
         where: { role: 'DRIVER' },
         select: {
@@ -277,6 +278,7 @@ export class DeliveryService {
               feePerDelivery: true,
               vehicleInfo: true,
               isAvailable: true,
+              employmentType: true,
             },
           },
         },
@@ -309,6 +311,12 @@ export class DeliveryService {
         },
         _count: { _all: true },
       }),
+      // Хуваарилагдсан нийт (DR% = хүргэсэн ÷ хуваарилагдсан)
+      this.prisma.order.groupBy({
+        by: ['assignedDriverId'],
+        where: { assignedDriverId: { not: null } },
+        _count: { _all: true },
+      }),
     ]);
 
     const countBy = (groups: { assignedDriverId: string | null; _count: { _all: number } }[]) =>
@@ -316,6 +324,7 @@ export class DeliveryService {
     const activeBy = countBy(activeGroups);
     const todayBy = countBy(todayGroups);
     const totalBy = countBy(totalGroups);
+    const assignedBy = countBy(assignedGroups);
 
     return users.map((u) => ({
       id: u.id,
@@ -325,10 +334,46 @@ export class DeliveryService {
       isAvailable: u.driverProfile?.isAvailable ?? null,
       feePerDelivery: u.driverProfile?.feePerDelivery ?? null,
       vehicleInfo: u.driverProfile?.vehicleInfo ?? null,
+      employmentType: u.driverProfile?.employmentType ?? null,
       active: activeBy.get(u.id) ?? 0,
       deliveredToday: todayBy.get(u.id) ?? 0,
       totalDelivered: totalBy.get(u.id) ?? 0,
+      assigned: assignedBy.get(u.id) ?? 0,
+      // Хүргэлтийн гүйцэтгэл: хүргэсэн ÷ хуваарилагдсан (хувиар)
+      dr:
+        (assignedBy.get(u.id) ?? 0) > 0
+          ? Math.round(
+              ((totalBy.get(u.id) ?? 0) / (assignedBy.get(u.id) ?? 1)) * 100,
+            )
+          : null,
     }));
+  }
+
+  /**
+   * Олон захиалгад нэг жолоочийг зэрэг хуваарилна (V5). Захиалга бүрийг
+   * тусад нь боловсруулж, амжилтгүй болсныг нь orderNo-той нь тайлагнана
+   * — нэг захиалга буруу төлөвтэй байснаас бусад нь хуваарилагдахгүй
+   * үлдэх нь ажилтанд ойлгомжгүй байдаг.
+   */
+  async assignDriverBulk(orderIds: string[], driverId: string) {
+    let assigned = 0;
+    const failed: { orderNo: string; reason: string }[] = [];
+    for (const id of orderIds) {
+      try {
+        await this.assignDriver(id, driverId);
+        assigned++;
+      } catch (e) {
+        const order = await this.prisma.order.findUnique({
+          where: { id },
+          select: { orderNo: true },
+        });
+        failed.push({
+          orderNo: order?.orderNo ?? id.slice(0, 8),
+          reason: e instanceof Error ? e.message : 'Тодорхойгүй алдаа',
+        });
+      }
+    }
+    return { assigned, failed };
   }
 
   /** Жолоочийн маршрутын дараалал тавих: orderIds[i] → routeOrder i+1 */

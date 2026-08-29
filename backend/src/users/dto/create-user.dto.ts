@@ -7,7 +7,7 @@ import {
   MinLength,
   ValidateIf,
 } from 'class-validator';
-import { Role } from '../../generated/prisma/client';
+import { Role, EmploymentType } from '../../generated/prisma/client';
 
 export class CreateUserDto {
   @IsEmail({}, { message: 'Имэйл хаяг буруу байна' })
@@ -34,4 +34,9 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   vehicleInfo?: string;
+
+  /** Жолоочийн ажлын төрөл (V5): үндсэн / цагийн */
+  @IsOptional()
+  @IsEnum(EmploymentType, { message: 'Ажлын төрөл буруу' })
+  employmentType?: EmploymentType;
 }
