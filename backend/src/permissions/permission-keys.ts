@@ -184,5 +184,22 @@ export const ROLE_DEFAULTS: Record<Role, PermKey[]> = {
     PERM.INVENTORY_ADJUSTMENT,
     PERM.WAREHOUSE_HANDOVER,
     PERM.DRIVERS_VIEW,
+    // Хэрэглэгчийн худалдан авалтын түүх — нярав тооцоо/төлөвлөлт хийхэд
+    PERM.CUSTOMERS_VIEW,
+  ],
+  /**
+   * Борлуулагч (V5): линкээр ирсэн хүсэлт ЭНД ирнэ. Хэрэглэгчийн
+   * мэдээллийг шалгаж, батлаад захиалга болгоно; жолооч болон нярав
+   * хуваарилж хүргэлтэд гаргана. Санхүү, эрх, тайланд хүрэхгүй.
+   */
+  [Role.SELLER]: [
+    PERM.ORDERS_VIEW,
+    PERM.ORDERS_CREATE,
+    PERM.ORDERS_CHANGE_STATUS,
+    PERM.ORDERS_ASSIGN_DRIVER,
+    PERM.ORDERS_ASSIGN_WAREHOUSE,
+    PERM.CUSTOMERS_VIEW,
+    PERM.INVENTORY_VIEW,
+    PERM.DRIVERS_VIEW,
   ],
 };

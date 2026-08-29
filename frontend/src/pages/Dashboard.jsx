@@ -4,6 +4,7 @@ import AdminDashboard from './dashboards/AdminDashboard'
 import DriverDashboard from './dashboards/DriverDashboard'
 import ManagerDashboard from './dashboards/ManagerDashboard'
 import OperatorDashboard from './dashboards/OperatorDashboard'
+import SellerDashboard from './dashboards/SellerDashboard'
 import StockHealthDashboard from './dashboards/StockHealthDashboard'
 
 /** / хуудас — эрх бүр өөрийн самбартай */
@@ -19,6 +20,8 @@ export default function Dashboard() {
       return <OperatorDashboard />
     case 'DRIVER':
       return <DriverDashboard />
+    case 'SELLER':
+      return <SellerDashboard />
     case 'WAREHOUSE':
       return <Navigate to="/warehouse" replace />
     default:

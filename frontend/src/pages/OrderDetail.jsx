@@ -14,6 +14,7 @@ import Spinner from '../components/ui/Spinner'
 import Modal from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { useLang } from '../context/LanguageContext'
+import CustomerHistoryModal from '../components/customers/CustomerHistoryModal'
 import { useAuth } from '../context/AuthContext'
 import { api } from '../lib/api'
 import { formatDateTime, formatMoney } from '../lib/format'
@@ -42,6 +43,7 @@ export default function OrderDetail() {
   const [cancelOpen, setCancelOpen] = useState(false)
   const [assignOpen, setAssignOpen] = useState(false)
   const [proofOpen, setProofOpen] = useState(false)
+  const [history, setHistory] = useState(false)
 
   const load = useCallback(() => {
     setError(null)
@@ -169,7 +171,20 @@ export default function OrderDetail() {
         <InfoItem label={t('Хүлээн авагч')} value={order.customerName} />
         <InfoItem
           label={t('Утас')}
-          value={<span className="font-mono tabular-nums">{order.phone}</span>}
+          value={
+            hasPerm('customers.view') ? (
+              <button
+                type="button"
+                onClick={() => setHistory(true)}
+                title={t('Худалдан авалтын түүх')}
+                className="font-mono tabular-nums text-accent underline underline-offset-2"
+              >
+                {order.phone}
+              </button>
+            ) : (
+              <span className="font-mono tabular-nums">{order.phone}</span>
+            )
+          }
         />
         <InfoItem
           label={t('Огноо')}
@@ -414,6 +429,13 @@ export default function OrderDetail() {
         onConfirm={() => transition('CANCELLED')}
         onCancel={() => setCancelOpen(false)}
       />
+      {history && (
+        <CustomerHistoryModal
+          phone={order.phone}
+          name={order.customerName}
+          onClose={() => setHistory(false)}
+        />
+      )}
     </div>
   )
 }

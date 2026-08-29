@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Query } from '@nestjs/common';
 import { Prisma, Role } from '../generated/prisma/client';
 import { PERM } from '../permissions/permission-keys';
 import { RequirePermission } from '../permissions/require-permission.decorator';
@@ -54,6 +54,80 @@ export class CustomersController {
     });
   }
 
+
+  /**
+   * Нэг хэрэглэгчийн ХУДАЛДАН АВАЛТЫН ТҮҮХ утсаар нь (V5).
+   *
+   * Борлуулагч хүсэлт батлахаасаа өмнө «энэ хүн өмнө нь юу авч байсан,
+   * төлбөрөө төлдөг үү» гэдгийг шалгана. Нярав тооцоо гаргахад, менежер
+   * хяналтдаа ашиглана.
+   */
+  @Get('history')
+  @RequirePermission(PERM.CUSTOMERS_VIEW)
+  async history(@Query('phone') phone?: string) {
+    const value = phone?.trim();
+    if (!value) {
+      throw new BadRequestException('phone заавал');
+    }
+    const orders = await this.prisma.order.findMany({
+      where: { phone: value },
+      include: { items: true, assignedDriver: { select: { fullName: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+
+    // Хамгийн их авдаг бараанууд — давтан захиалгыг шууд харуулна
+    const byProduct = new Map<string, { name: string; qty: number }>();
+    let paidTotal = new Prisma.Decimal(0);
+    let liveTotal = new Prisma.Decimal(0);
+    let cancelled = 0;
+    for (const o of orders) {
+      if (o.orderStatus === 'CANCELLED') {
+        cancelled++;
+        continue;
+      }
+      liveTotal = liveTotal.plus(o.totalAmount);
+      paidTotal = paidTotal.plus(o.paidAmount);
+      for (const i of o.items) {
+        const cur = byProduct.get(i.productId) ?? { name: i.productName, qty: 0 };
+        cur.qty += i.qty;
+        byProduct.set(i.productId, cur);
+      }
+    }
+
+    return {
+      phone: value,
+      names: [
+        ...new Set(orders.map((o) => o.customerName).filter(Boolean)),
+      ],
+      orders: orders.map((o) => ({
+        id: o.id,
+        orderNo: o.orderNo,
+        createdAt: o.createdAt,
+        orderStatus: o.orderStatus,
+        deliveryStatus: o.deliveryStatus,
+        paymentStatus: o.paymentStatus,
+        channel: o.channel,
+        totalAmount: o.totalAmount,
+        paidAmount: o.paidAmount,
+        driverName: o.assignedDriver?.fullName ?? null,
+        items: o.items.map((i) => ({ productName: i.productName, qty: i.qty })),
+      })),
+      summary: {
+        orders: orders.length - cancelled,
+        cancelled,
+        totalAmount: liveTotal,
+        paidAmount: paidTotal,
+        // Авлага — хяналтын гол тоо
+        dueAmount: liveTotal.minus(paidTotal),
+        firstOrderAt: orders.at(-1)?.createdAt ?? null,
+        lastOrderAt: orders[0]?.createdAt ?? null,
+        topProducts: [...byProduct.values()]
+          .sort((a, b) => b.qty - a.qty)
+          .slice(0, 5),
+      },
+    };
+  }
 
   /** Утасны захиалгаас бүлэглэсэн харилцагчид */
   @Get('by-phone')

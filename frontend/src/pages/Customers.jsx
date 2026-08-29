@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
+import CustomerHistoryModal from '../components/customers/CustomerHistoryModal'
 import Button from '../components/ui/Button'
 import EmptyState from '../components/ui/EmptyState'
 import Spinner from '../components/ui/Spinner'
@@ -17,6 +18,7 @@ export default function Customers() {
   const [companies, setCompanies] = useState(null)
   const [partners, setPartners] = useState(null)
   const [byPhone, setByPhone] = useState(null)
+  const [history, setHistory] = useState(null)
   const [error, setError] = useState(null)
 
 
@@ -245,11 +247,20 @@ export default function Customers() {
           <Table
             columns={phoneColumns}
             rows={byPhone}
-            onRowClick={(c) => goOrders(c.phone)}
+            onRowClick={(c) =>
+              setHistory({ phone: c.phone, name: c.names?.[0] })
+            }
             empty={t('Захиалга алга')}
           />
         )}
       </div>
+      {history && (
+        <CustomerHistoryModal
+          phone={history.phone}
+          name={history.name}
+          onClose={() => setHistory(null)}
+        />
+      )}
     </div>
   )
 }

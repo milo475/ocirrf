@@ -21,6 +21,8 @@ import { UPLOADS_DIR } from '../src/uploads.config';
 
 const T = Date.now().toString().slice(-7); // давхардахгүй суффикс
 const SKU = `E2E-${T}`;
+/** Борлуулагчийн тестийн хүлээн авагч — бусад тесттэй давхцахгүй 8 орон */
+const SELLER_PHONE = `1${T}`;
 
 /** УБ горимын жишиг хаяг (fullAddress-ийн хүлээгдэх утгатай хослоно) */
 const UB_ADDR = {
@@ -103,6 +105,10 @@ describe('ursGAL v2 API (e2e)', () => {
   let retOrderId: string; // буцаалтын тест (V4-04)
   let retItemId: string; // буцаалтын тест захиалгын мөр
   const feeOrderIds: string[] = []; // тарифын тест захиалгууд (V4-05)
+  /** Тестийн үүсгэсэн хүсэлтүүд — мэдэгдэл нь эдгээрийг заадаг */
+  const requestIds: string[] = [];
+  let sellerId: string; // борлуулагчийн тест хэрэглэгч (V5)
+  let sellerToken: string;
   let keeperId: string; // няравын тест хэрэглэгч (V5)
   let keeperToken: string;
   let handoverId: string;
@@ -196,8 +202,11 @@ describe('ursGAL v2 API (e2e)', () => {
       await prisma.driverPayout.deleteMany({ where: { id: payoutId } });
     }
     // Тестийн үеэр үүссэн мэдэгдэл (бодит admin/manager-т очсон) + үйлдлийн түүх
+    // Мэдэгдэл — захиалга/бараанаас гадна ХҮСЭЛТИЙГ заасан нь ч бий
+    // (ORDER_REQUEST). Цэвэрлэхгүй бол бодит ажилтны хонх дээр тестийн
+    // мөр үлдэнэ.
     await prisma.notification.deleteMany({
-      where: { refId: { in: [...orderIds, ...productIds] } },
+      where: { refId: { in: [...orderIds, ...productIds, ...requestIds] } },
     });
     await prisma.activityLog.deleteMany({
       where: { createdAt: { gte: testStartedAt } },
@@ -222,6 +231,9 @@ describe('ursGAL v2 API (e2e)', () => {
     }
     if (keeperId) {
       await prisma.user.deleteMany({ where: { id: keeperId } });
+    }
+    if (sellerId) {
+      await prisma.user.deleteMany({ where: { id: sellerId } });
     }
     if (e2eMgrId) {
       await prisma.user.deleteMany({ where: { id: e2eMgrId } });
@@ -991,6 +1003,10 @@ describe('ursGAL v2 API (e2e)', () => {
       // тестүүдийн ачаалал/цалингийн тоололд нөлөөлнө — шууд устгана
       // (API-аар unassign хийх зам байхгүй)
       await prisma.stockMovement.deleteMany({ where: { refId: readyOrderId } });
+      // Хуваарилалт нь ORDER_RELEASED мэдэгдэл үүсгэсэн (V5). readyOrderId-г
+      // энд хоослодог тул эцсийн цэвэрлэгээний жагсаалтад орохгүй —
+      // мэдэгдлийг ЭНД устгахгүй бол ажилтны хонх дээр тестийн мөр үлдэнэ.
+      await prisma.notification.deleteMany({ where: { refId: readyOrderId } });
       await prisma.order.delete({ where: { id: readyOrderId } });
       readyOrderId = '';
     });
@@ -3327,6 +3343,7 @@ describe('ursGAL v2 API (e2e)', () => {
         .field('items', JSON.stringify([{ productId, qty: 1 }]))
         .expect(201);
       requestId = res.body.id;
+      requestIds.push(requestId);
 
       // ⭐ Хамгийн чухал: хүсэлт үлдэгдэлд хүрэхгүй
       const after = await api()
@@ -3335,17 +3352,31 @@ describe('ursGAL v2 API (e2e)', () => {
         .expect(200);
       expect(after.body.stockQty).toBe(before.body.stockQty);
 
-      // Ажилтанд мэдэгдэл очсон
-      const notifs = await api()
-        .get('/api/notifications?limit=20')
-        .set(auth(tok.operator))
-        .expect(200);
-      expect(
-        notifs.body.items.some(
-          (n: { type: string; refId: string }) =>
-            n.type === 'ORDER_REQUEST' && n.refId === requestId,
-        ),
-      ).toBe(true);
+      // Мэдэгдэл БОРЛУУЛАГЧ руу явна (V5); борлуулагч байхгүй бол
+      // ADMIN/MANAGER руу УНАНА — хүсэлт хаясан газраа үлдэхгүй.
+      // Хүлээн авагчдыг DB-ээс шалгана: тестийн орчинд борлуулагч
+      // байгаа эсэх нь тодорхойгүй тул нэрлэсэн хэрэглэгчээр шалгахгүй.
+      const notes = await prisma.notification.findMany({
+        where: { type: 'ORDER_REQUEST', refId: requestId },
+        select: { user: { select: { role: true, isActive: true } } },
+      });
+      expect(notes.length).toBeGreaterThan(0);
+      const sellers = await prisma.user.count({
+        where: { role: 'SELLER', isActive: true },
+      });
+      const expected = sellers > 0 ? ['SELLER'] : ['ADMIN', 'MANAGER'];
+      for (const n of notes) {
+        expect(expected).toContain(n.user.role);
+        expect(n.user.isActive).toBe(true);
+      }
+      // Хүлээн авагч бүрд яг нэг мөр — давхардахгүй
+      expect(notes.length).toBe(
+        sellers > 0
+          ? sellers
+          : await prisma.user.count({
+              where: { role: { in: ['ADMIN', 'MANAGER'] }, isActive: true },
+            }),
+      );
     });
 
     it('захиалга болгох: үлдэгдэл ЭНД хасагдаж, суваг/төлбөр шилжинэ ⭐', async () => {
@@ -3364,6 +3395,8 @@ describe('ursGAL v2 API (e2e)', () => {
       expect(order.body.channel).toBe('INSTAGRAM');
       expect(order.body.paymentStatus).toBe('PAID');
       expect(order.body.district).toBe('ХУД');
+      // «Захиалга болгох» нь өөрөө баталгаажуулалт (V5)
+      expect(order.body.orderStatus).toBe('CONFIRMED');
 
       const after = await api()
         .get(`/api/products/${productId}`)
@@ -3765,6 +3798,222 @@ describe('ursGAL v2 API (e2e)', () => {
         .set(auth(keeperToken))
         .expect(200);
       expect(one.body.totals.length).toBeGreaterThan(0);
+    });
+  });
+
+  // ────────────────────────────────────────────── V5: БОРЛУУЛАГЧ
+  describe('V5: Борлуулагч — хүсэлтээс хүргэлт хүртэл ⭐', () => {
+    let reqId: string;
+    let sellerOrderId: string;
+
+    afterAll(async () => {
+      if (reqId) {
+        await prisma.orderRequestItem.deleteMany({ where: { requestId: reqId } });
+        await prisma.orderRequest.deleteMany({ where: { id: reqId } });
+      }
+    });
+
+    it('борлуулагч үүсч, өөрийн ажлын эрхээ авна', async () => {
+      const created = await api()
+        .post('/api/users')
+        .set(auth(tok.admin))
+        .send({
+          email: `e2e-seller-${T}@ursgal.mn`,
+          password: 'seller123',
+          name: `Э2Э Борлуулагч ${T}`,
+          role: 'SELLER',
+        })
+        .expect(201);
+      sellerId = created.body.id;
+
+      const login = await api()
+        .post('/api/auth/login')
+        .send({ email: `e2e-seller-${T}@ursgal.mn`, password: 'seller123' })
+        .expect(200);
+      sellerToken = login.body.accessToken;
+
+      const me = await api()
+        .get('/api/auth/me')
+        .set(auth(sellerToken))
+        .expect(200);
+      expect(me.body.role).toBe('SELLER');
+      // Ажлын гурван алхам
+      expect(me.body.permissions).toContain('orders.view');
+      expect(me.body.permissions).toContain('orders.assign_driver');
+      expect(me.body.permissions).toContain('customers.view');
+      // Санхүү/эрх/тайланд хүрэхгүй
+      expect(me.body.permissions).not.toContain('finance.view_income');
+      expect(me.body.permissions).not.toContain('users.manage');
+      expect(me.body.permissions).not.toContain('permissions.manage');
+    });
+
+    it('линкийн хүсэлт МЕНЕЖЕР дээр биш, БОРЛУУЛАГЧ дээр очно ⭐', async () => {
+      const link = await api()
+        .get('/api/order-requests/link')
+        .set(auth(tok.manager))
+        .expect(200);
+
+      const res = await api()
+        .post(`/api/public/order-requests?token=${link.body.token}`)
+        .field('customerName', `Э2Э Борл-Хүсэлт ${T}`)
+        .field('phone', SELLER_PHONE)
+        .field('channel', 'FACEBOOK')
+        .field('region', 'ULAANBAATAR')
+        .field('district', 'ХУД')
+        .field('khoroo', '11')
+        .field('building', 'Э2Э байр')
+        .field('paid', 'true')
+        .field('items', JSON.stringify([{ productId, qty: 1 }]))
+        .expect(201);
+      reqId = res.body.id;
+      requestIds.push(reqId);
+
+      // ⭐ Борлуулагч дээр ирсэн
+      const mine = await api()
+        .get('/api/notifications?limit=20')
+        .set(auth(sellerToken))
+        .expect(200);
+      expect(
+        mine.body.items.some(
+          (n: { type: string; refId: string }) =>
+            n.type === 'ORDER_REQUEST' && n.refId === reqId,
+        ),
+      ).toBe(true);
+
+      // ⭐ Менежер дээр ИРЭХГҮЙ — борлуулагч байгаа тул
+      const mgr = await api()
+        .get('/api/notifications?limit=20')
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(
+        mgr.body.items.some(
+          (n: { type: string; refId: string }) =>
+            n.type === 'ORDER_REQUEST' && n.refId === reqId,
+        ),
+      ).toBe(false);
+    });
+
+    it('борлуулагч хүсэлтийг батлаад захиалга болгоно', async () => {
+      const order = await api()
+        .post(`/api/order-requests/${reqId}/convert`)
+        .set(auth(sellerToken))
+        .expect(201);
+      sellerOrderId = order.body.id;
+      feeOrderIds.push(sellerOrderId);
+      expect(order.body.channel).toBe('FACEBOOK');
+      expect(order.body.orderStatus).toBe('CONFIRMED');
+    });
+
+    it('худалдан авалтын түүхийг утсаар нь шалгана ⭐', async () => {
+      const h = await api()
+        .get(`/api/customers/history?phone=${SELLER_PHONE}`)
+        .set(auth(sellerToken))
+        .expect(200);
+      expect(h.body.summary.orders).toBe(1);
+      expect(h.body.orders[0].orderNo).toBe(
+        (
+          await api()
+            .get(`/api/orders/${sellerOrderId}`)
+            .set(auth(sellerToken))
+            .expect(200)
+        ).body.orderNo,
+      );
+      expect(h.body.summary.topProducts.length).toBeGreaterThan(0);
+
+      // phone-гүй бол 400
+      await api()
+        .get('/api/customers/history')
+        .set(auth(sellerToken))
+        .expect(400);
+      // Жолооч хэрэглэгчийн түүх харахгүй
+      await api()
+        .get(`/api/customers/history?phone=${SELLER_PHONE}`)
+        .set(auth(tok.driver))
+        .expect(403);
+    });
+
+    it('жолооч хуваарилахад НЯРАВ+МЕНЕЖЕР мэдэгдэл авна ⭐', async () => {
+      await api()
+        .patch(`/api/orders/${sellerOrderId}/assign-driver`)
+        .set(auth(sellerToken))
+        .send({ driverId: e2eDriverId })
+        .expect(200);
+
+      // Нярав — тооцоо гаргахад
+      const keeper = await api()
+        .get('/api/notifications?limit=20')
+        .set(auth(keeperToken))
+        .expect(200);
+      const note = keeper.body.items.find(
+        (n: { type: string; refId: string }) =>
+          n.type === 'ORDER_RELEASED' && n.refId === sellerOrderId,
+      );
+      expect(note).toBeTruthy();
+      // Хэрэглэгчийн мэдээлэл + түүх мэдэгдлийн биед шууд байна
+      expect(note.body).toContain(SELLER_PHONE);
+      expect(note.body).toContain('ХУД');
+      expect(note.body).toContain('Анхны худалдан авалт');
+
+      // Менежер — хяналт
+      const mgr = await api()
+        .get('/api/notifications?limit=20')
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(
+        mgr.body.items.some(
+          (n: { type: string; refId: string }) =>
+            n.type === 'ORDER_RELEASED' && n.refId === sellerOrderId,
+        ),
+      ).toBe(true);
+    });
+
+    it('дахин хуваарилахад мэдэгдэл ДАВХАРДАХГҮЙ ⭐', async () => {
+      const before = await api()
+        .get('/api/notifications?limit=50')
+        .set(auth(keeperToken))
+        .expect(200);
+      const count = (items: { type: string; refId: string }[]) =>
+        items.filter(
+          (n) => n.type === 'ORDER_RELEASED' && n.refId === sellerOrderId,
+        ).length;
+
+      await api()
+        .patch(`/api/orders/${sellerOrderId}/assign-driver`)
+        .set(auth(sellerToken))
+        .send({ driverId: e2eDriverId })
+        .expect(200);
+
+      const after = await api()
+        .get('/api/notifications?limit=50')
+        .set(auth(keeperToken))
+        .expect(200);
+      expect(count(after.body.items)).toBe(count(before.body.items));
+    });
+
+    it('борлуулагчийн самбар — гурван алхмын дараалал', async () => {
+      const res = await api()
+        .get('/api/dashboard/seller')
+        .set(auth(sellerToken))
+        .expect(200);
+      expect(typeof res.body.newRequests).toBe('number');
+      expect(res.body.convertedToday).toBeGreaterThanOrEqual(1);
+      expect(res.body.releasedToday).toBeGreaterThanOrEqual(1);
+      expect(Array.isArray(res.body.pendingRequests)).toBe(true);
+      expect(Array.isArray(res.body.awaitingDriver)).toBe(true);
+
+      // Бусад эрх энэ самбарт хүрэхгүй
+      await api()
+        .get('/api/dashboard/seller')
+        .set(auth(tok.driver))
+        .expect(403);
+    });
+
+    it('борлуулагч санхүү/хэрэглэгчид рүү орохгүй → 403', async () => {
+      await api()
+        .get('/api/finance/summary')
+        .set(auth(sellerToken))
+        .expect(403);
+      await api().get('/api/users').set(auth(sellerToken)).expect(403);
     });
   });
 

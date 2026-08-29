@@ -401,6 +401,32 @@ const DICT = {
     'Хуваарилж чадсангүй: {list}': 'Could not assign: {list}',
     'DR%': 'DR%',
 
+    // — Борлуулагч (V5) —
+    'Борлуулагч': 'Seller',
+    'Борлуулагчийн самбар': 'Seller board',
+    'Хүсэлт шалгах → захиалга болгох → хүргэлтэд гаргах':
+      'Check request → convert to order → release to delivery',
+    'Хүлээгдэж буй хүсэлт': 'Pending requests',
+    'Өнөөдөр батласан': 'Confirmed today',
+    'Жолооч хүлээж буй': 'Awaiting driver',
+    'Өнөөдөр хүргэлтэд гарсан': 'Released today',
+    'Шалгах хүсэлтүүд': 'Requests to check',
+    'Бүгдийг харах': 'View all',
+    'Жолооч хүлээж буй захиалга': 'Orders awaiting a driver',
+    'Бүгд хуваарилагдсан': 'All assigned',
+
+    // — Худалдан авалтын түүх (V5) —
+    'Худалдан авалтын түүх': 'Purchase history',
+    'Анхны худалдан авалт — өмнөх захиалга алга':
+      'First purchase — no previous orders',
+    'Бусад нэр': 'Other names',
+    'цуцалсан': 'cancelled',
+    'Нийт дүн': 'Total',
+    'Авлага': 'Due',
+    'Анх': 'First',
+    'Ихэвчлэн авдаг': 'Usually buys',
+    'Захиалгууд': 'Orders',
+
     // — Бүсээр хуваарилалт (V5) —
     'Дүүргээр автоматаар': 'Auto by district',
     'Жолоочийн харьяалах бүсээр сонгож, ачааллыг тэнцвэржүүлнэ':

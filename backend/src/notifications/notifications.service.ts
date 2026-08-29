@@ -102,6 +102,86 @@ export class NotificationsService {
 
 
 
+  /** Идэвхтэй тодорхой эрхтэй хэрэглэгчдийн id */
+  private async activeByRole(roles: Role[]): Promise<string[]> {
+    const users = await this.prisma.user.findMany({
+      where: { role: { in: roles }, isActive: true },
+      select: { id: true },
+    });
+    return users.map((u) => u.id);
+  }
+
+  /**
+   * Нийтийн линкээр хүсэлт ирэхэд — БОРЛУУЛАГЧ нарт (V5).
+   * Хүсэлт хүлээж авах нь борлуулагчийн ажил тул хонх тэдэн дээр
+   * дуугарна. Борлуулагч бүртгэгдээгүй бол хүсэлт хаясан газраа
+   * үлдэхгүйн тулд ADMIN/MANAGER руу унана.
+   */
+  async notifyOrderRequest(request: {
+    id: string;
+    customerName: string;
+    phone: string;
+    socialName: string | null;
+  }) {
+    let targets = await this.activeByRole([Role.SELLER]);
+    if (targets.length === 0) {
+      targets = await this.activeByRole([Role.ADMIN, Role.MANAGER]);
+    }
+    await this.notify(targets, {
+      type: 'ORDER_REQUEST',
+      title: `Шинэ захиалгын хүсэлт: ${request.customerName}`,
+      body: `${request.phone}${request.socialName ? ` · ${request.socialName}` : ''}`,
+      refType: 'order-request',
+      refId: request.id,
+    });
+  }
+
+  /**
+   * Захиалга ХҮРГЭЛТЭД ГАРАХАД — нярав болон менежерүүдэд (V5).
+   *
+   * Борлуулагч хэрэглэгчийн мэдээллийг шалгаж, жолооч хуваарилмагц
+   * дуудагдана. Нярав энэ мэдээллээр тооцоо/төлөвлөлтөө хийнэ, менежер
+   * хяналтаа тавина — тиймээс хаяг, бараа, дүн, ӨМНӨХ ХУДАЛДАН АВАЛТЫН
+   * түүхийг мэдэгдлийн биед шууд оруулна (хонх дээрээс нээхгүйгээр
+   * харагдана).
+   */
+  async notifyReleasedToDelivery(input: {
+    orderId: string;
+    orderNo: string;
+    customerName: string | null;
+    phone: string;
+    address: string;
+    items: string;
+    total: string;
+    driverName: string;
+    priorOrders: number;
+    priorAmount: string;
+  }) {
+    const targets = await this.activeByRole([
+      Role.WAREHOUSE,
+      Role.MANAGER,
+      Role.ADMIN,
+    ]);
+    const history =
+      input.priorOrders > 0
+        ? `Өмнө нь ${input.priorOrders} захиалга · ${input.priorAmount}`
+        : 'Анхны худалдан авалт';
+    await this.notify(targets, {
+      type: 'ORDER_RELEASED',
+      title: `Хүргэлтэд гарлаа: ${input.orderNo} → ${input.driverName}`,
+      body: [
+        `${input.customerName ?? ''} · ${input.phone}`,
+        input.address,
+        `${input.items} · ${input.total}`,
+        history,
+      ]
+        .filter(Boolean)
+        .join('\n'),
+      refType: 'order',
+      refId: input.orderId,
+    });
+  }
+
   /** Захиалга хуваарилагдахад — жолоочид */
   async notifyDriverAssigned(driverId: string, order: { id: string; orderNo: string }) {
     await this.notify([driverId], {

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
+import CustomerHistoryModal from '../components/customers/CustomerHistoryModal'
 import Button from '../components/ui/Button'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import EmptyState from '../components/ui/EmptyState'
@@ -30,6 +31,7 @@ export default function OrderRequests() {
   const [rejecting, setRejecting] = useState(null)
   const [proof, setProof] = useState(null)
   const [link, setLink] = useState(null)
+  const [history, setHistory] = useState(null)
 
   const load = useCallback(() => {
     setError(null)
@@ -148,7 +150,20 @@ export default function OrderRequests() {
                   <div className="min-w-0">
                     <p className="flex items-center gap-2 flex-wrap">
                       <span className="font-medium">{r.customerName}</span>
-                      <span className="font-mono tabular-nums">{r.phone}</span>
+                      {hasPerm('customers.view') ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setHistory({ phone: r.phone, name: r.customerName })
+                          }
+                          title={t('Худалдан авалтын түүх')}
+                          className="font-mono tabular-nums text-accent underline underline-offset-2"
+                        >
+                          {r.phone}
+                        </button>
+                      ) : (
+                        <span className="font-mono tabular-nums">{r.phone}</span>
+                      )}
                       {r.socialName && (
                         <span className="text-sm text-accent">{r.socialName}</span>
                       )}
@@ -229,6 +244,14 @@ export default function OrderRequests() {
           </ul>
         )}
       </div>
+
+      {history && (
+        <CustomerHistoryModal
+          phone={history.phone}
+          name={history.name}
+          onClose={() => setHistory(null)}
+        />
+      )}
 
       <Modal
         open={!!proof}

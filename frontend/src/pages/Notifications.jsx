@@ -107,7 +107,7 @@ export default function Notifications() {
                     {n.title}
                   </span>
                   {n.body && (
-                    <span className="block text-sm text-ink-muted mt-0.5">
+                    <span className="block text-sm text-ink-muted mt-0.5 whitespace-pre-line">
                       {n.body}
                     </span>
                   )}

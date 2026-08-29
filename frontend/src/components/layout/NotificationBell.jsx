@@ -108,7 +108,9 @@ export default function NotificationBell({ unread }) {
                       </span>
                       {n.body && (
                         <span className="block text-xs text-ink-muted truncate">
-                          {n.body}
+                          {/* Олон мөрт биетэй мэдэгдэлд (ORDER_RELEASED)
+                              хонх дээр эхний мөр нь л багтана */}
+                          {n.body.split('\n')[0]}
                         </span>
                       )}
                       <span className="block font-mono text-[10px] text-ink-muted tabular-nums mt-0.5">

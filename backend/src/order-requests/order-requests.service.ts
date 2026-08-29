@@ -9,6 +9,7 @@ import {
   DeliveryRegion,
   OrderChannel,
   OrderRequestStatus,
+  OrderStatus,
   Prisma,
 } from '../generated/prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -155,21 +156,9 @@ export class OrderRequestsService {
       include: { items: true },
     });
 
-    // Ажилтнуудад хонх дуугарна (SSE) — шууд харж боловсруулна
-    const staff = await this.prisma.user.findMany({
-      where: { role: { in: ['ADMIN', 'MANAGER', 'OPERATOR'] }, isActive: true },
-      select: { id: true },
-    });
-    await this.notifications.notify(
-      staff.map((u) => u.id),
-      {
-        type: 'ORDER_REQUEST',
-        title: `Шинэ захиалгын хүсэлт: ${request.customerName}`,
-        body: `${request.phone}${request.socialName ? ` · ${request.socialName}` : ''}`,
-        refType: 'order-request',
-        refId: request.id,
-      },
-    );
+    // Хонх БОРЛУУЛАГЧ дээр дуугарна (V5) — хүсэлт хүлээж авах нь
+    // тэдний ажил. Борлуулагчгүй бол ADMIN/MANAGER руу унана.
+    await this.notifications.notifyOrderRequest(request);
 
     return { ok: true, id: request.id };
   }
@@ -252,6 +241,18 @@ export class OrderRequestsService {
       user,
     );
 
+    /**
+     * «Захиалга болгох» дарах нь өөрөө БАТАЛГААЖУУЛАЛТ (V5) — ажилтан
+     * гүйлгээний баримт, хаяг, барааг шалгасны эцэст л дардаг. NEW-д
+     * үлдээвэл жолооч хуваарилахын өмнө утгагүй нэг товч нэмэгддэг
+     * (assignDriver нь CONFIRMED-ээс дээш төлөв шаарддаг).
+     */
+    const confirmed = await this.orders.updateStatus(
+      order.id,
+      OrderStatus.CONFIRMED,
+      user,
+    );
+
     await this.prisma.orderRequest.update({
       where: { id },
       data: {
@@ -261,7 +262,7 @@ export class OrderRequestsService {
         handledAt: new Date(),
       },
     });
-    return order;
+    return confirmed;
   }
 
   /** Хогийн/буруу хүсэлт — устгахгүй, зөвхөн тэмдэглэнэ */

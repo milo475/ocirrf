@@ -75,6 +75,10 @@ export class DeliveryService {
       );
     }
 
+    // Анх удаа жолоочтой болж байна уу — «хүргэлтэд гарсан» мөч нь энэ.
+    // Дахин хуваарилалт нь шинэ үйл явдал биш тул мэдэгдэл давхардуулахгүй.
+    const firstRelease = order.assignedDriverId === null;
+
     const assigned = await this.prisma.order.update({
       where: { id: orderId },
       data: {
@@ -85,7 +89,61 @@ export class DeliveryService {
       include: { assignedDriver: DRIVER_SELECT },
     });
     await this.notifications.notifyDriverAssigned(driverId, assigned);
+    if (firstRelease) {
+      await this.notifyRelease(assigned, driver.fullName);
+    }
     return assigned;
+  }
+
+  /**
+   * Захиалга хүргэлтэд гарахад нярав + менежерүүдэд мэдэгдэнэ (V5).
+   * Хэрэглэгчийн ӨМНӨХ худалдан авалтыг утсаар нь хамт тоолж явуулна —
+   * нярав тооцоо гаргах, менежер хяналт тавихад хэрэгтэй.
+   */
+  private async notifyRelease(
+    order: {
+      id: string;
+      orderNo: string;
+      customerName: string | null;
+      phone: string;
+      totalAmount: Prisma.Decimal;
+    },
+    driverName: string,
+  ) {
+    const [full, prior] = await Promise.all([
+      this.prisma.order.findUnique({
+        where: { id: order.id },
+        include: { items: true },
+      }),
+      this.prisma.order.aggregate({
+        where: {
+          phone: order.phone,
+          id: { not: order.id },
+          orderStatus: { not: OrderStatus.CANCELLED },
+        },
+        _count: { _all: true },
+        _sum: { totalAmount: true },
+      }),
+    ]);
+    if (!full) return;
+
+    const money = (v: Prisma.Decimal | null) =>
+      `${Number(v ?? 0).toLocaleString('en-US')}₮`;
+
+    await this.notifications.notifyReleasedToDelivery({
+      orderId: full.id,
+      orderNo: full.orderNo,
+      customerName: full.customerName,
+      phone: full.phone,
+      address: formatShortAddress(full),
+      items: full.items
+        .map((i) => `${i.productName} ×${i.qty}`)
+        .join(', '),
+      total: money(full.totalAmount),
+      driverName,
+      priorOrders: prior._count._all,
+      priorAmount: money(prior._sum.totalAmount),
+    });
   }
 
   /** Жолоочийн өөрийн дуусаагүй хүргэлтүүд — маршрутын дарааллаар */

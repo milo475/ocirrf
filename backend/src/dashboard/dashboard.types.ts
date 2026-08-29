@@ -37,6 +37,37 @@ export type OperatorDashboard = {
   }[];
 };
 
+/**
+ * GET /api/dashboard/seller — борлуулагчийн ажлын дараалал (V5).
+ * Хүсэлт → батлах → жолооч хуваарилах гэсэн гурван алхмын аль нь
+ * гацаж байгааг нэг харцаар харуулна.
+ */
+export type SellerDashboard = {
+  newRequests: number; // хүлээгдэж буй хүсэлт
+  convertedToday: number; // өнөөдөр захиалга болгосон
+  unassignedOrders: number; // жолооч хүлээж буй захиалга
+  releasedToday: number; // өнөөдөр хүргэлтэд гаргасан
+  pendingRequests: {
+    id: string;
+    customerName: string;
+    phone: string;
+    socialName: string | null;
+    channel: string;
+    paid: boolean;
+    createdAt: Date;
+  }[];
+  awaitingDriver: {
+    id: string;
+    orderNo: string;
+    customerName: string | null;
+    phone: string;
+    shortAddress: string;
+    district: string | null;
+    totalAmount: unknown;
+    createdAt: Date;
+  }[];
+};
+
 /** GET /api/dashboard/manager */
 export type ManagerDashboard = {
   stockLast7Days: { date: string; in: number; out: number }[];

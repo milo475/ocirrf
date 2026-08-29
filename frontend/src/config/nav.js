@@ -42,7 +42,7 @@ export const NAV_ITEMS = [
     icon: Home,
     path: '/',
     end: true,
-    roles: ['ADMIN', 'MANAGER', 'OPERATOR', 'DRIVER', 'WAREHOUSE'],
+    roles: ['ADMIN', 'MANAGER', 'OPERATOR', 'DRIVER', 'WAREHOUSE', 'SELLER'],
   },
 
   // ── Staff үндсэн цэсүүд (permission-оороо автоматаар) ──
@@ -140,7 +140,7 @@ export const NAV_ITEMS = [
     label: 'Мэдэгдэл',
     icon: Bell,
     path: '/notifications',
-    roles: ['ADMIN', 'MANAGER', 'OPERATOR'],
+    roles: ['ADMIN', 'MANAGER', 'OPERATOR', 'SELLER', 'WAREHOUSE'],
   },
   {
     key: 'users',

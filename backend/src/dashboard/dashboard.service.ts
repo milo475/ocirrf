@@ -11,6 +11,7 @@ import type {
   AdminDashboard,
   ManagerDashboard,
   OperatorDashboard,
+  SellerDashboard,
 } from './dashboard.types';
 import type { ProductHealth, StockDriver } from './product-health.type';
 
@@ -26,6 +27,13 @@ function weekStart(): Date {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
   d.setDate(d.getDate() - 6);
+  return d;
+}
+
+/** Өнөөдрийн 00:00 */
+function todayStart(): Date {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
   return d;
 }
 
@@ -229,6 +237,75 @@ export class DashboardService {
   }
 
   /** MANAGER самбар: орлого/зарлага, хуваарилалт хүлээж буй, жолоочийн ачаалал */
+  /**
+   * Борлуулагчийн самбар (V5) — гурван алхмын гацаа:
+   * 1) хүлээгдэж буй хүсэлт, 2) өнөөдөр батласан,
+   * 3) жолооч хүлээж буй захиалга, 4) өнөөдөр хүргэлтэд гаргасан.
+   */
+  async seller(): Promise<SellerDashboard> {
+    const today = todayStart();
+    const WAITING: OrderStatus[] = [
+      OrderStatus.CONFIRMED,
+      OrderStatus.PREPARING,
+      OrderStatus.READY,
+    ];
+
+    const [
+      newRequests,
+      convertedToday,
+      unassignedOrders,
+      releasedToday,
+      pending,
+      awaiting,
+    ] = await Promise.all([
+      this.prisma.orderRequest.count({ where: { status: 'NEW' } }),
+      this.prisma.orderRequest.count({
+        where: { status: 'CONVERTED', handledAt: { gte: today } },
+      }),
+      this.prisma.order.count({
+        where: { orderStatus: { in: WAITING }, assignedDriverId: null },
+      }),
+      this.prisma.order.count({ where: { assignedAt: { gte: today } } }),
+      this.prisma.orderRequest.findMany({
+        where: { status: 'NEW' },
+        orderBy: { createdAt: 'asc' },
+        take: 8,
+        select: {
+          id: true,
+          customerName: true,
+          phone: true,
+          socialName: true,
+          channel: true,
+          paid: true,
+          createdAt: true,
+        },
+      }),
+      this.prisma.order.findMany({
+        where: { orderStatus: { in: WAITING }, assignedDriverId: null },
+        orderBy: { createdAt: 'asc' },
+        take: 10,
+      }),
+    ]);
+
+    return {
+      newRequests,
+      convertedToday,
+      unassignedOrders,
+      releasedToday,
+      pendingRequests: pending,
+      awaitingDriver: awaiting.map((o) => ({
+        id: o.id,
+        orderNo: o.orderNo,
+        customerName: o.customerName,
+        phone: o.phone,
+        shortAddress: formatShortAddress(o),
+        district: o.district,
+        totalAmount: o.totalAmount,
+        createdAt: o.createdAt,
+      })),
+    };
+  }
+
   async manager(): Promise<ManagerDashboard> {
     const [stockLast7Days, awaitingAssignment, drivers, loadGroups] =
       await Promise.all([
