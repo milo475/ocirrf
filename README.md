@@ -70,3 +70,20 @@ bash scripts/smoke-test-v2.sh     # v2 урсгалууд
 
 Гараар шалгах жагсаалт: [TESTING.md](TESTING.md).
 Байршуулалт: [DEPLOY.md](DEPLOY.md).
+ 
+
+
+ duureg songolt 6n duureg oruulah bgd bzd hud sbd chd shd 
+ horoo songoh duuregt bdg songoltuud hud ghd 25n horootoi bol ter 25 aas songolt hiideg bh 
+ door ni songoson baraanii list une haragdd etsest ni negdsen dun haragdah ystoi tgd tolbor tologdsn bolon tologdoogui gsn 2 songolt ogno songood tologsn bol shuud zahialgaa batalgaajuulj bolno tologdoogui bol hediig avah gsn too bichih songolt ogno tolbor avah tgd shuud zahialgaa uusgeh gej orno 
+
+ hariltsagc deer company nii ner oruulj ogoh buyu hamtarch bga gazruudin list bn dtroo heden operator burtgeltei bgg hardag 
+
+ ter door hereglegchid gedeg neriig ni soliod User bolgo tend hols gesen hesgiig has nemelt company nii songolt oruulj ir ali company nii operator holbootoi bn gedgiig 
+
+ jolooch heseg der niit hurgesen hurgeltiin too bolon ter hugatsaand ajillasan hurgeltuudiin niit DR% ajliin torol gej mon nemj oruulaad unsen esvel tsagiin gsn songolt oruul tgd bus gej oruulaad hariyaalagdah busiig ni songodog bolgo 
+  nyrav heseg nemeh manager jolooch nart huvaarilaad daraa ni nyravt huvaarilana nyravt haragdah ym ni blhr tuhain joloochid her ih baraa ochih ve tgd zahialgiin huudsaar heveldeg heseg nemeh zahialgiin huudas dotr hednii odor ymr joloochid ymr2 baraa huleelgej ogsn be gdg list heregtei mon 2 taliin batalgaajuulsn gariin useg zurdag heseg bh  nyrav aas mon tolov oorchildog heseg bh beltgej bh uyiin process iig oruulj ogdog bvl sn 
+
+  bara heseg deeress ortog bolon ashig gsn hesgiig ustgah limit gesniig soliod low stock alert bolgo hailt heseg nemeed hariltsagc companiar harj boldog bolgoh 
+
+  zahialgiin heseg deer duurgeer filter hiij boldog bh manager jolooch huvaariladag heseg mon nyrav huvaariladag heseg nemeh ali aliig ni olnoor checkelj bgd zereg huvaarilj boldog bolgoh 
