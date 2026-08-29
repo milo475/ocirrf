@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
+import DriverOptions from '../components/orders/DriverOptions'
 import SignaturePad from '../components/warehouse/SignaturePad'
 import Button from '../components/ui/Button'
 import EmptyState from '../components/ui/EmptyState'
 import Modal from '../components/ui/Modal'
+import Select from '../components/ui/Select'
 import Spinner from '../components/ui/Spinner'
 import { useToast } from '../components/ui/Toast'
 import { useLang } from '../context/LanguageContext'
@@ -66,6 +68,7 @@ function Board({ t, toast }) {
   const [all, setAll] = useState(false)
   const [busy, setBusy] = useState(null)
   const [handing, setHanding] = useState(null)
+  const [assigning, setAssigning] = useState(null)
 
   const load = useCallback(() => {
     setError(null)
@@ -145,12 +148,16 @@ function Board({ t, toast }) {
                     {g.orderCount} {t('захиалга')} · {t('бэлэн')} {g.readyCount}
                   </p>
                 </div>
-                {g.driverId && (
+                {g.driverId ? (
                   <Button
                     disabled={g.readyCount === 0}
                     onClick={() => setHanding(g)}
                   >
                     {t('Хүлээлгэн өгөх')}
+                  </Button>
+                ) : (
+                  <Button variant="ghost" onClick={() => setAssigning(g)}>
+                    🚚 {t('Жолооч хуваарилах')}
                   </Button>
                 )}
               </header>
@@ -236,6 +243,19 @@ function Board({ t, toast }) {
         </div>
       )}
 
+      {assigning && (
+        <AssignDriverBoardModal
+          group={assigning}
+          t={t}
+          toast={toast}
+          onClose={() => setAssigning(null)}
+          onDone={() => {
+            setAssigning(null)
+            load()
+          }}
+        />
+      )}
+
       {handing && (
         <HandoverModal
           group={handing}
@@ -249,6 +269,108 @@ function Board({ t, toast }) {
         />
       )}
     </div>
+  )
+}
+
+/**
+ * Няравын самбараас шууд жолооч оноох (V5).
+ * Менежер оноогоогүй үед бэлтгэл зогсдог байсан — «Жолооч хуваарилаагүй»
+ * бүлгийн захиалгуудыг нярав өөрөө өгнө. Жолоочдын жагсаалт нь
+ * захиалгуудын дүүргээр эрэмбэлэгдэнэ.
+ */
+function AssignDriverBoardModal({ group, t, toast, onClose, onDone }) {
+  const [drivers, setDrivers] = useState(null)
+  const [driverId, setDriverId] = useState('')
+  const [busy, setBusy] = useState(false)
+  const districts = group.orders.map((o) => o.district)
+
+  useEffect(() => {
+    api('/drivers')
+      .then((list) => setDrivers(list.filter((d) => d.isActive)))
+      .catch(() => setDrivers([]))
+  }, [])
+
+  async function auto() {
+    setBusy(true)
+    try {
+      const res = await api('/orders/assign-driver/auto', {
+        method: 'PATCH',
+        body: { orderIds: group.orders.map((o) => o.id) },
+      })
+      if (res.assigned.length > 0) {
+        toast.show(
+          t('{n} захиалга бүсээр нь хуваарилагдлаа', { n: res.assigned.length }),
+        )
+      }
+      if (res.skipped.length > 0) {
+        toast.show(
+          `${t('Үлдсэн')} ${res.skipped.length}: ${res.skipped[0].reason}`,
+          { type: 'error' },
+        )
+      }
+      onDone()
+    } catch (e) {
+      toast.show(e.message, { type: 'error' })
+      setBusy(false)
+    }
+  }
+
+  async function submit(e) {
+    e.preventDefault()
+    setBusy(true)
+    try {
+      const res = await api('/orders/assign-driver/bulk', {
+        method: 'PATCH',
+        body: { driverId, orderIds: group.orders.map((o) => o.id) },
+      })
+      if (res.assigned > 0) {
+        toast.show(t('{n} захиалга хуваарилагдлаа', { n: res.assigned }))
+      }
+      if (res.failed.length > 0) {
+        toast.show(res.failed[0].reason, { type: 'error' })
+      }
+      onDone()
+    } catch (e) {
+      toast.show(e.message, { type: 'error' })
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} title={t('Жолооч хуваарилах')}>
+      <form onSubmit={submit} className="space-y-4">
+        <p className="text-sm text-ink-muted">
+          {t('Хуваарилаагүй {n} захиалга', { n: group.orders.length })} ·{' '}
+          <span className="font-mono">
+            {[...new Set(districts.filter(Boolean))].join(', ')}
+          </span>
+        </p>
+        {drivers === null ? (
+          <p className="text-sm text-ink-muted">…</p>
+        ) : (
+          <Select
+            id="board-driver"
+            label={t('Жолооч')}
+            value={driverId}
+            onChange={(e) => setDriverId(e.target.value)}
+          >
+            <option value="">—</option>
+            <DriverOptions drivers={drivers} districts={districts} />
+          </Select>
+        )}
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="ghost" onClick={onClose} disabled={busy}>
+            {t('Болих')}
+          </Button>
+          <Button variant="ghost" loading={busy} onClick={auto}>
+            🎯 {t('Дүүргээр автоматаар')}
+          </Button>
+          <Button type="submit" loading={busy} disabled={!driverId}>
+            {t('Хуваарилах')}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   )
 }
 

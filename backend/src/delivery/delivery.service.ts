@@ -8,6 +8,8 @@ import {
   DeliveryStatus,
   OrderStatus,
   Prisma,
+  DeliveryRegion,
+  Role,
 } from '../generated/prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
 import { formatFullAddress, formatShortAddress } from '../orders/address.util';
@@ -376,6 +378,116 @@ export class DeliveryService {
       }
     }
     return { assigned, failed };
+  }
+
+  /**
+   * Дүүргээр автоматаар хуваарилах (V5).
+   *
+   * Жолооч бүрийн «харьяалах бүс» (DriverProfile.zones) хүртэл нь зөвхөн
+   * шошго байсан — хуваарилалтад огт оролцдоггүй байв. Энэ метод түүнийг
+   * ажиллуулна: захиалгын дүүргийг хамардаг жолоочдоос ОДООГИЙН АЧААЛАЛ
+   * хамгийн бага нэгийг сонгоно. Нэг дуудлагын дотор сонгосон бүрдээ
+   * ачааллыг нэмж тоолдог тул 10 захиалга нэг хүн дээр овоорохгүй.
+   *
+   * Аль хэдийн жолоочтой захиалгыг ХӨНДӨХГҮЙ — гараар хийсэн шийдвэрийг
+   * автомат дарж бичих нь ажилтанд гэнэтийн байдаг.
+   */
+  async autoAssignByZone(orderIds: string[]) {
+    const orders = await this.prisma.order.findMany({
+      where: { id: { in: orderIds } },
+      select: {
+        id: true,
+        orderNo: true,
+        district: true,
+        region: true,
+        assignedDriverId: true,
+      },
+      orderBy: { orderNo: 'asc' },
+    });
+
+    const drivers = await this.prisma.user.findMany({
+      where: {
+        role: Role.DRIVER,
+        isActive: true,
+        driverProfile: { isAvailable: true },
+      },
+      select: {
+        id: true,
+        fullName: true,
+        driverProfile: { select: { zones: true } },
+      },
+    });
+
+    // Одоогийн ачаалал — дуусаагүй хүргэлтийн тоо
+    const loadGroups = await this.prisma.order.groupBy({
+      by: ['assignedDriverId'],
+      where: {
+        assignedDriverId: { not: null },
+        deliveryStatus: {
+          in: [DeliveryStatus.ASSIGNED, DeliveryStatus.ON_THE_WAY],
+        },
+      },
+      _count: { _all: true },
+    });
+    const load = new Map<string, number>(
+      loadGroups
+        .filter((g): g is typeof g & { assignedDriverId: string } =>
+          Boolean(g.assignedDriverId),
+        )
+        .map((g) => [g.assignedDriverId, g._count._all]),
+    );
+
+    const assigned: {
+      orderNo: string;
+      district: string;
+      driverName: string;
+    }[] = [];
+    const skipped: { orderNo: string; reason: string }[] = [];
+
+    for (const o of orders) {
+      if (o.assignedDriverId) {
+        skipped.push({ orderNo: o.orderNo, reason: 'Аль хэдийн жолоочтой' });
+        continue;
+      }
+      if (o.region !== DeliveryRegion.ULAANBAATAR || !o.district) {
+        skipped.push({
+          orderNo: o.orderNo,
+          reason: 'Орон нутгийн захиалга — бүсээр хуваарилахгүй',
+        });
+        continue;
+      }
+      const district = o.district;
+      const candidates = drivers.filter((d) =>
+        d.driverProfile?.zones.includes(district),
+      );
+      if (candidates.length === 0) {
+        skipped.push({
+          orderNo: o.orderNo,
+          reason: `${district}-ыг хамардаг сул жолооч алга`,
+        });
+        continue;
+      }
+      candidates.sort(
+        (a, b) => (load.get(a.id) ?? 0) - (load.get(b.id) ?? 0),
+      );
+      const pick = candidates[0];
+      try {
+        await this.assignDriver(o.id, pick.id);
+        load.set(pick.id, (load.get(pick.id) ?? 0) + 1);
+        assigned.push({
+          orderNo: o.orderNo,
+          district,
+          driverName: pick.fullName,
+        });
+      } catch (e) {
+        skipped.push({
+          orderNo: o.orderNo,
+          reason: e instanceof Error ? e.message : 'Тодорхойгүй алдаа',
+        });
+      }
+    }
+
+    return { assigned, skipped };
   }
 
   /** Жолоочийн маршрутын дараалал тавих: orderIds[i] → routeOrder i+1 */

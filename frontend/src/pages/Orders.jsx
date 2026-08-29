@@ -4,6 +4,7 @@ import PaymentBadge from '../components/orders/PaymentBadge'
 import ReturnBadge from '../components/orders/ReturnBadge'
 import RegionBadge from '../components/orders/RegionBadge'
 import Badge, { STATUS_LABELS } from '../components/ui/Badge'
+import DriverOptions from '../components/orders/DriverOptions'
 import Button from '../components/ui/Button'
 import EmptyState from '../components/ui/EmptyState'
 import Input from '../components/ui/Input'
@@ -134,6 +135,44 @@ export default function Orders() {
   // ── Олноор жолооч хуваарилах (V5) ──
   const [bulkOpen, setBulkOpen] = useState(false)
   const [keeperOpen, setKeeperOpen] = useState(false)
+
+  const [autoBusy, setAutoBusy] = useState(false)
+
+  /**
+   * Дүүргээр автоматаар: жолоочийн харьяалах бүсээр сонгож, ачааллыг
+   * тэнцвэржүүлнэ. Аль хэдийн жолоочтой захиалгыг хөндөхгүй.
+   */
+  async function autoAssign() {
+    setAutoBusy(true)
+    try {
+      const res = await api('/orders/assign-driver/auto', {
+        method: 'PATCH',
+        body: { orderIds: [...selected] },
+      })
+      setSelected(new Set())
+      if (res.assigned.length > 0) {
+        toast.show(
+          t('{n} захиалга бүсээр нь хуваарилагдлаа', {
+            n: res.assigned.length,
+          }),
+        )
+      }
+      if (res.skipped.length > 0) {
+        toast.show(
+          `${t('Үлдсэн')} ${res.skipped.length}: ${res.skipped
+            .slice(0, 3)
+            .map((x) => `${x.orderNo} — ${x.reason}`)
+            .join('; ')}`,
+          { type: 'error' },
+        )
+      }
+      load()
+    } catch (e) {
+      toast.show(e.message, { type: 'error' })
+    } finally {
+      setAutoBusy(false)
+    }
+  }
 
   /** Сонгосон захиалгуудыг няравт өгнө — түүний бэлтгэлийн самбарт гарна */
   async function bulkAssignKeeper(warehouseId) {
@@ -314,6 +353,16 @@ export default function Orders() {
         <h1 className="font-serif text-4xl font-medium">{t('Захиалга')}</h1>
         <span className="flex items-center gap-2">
           {selected.size > 0 && hasPerm('orders.assign_driver') && (
+            <Button
+              variant="ghost"
+              loading={autoBusy}
+              onClick={autoAssign}
+              title={t('Жолоочийн харьяалах бүсээр сонгож, ачааллыг тэнцвэржүүлнэ')}
+            >
+              🎯 {t('Дүүргээр автоматаар')} ({selected.size})
+            </Button>
+          )}
+          {selected.size > 0 && hasPerm('orders.assign_driver') && (
             <Button variant="ghost" onClick={() => setBulkOpen(true)}>
               🚚 {t('Жолооч хуваарилах')} ({selected.size})
             </Button>
@@ -456,6 +505,9 @@ export default function Orders() {
       {bulkOpen && (
         <BulkAssignModal
           count={selected.size}
+          districts={(data?.items ?? [])
+            .filter((o) => selected.has(o.id))
+            .map((o) => o.district)}
           onClose={() => setBulkOpen(false)}
           onAssign={bulkAssign}
           t={t}
@@ -554,7 +606,7 @@ function BulkKeeperModal({ count, onClose, onAssign, t }) {
 }
 
 /** Олноор жолооч хуваарилах цонх (V5) */
-function BulkAssignModal({ count, onClose, onAssign, t }) {
+function BulkAssignModal({ count, districts = [], onClose, onAssign, t }) {
   const [drivers, setDrivers] = useState(null)
   const [driverId, setDriverId] = useState('')
   const [busy, setBusy] = useState(false)
@@ -592,11 +644,7 @@ function BulkAssignModal({ count, onClose, onAssign, t }) {
             onChange={(e) => setDriverId(e.target.value)}
           >
             <option value="">—</option>
-            {drivers.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name} · {t('идэвхтэй')} {d.active}
-              </option>
-            ))}
+            <DriverOptions drivers={drivers} districts={districts} />
           </Select>
         )}
         <div className="flex justify-end gap-2 pt-2">

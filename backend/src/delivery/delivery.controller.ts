@@ -28,6 +28,7 @@ import { UPLOADS_DIR } from '../uploads.config';
 import { DeliveryService } from './delivery.service';
 import {
   AssignDriverDto,
+  AutoAssignDriverDto,
   BulkAssignDriverDto,
 } from './dto/assign-driver.dto';
 import { CompleteDeliveryDto } from './dto/complete-delivery.dto';
@@ -67,6 +68,13 @@ export class DeliveryController {
   @RequirePermission(PERM.ORDERS_ASSIGN_DRIVER)
   assignDriverBulk(@Body() dto: BulkAssignDriverDto) {
     return this.deliveryService.assignDriverBulk(dto.orderIds, dto.driverId);
+  }
+
+  /** V5: дүүрэг (жолоочийн харьяалах бүс)-ээр автоматаар хуваарилна */
+  @Patch('orders/assign-driver/auto')
+  @RequirePermission(PERM.ORDERS_ASSIGN_DRIVER)
+  autoAssign(@Body() dto: AutoAssignDriverDto) {
+    return this.deliveryService.autoAssignByZone(dto.orderIds);
   }
 
   /**

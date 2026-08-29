@@ -401,6 +401,20 @@ const DICT = {
     'Хуваарилж чадсангүй: {list}': 'Could not assign: {list}',
     'DR%': 'DR%',
 
+    // — Бүсээр хуваарилалт (V5) —
+    'Дүүргээр автоматаар': 'Auto by district',
+    'Жолоочийн харьяалах бүсээр сонгож, ачааллыг тэнцвэржүүлнэ':
+      'Picks by the driver’s assigned zone and balances the load',
+    '{n} захиалга бүсээр нь хуваарилагдлаа': '{n} orders assigned by zone',
+    'Үлдсэн': 'Skipped',
+    'бүсэд нь харьяалагдах': 'covered by their zone',
+    'Бусад жолооч — бүс нь таарахгүй': 'Other drivers — zone does not match',
+    'бүсгүй': 'no zone',
+    'Энэ жолоочийн харьяалах бүсэд {d} ороогүй байна':
+      '{d} is not in this driver’s assigned zones',
+
+    'Хуваарилаагүй {n} захиалга': '{n} unassigned orders',
+
     // — Нярав (V5) —
     'Нярав': 'Keeper',
     'Нярав хуваарилах': 'Assign keeper',

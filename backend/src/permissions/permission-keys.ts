@@ -177,6 +177,9 @@ export const ROLE_DEFAULTS: Record<Role, PermKey[]> = {
   [Role.WAREHOUSE]: [
     PERM.ORDERS_VIEW,
     PERM.ORDERS_CHANGE_STATUS,
+    // Менежер жолооч оноогоогүй бол бэлтгэл зогсдог — няравт өөрт нь
+    // оноох эрх өгнө (самбарын «Жолооч хуваарилаагүй» бүлэг)
+    PERM.ORDERS_ASSIGN_DRIVER,
     PERM.INVENTORY_VIEW,
     PERM.INVENTORY_ADJUSTMENT,
     PERM.WAREHOUSE_HANDOVER,

@@ -15,3 +15,11 @@ export class BulkAssignDriverDto {
   @IsUUID('4', { each: true, message: 'orderId буруу форматтай' })
   orderIds: string[];
 }
+
+/** Дүүргээр автоматаар хуваарилах (V5) — жолоочийг систем сонгоно */
+export class AutoAssignDriverDto {
+  @IsArray()
+  @ArrayMinSize(1, { message: 'Дор хаяж 1 захиалга сонгоно' })
+  @IsUUID('4', { each: true, message: 'orderId буруу форматтай' })
+  orderIds: string[];
+}

@@ -3379,6 +3379,193 @@ describe('ursGAL v2 API (e2e)', () => {
     });
   });
 
+  // ─────────────────────────────────────── V5: ДҮҮРГЭЭР АВТОМАТ ХУВААРИЛАЛТ
+  describe('V5: Бүсээр автомат хуваарилалт ⭐', () => {
+    let zoneDriverId: string;
+    let pickedDriverId: string; // автомат сонгосон жолооч
+    let ubOrderId: string;
+    let farOrderId: string;
+
+    afterAll(async () => {
+      if (zoneDriverId) {
+        await prisma.driverProfile.deleteMany({
+          where: { userId: zoneDriverId },
+        });
+        await prisma.user.deleteMany({ where: { id: zoneDriverId } });
+      }
+    });
+
+    it('бүстэй жолооч үүсгэнэ — zones хадгалагдана', async () => {
+      const res = await api()
+        .post('/api/users')
+        .set(auth(tok.admin))
+        .send({
+          email: `e2e-zone-${T}@ursgal.mn`,
+          name: `Э2Э Бүс ${T}`,
+          password: 'e2epass123',
+          role: 'DRIVER',
+          feePerDelivery: '2000.00',
+          zones: ['ХУД'],
+        })
+        .expect(201);
+      zoneDriverId = res.body.id;
+      expect(res.body.driverProfile.zones).toEqual(['ХУД']);
+
+      const list = await api()
+        .get('/api/drivers')
+        .set(auth(tok.manager))
+        .expect(200);
+      const row = list.body.find((d: { id: string }) => d.id === zoneDriverId);
+      expect(row.zones).toEqual(['ХУД']);
+    });
+
+    it('ХУД захиалга бүсээ хамардаг жолоочид автоматаар очно ⭐', async () => {
+      const res = await api()
+        .post('/api/orders')
+        .set(auth(tok.manager))
+        .send({
+          customerName: `Э2Э Бүс-УБ-${T}`,
+          customerPhone: `7${T}`,
+          ...UB_ADDR, // district: ХУД
+          items: [{ productId, qty: 1 }],
+        })
+        .expect(201);
+      ubOrderId = res.body.id;
+      feeOrderIds.push(ubOrderId);
+      await api()
+        .patch(`/api/orders/${ubOrderId}/status`)
+        .set(auth(tok.manager))
+        .send({ status: 'CONFIRMED' })
+        .expect(200);
+
+      const auto = await api()
+        .patch('/api/orders/assign-driver/auto')
+        .set(auth(tok.manager))
+        .send({ orderIds: [ubOrderId] })
+        .expect(200);
+
+      expect(auto.body.skipped).toHaveLength(0);
+      expect(auto.body.assigned).toHaveLength(1);
+      expect(auto.body.assigned[0].district).toBe('ХУД');
+
+      const order = await api()
+        .get(`/api/orders/${ubOrderId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(order.body.deliveryStatus).toBe('ASSIGNED');
+      pickedDriverId = order.body.assignedDriver.id;
+
+      // ⭐ Сонгогдсон жолооч ХУД-ыг ЗААВАЛ хамарна. Тухайн нэрээр нь
+      // шалгахгүй — DB-д ХУД бүстэй өөр жолооч байвал ачааллаас нь
+      // хамаараад тэр нь сонгогдож болно (энэ нь ЗӨВ ажиллагаа).
+      const drivers = await api()
+        .get('/api/drivers')
+        .set(auth(tok.manager))
+        .expect(200);
+      const picked = drivers.body.find(
+        (d: { id: string }) => d.id === pickedDriverId,
+      );
+      expect(picked.zones).toContain('ХУД');
+      // Бүсгүй жолооч хэзээ ч сонгогдохгүй
+      expect(pickedDriverId).not.toBe(e2eDriverId);
+    });
+
+    it('аль хэдийн жолоочтойг ХӨНДӨХГҮЙ ⭐', async () => {
+      const auto = await api()
+        .patch('/api/orders/assign-driver/auto')
+        .set(auth(tok.manager))
+        .send({ orderIds: [ubOrderId] })
+        .expect(200);
+      expect(auto.body.assigned).toHaveLength(0);
+      expect(auto.body.skipped[0].reason).toBe('Аль хэдийн жолоочтой');
+
+      // Жолооч нь солигдоогүй
+      const order = await api()
+        .get(`/api/orders/${ubOrderId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(order.body.assignedDriver.id).toBe(pickedDriverId);
+    });
+
+    it('хэн ч хамаардаггүй дүүрэг / орон нутаг → шалтгаантай алгасна', async () => {
+      // Хэн ч бүсдээ аваагүй дүүрэг
+      const bhd = await api()
+        .post('/api/orders')
+        .set(auth(tok.manager))
+        .send({
+          customerName: `Э2Э Бүс-БХД-${T}`,
+          customerPhone: `8${T}`,
+          region: 'ULAANBAATAR',
+          district: 'БХД',
+          khoroo: '2',
+          building: 'Э2Э байр',
+          entrance: '1',
+          floor: '1',
+          door: '1',
+          items: [{ productId, qty: 1 }],
+        })
+        .expect(201);
+      feeOrderIds.push(bhd.body.id);
+      await api()
+        .patch(`/api/orders/${bhd.body.id}/status`)
+        .set(auth(tok.manager))
+        .send({ status: 'CONFIRMED' })
+        .expect(200);
+
+      // Орон нутаг — дүүрэггүй тул бүсээр хуваарилахгүй
+      const far = await api()
+        .post('/api/orders')
+        .set(auth(tok.manager))
+        .send({
+          customerName: `Э2Э Бүс-ОН-${T}`,
+          customerPhone: `6${T}`,
+          region: 'ORON_NUTAG',
+          province: 'Дархан-Уул',
+          soum: 'Дархан',
+          transport: 'Тээвэр ХХК',
+          items: [{ productId, qty: 1 }],
+        })
+        .expect(201);
+      farOrderId = far.body.id;
+      feeOrderIds.push(farOrderId);
+      await api()
+        .patch(`/api/orders/${farOrderId}/status`)
+        .set(auth(tok.manager))
+        .send({ status: 'CONFIRMED' })
+        .expect(200);
+
+      const auto = await api()
+        .patch('/api/orders/assign-driver/auto')
+        .set(auth(tok.manager))
+        .send({ orderIds: [bhd.body.id, farOrderId] })
+        .expect(200);
+      expect(auto.body.assigned).toHaveLength(0);
+      expect(auto.body.skipped).toHaveLength(2);
+      const reasons = auto.body.skipped.map(
+        (x: { reason: string }) => x.reason,
+      );
+      expect(reasons).toContain('БХД-ыг хамардаг сул жолооч алга');
+      expect(reasons).toContain(
+        'Орон нутгийн захиалга — бүсээр хуваарилахгүй',
+      );
+
+      // Хуваарилагдаагүй хэвээр
+      const still = await api()
+        .get(`/api/orders/${bhd.body.id}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(still.body.assignedDriver).toBeNull();
+    });
+
+    it('эрхгүй хүн автомат хуваарилалт хийхгүй → 403', async () => {
+      await api()
+        .patch('/api/orders/assign-driver/auto')
+        .set(auth(tok.driver))
+        .send({ orderIds: [farOrderId] })
+        .expect(403);
+    });
+  });
+
   // ────────────────────────────────────────────── V5: НЯРАВ + ХҮЛЭЭЛГЭН ӨГӨХ
   describe('V5: Нярав — бэлтгэл ба хүлээлгэн өгөх ⭐', () => {
     let whOrderA: string;
@@ -3410,6 +3597,8 @@ describe('ursGAL v2 API (e2e)', () => {
       expect(me.body.role).toBe('WAREHOUSE');
       expect(me.body.permissions).toContain('warehouse.handover');
       expect(me.body.permissions).toContain('inventory.adjustment');
+      // Менежер оноогоогүй үед бэлтгэл зогсохгүйн тулд (V5)
+      expect(me.body.permissions).toContain('orders.assign_driver');
       // Санхүү/хэрэглэгч рүү хүрэхгүй
       expect(me.body.permissions).not.toContain('finance.view_income');
       expect(me.body.permissions).not.toContain('users.manage');

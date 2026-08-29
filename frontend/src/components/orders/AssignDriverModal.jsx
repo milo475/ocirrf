@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useLang } from '../../context/LanguageContext'
 import { api } from '../../lib/api'
+import DriverOptions, { splitByZone } from './DriverOptions'
 import Button from '../ui/Button'
 import Modal from '../ui/Modal'
 import Select from '../ui/Select'
@@ -49,6 +50,14 @@ export default function AssignDriverModal({ order, onClose, onDone }) {
   // ОН захиалга ачааны тээврээр явдаг тул текст өөр — үйлдэл адилхан
   const oronNutag = order.region === 'ORON_NUTAG'
 
+  // Сонгосон жолоочийн бүс захиалгын дүүрэгтэй таарч байна уу
+  const offZone =
+    !oronNutag &&
+    driverId &&
+    splitByZone(drivers ?? [], [order.district]).matched.every(
+      (d) => d.id !== driverId,
+    )
+
   return (
     <Modal
       open={!!order}
@@ -66,13 +75,20 @@ export default function AssignDriverModal({ order, onClose, onDone }) {
           <option value="">
             {drivers === null ? t('ачаалж байна…') : '—'}
           </option>
-          {(drivers ?? []).map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.name} — {d.active} {t('идэвхтэй хүргэлт')}
-              {d.isAvailable === false ? ` ${t('(завгүй)')}` : ''}
-            </option>
-          ))}
+          <DriverOptions
+            drivers={drivers}
+            districts={oronNutag ? [] : [order.district]}
+          />
         </Select>
+
+        {/* Бүс нь таарахгүй жолооч сонговол сануулна — хориглохгүй */}
+        {offZone && (
+          <p className="text-sm text-status-preparing border border-status-preparing/40 rounded px-3 py-2">
+            {t('Энэ жолоочийн харьяалах бүсэд {d} ороогүй байна', {
+              d: order.district,
+            })}
+          </p>
+        )}
 
         {error && (
           <p className="text-sm text-alarm border border-alarm rounded px-3 py-2">
