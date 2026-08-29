@@ -391,6 +391,12 @@ const DICT = {
     'Шинэ хэрэглэгч үү?': 'New user?',
     'Хэрэглэгчийн бүртгэл': 'User sign-up',
 
+    // — Суваг (V5) —
+    'Суваг': 'Channel',
+    'Захиалга ирсэн суваг': 'Order channel',
+    'Бусад': 'Other',
+    'захиалга': 'orders',
+
     // — Харилцагчид —
     'Захиалгын харилцагчид': 'Order customers',
     'Бүртгэлтэй (portal)': 'Registered (portal)',

@@ -210,6 +210,7 @@ export class OrdersService {
           transport: isUB ? null : dto.transport,
           addressDetail: isUB ? null : (dto.addressDetail ?? null),
           note: dto.note,
+          channel: dto.channel ?? 'OTHER',
           totalAmount,
           createdById: userId,
           items: { create: itemsData },
@@ -400,6 +401,7 @@ export class OrdersService {
       status,
       deliveryStatus,
       paymentStatus,
+      channel,
       driverId,
       search,
       page = 1,
@@ -410,6 +412,7 @@ export class OrdersService {
       ...(status ? { orderStatus: status } : {}),
       ...(deliveryStatus ? { deliveryStatus } : {}),
       ...(paymentStatus ? { paymentStatus } : {}),
+      ...(channel ? { channel } : {}),
       ...(driverId ? { assignedDriverId: driverId } : {}),
       ...(search
         ? {

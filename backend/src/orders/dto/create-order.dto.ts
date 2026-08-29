@@ -15,7 +15,11 @@ import {
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
-import { DeliveryRegion, PaymentMethod } from '../../generated/prisma/client';
+import {
+  DeliveryRegion,
+  OrderChannel,
+  PaymentMethod,
+} from '../../generated/prisma/client';
 
 export class OrderItemInput {
   @IsUUID('4', { message: 'productId буруу форматтай' })
@@ -110,6 +114,11 @@ export class CreateOrderDto {
   @IsOptional()
   @IsString()
   note?: string;
+
+  /** Захиалга ирсэн суваг (V5) — Instagram/Facebook/Утас; орхивол OTHER */
+  @IsOptional()
+  @IsEnum(OrderChannel, { message: 'Суваг буруу' })
+  channel?: OrderChannel;
 
 
   /**

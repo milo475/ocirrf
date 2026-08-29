@@ -10,6 +10,7 @@ import {
 } from 'class-validator';
 import {
   DeliveryStatus,
+  OrderChannel,
   OrderStatus,
   PaymentStatus,
 } from '../../generated/prisma/client';
@@ -26,6 +27,10 @@ export class QueryOrdersDto {
   @IsOptional()
   @IsEnum(PaymentStatus, { message: 'Төлбөрийн статус буруу' })
   paymentStatus?: PaymentStatus;
+
+  @IsOptional()
+  @IsEnum(OrderChannel, { message: 'Суваг буруу' })
+  channel?: OrderChannel;
 
   /** Тухайн жолоочид хуваарилагдсан захиалгууд */
   @IsOptional()

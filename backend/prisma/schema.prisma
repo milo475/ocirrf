@@ -24,6 +24,14 @@ enum OrderStatus {
   CANCELLED
 }
 
+/// Захиалга ирсэн суваг (V5) — DM-ээс шивэгддэг тул эх сурвалжийг тэмдэглэнэ
+enum OrderChannel {
+  INSTAGRAM
+  FACEBOOK
+  PHONE
+  OTHER
+}
+
 enum DeliveryRegion {
   ULAANBAATAR
   ORON_NUTAG
@@ -282,6 +290,7 @@ model Order {
   addressDetail String? // Хаягийн дэлгэрэнгүй (чөлөөт текст)
 
   note           String?
+  channel        OrderChannel   @default(OTHER) // захиалга ирсэн суваг (V5)
   totalAmount    Decimal        @default(0) @db.Decimal(12, 2)
   orderStatus    OrderStatus    @default(NEW)
   deliveryStatus DeliveryStatus @default(PENDING)

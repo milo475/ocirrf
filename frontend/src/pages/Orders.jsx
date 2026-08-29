@@ -16,6 +16,7 @@ import { useToast } from '../components/ui/Toast'
 import { api } from '../lib/api'
 import { formatDateTime, formatMoney } from '../lib/format'
 import { openPickingSheet } from '../lib/pickingSheet'
+import { CHANNELS, channelLabel, channelStyle } from '../lib/channels'
 
 const LIMIT = 20
 const DELIVERY_LABELS = {
@@ -44,6 +45,7 @@ export default function Orders() {
   const [status, setStatus] = useState('')
   const [deliveryStatus, setDeliveryStatus] = useState('')
   const [paymentStatus, setPaymentStatus] = useState('')
+  const [channel, setChannel] = useState('')
   const [page, setPage] = useState(1)
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
@@ -63,10 +65,11 @@ export default function Orders() {
     if (status) q.set('status', status)
     if (deliveryStatus) q.set('deliveryStatus', deliveryStatus)
     if (paymentStatus) q.set('paymentStatus', paymentStatus)
+    if (channel) q.set('channel', channel)
     api(`/orders?${q}`)
       .then(setData)
       .catch((e) => setError(e))
-  }, [search, status, deliveryStatus, paymentStatus, page])
+  }, [search, status, deliveryStatus, paymentStatus, channel, page])
 
   useEffect(() => {
     load()
@@ -171,6 +174,17 @@ export default function Orders() {
       render: (o) => <span className="font-mono">{o.orderNo}</span>,
     },
     { key: 'customerName', header: t('Хүлээн авагч') },
+    {
+      key: 'channel',
+      header: t('Суваг'),
+      render: (o) => (
+        <span
+          className={`inline-flex font-mono text-[10px] uppercase tracking-wide border rounded px-1 py-0.5 ${channelStyle(o.channel)}`}
+        >
+          {t(channelLabel(o.channel))}
+        </span>
+      ),
+    },
     {
       key: 'phone',
       header: t('Утас'),
@@ -285,6 +299,21 @@ export default function Orders() {
           </button>
         ))}
         <div className="ml-auto flex items-end gap-2">
+          <select
+            value={channel}
+            onChange={(e) => {
+              setChannel(e.target.value)
+              setPage(1)
+            }}
+            className="bg-bg border border-rule rounded px-2 py-2 text-sm focus:outline-none focus:border-ink-muted"
+          >
+            <option value="">{t('Суваг')}: {t('Бүгд')}</option>
+            {CHANNELS.map(([value, label]) => (
+              <option key={value} value={value}>
+                {t(label)}
+              </option>
+            ))}
+          </select>
           <select
             value={paymentStatus}
             onChange={(e) => {

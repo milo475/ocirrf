@@ -18,6 +18,7 @@ import { useAuth } from '../context/AuthContext'
 import { api } from '../lib/api'
 import { formatDateTime, formatMoney } from '../lib/format'
 import { openPickingSheet } from '../lib/pickingSheet'
+import { channelLabel, channelStyle } from '../lib/channels'
 import { TRANSITIONS, TRANSITION_LABELS } from '../lib/orderStatus'
 
 function InfoItem({ label, value }) {
@@ -145,6 +146,11 @@ export default function OrderDetail() {
           <Badge status={order.orderStatus} />
           <Badge status={order.deliveryStatus} />
           <ReturnBadge state={order.returnState} />
+          <span
+            className={`inline-flex font-mono text-[10px] uppercase tracking-wide border rounded px-1 py-0.5 ${channelStyle(order.channel)}`}
+          >
+            {t(channelLabel(order.channel))}
+          </span>
           {/* Бэлтгэх хуудас (V4-11) — нэг захиалгаар */}
           {['CONFIRMED', 'PREPARING'].includes(order.orderStatus) && (
             <Button

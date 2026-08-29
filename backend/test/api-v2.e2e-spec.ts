@@ -3181,6 +3181,79 @@ describe('ursGAL v2 API (e2e)', () => {
     });
   });
 
+  // ────────────────────────────────────────────── V5: СУВАГ
+  describe('V5: Захиалгын суваг ⭐', () => {
+    it('суваг хадгалагдаж, шүүлт ба аналитикт тусна; орхивол OTHER', async () => {
+      await api()
+        .post('/api/stock/adjust')
+        .set(auth(tok.manager))
+        .send({ productId, qtyChange: 2, reason: 'PURCHASE_IN' })
+        .expect(201);
+
+      const ig = await api()
+        .post('/api/orders')
+        .set(auth(tok.operator))
+        .send({
+          customerName: `Э2Э-IG-${T}`,
+          customerPhone: `3${T}`,
+          ...UB_ADDR,
+          channel: 'INSTAGRAM',
+          items: [{ productId, qty: 1 }],
+        })
+        .expect(201);
+      feeOrderIds.push(ig.body.id);
+      expect(ig.body.channel).toBe('INSTAGRAM');
+
+      // Суваг заагаагүй бол OTHER
+      const other = await api()
+        .post('/api/orders')
+        .set(auth(tok.operator))
+        .send({
+          customerName: `Э2Э-Суваггүй-${T}`,
+          customerPhone: `3${T}`,
+          ...UB_ADDR,
+          items: [{ productId, qty: 1 }],
+        })
+        .expect(201);
+      feeOrderIds.push(other.body.id);
+      expect(other.body.channel).toBe('OTHER');
+
+      // Шүүлт: зөвхөн INSTAGRAM
+      const list = await api()
+        .get('/api/orders?channel=INSTAGRAM&limit=100')
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(
+        list.body.items.every(
+          (o: { channel: string }) => o.channel === 'INSTAGRAM',
+        ),
+      ).toBe(true);
+      expect(
+        list.body.items.some((o: { id: string }) => o.id === ig.body.id),
+      ).toBe(true);
+
+      // Буруу суваг → 400
+      await api()
+        .get('/api/orders?channel=TIKTOK')
+        .set(auth(tok.manager))
+        .expect(400);
+
+      // Аналитик: суваг тус бүрийн задаргаа, хувь нийлбэр 100 орчим
+      const ch = await api()
+        .get('/api/analytics/channels')
+        .set(auth(tok.manager))
+        .expect(200);
+      const insta = ch.body.find(
+        (c: { channel: string }) => c.channel === 'INSTAGRAM',
+      );
+      expect(insta.orders).toBeGreaterThanOrEqual(1);
+      expect(Number(insta.amount)).toBeGreaterThan(0);
+      expect(
+        ch.body.reduce((a: number, c: { share: number }) => a + c.share, 0),
+      ).toBeGreaterThanOrEqual(98);
+    });
+  });
+
   // ────────────────────────────────────────────── V4-16: EDGE ГҮЙЦЭЭЛТ
   describe('V4-16: Edge гүйцээлт ⭐', () => {
 

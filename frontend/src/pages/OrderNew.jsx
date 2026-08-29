@@ -6,12 +6,12 @@ import EmptyState from '../components/ui/EmptyState'
 import Input from '../components/ui/Input'
 import Select from '../components/ui/Select'
 import { useToast } from '../components/ui/Toast'
-import { useAuth } from '../context/AuthContext'
 import { useLang } from '../context/LanguageContext'
 import { AIMAGS, DISTRICTS } from '../data/aimags'
 import { formatFullAddress } from '../lib/address'
 import { api } from '../lib/api'
 import { formatMoney } from '../lib/format'
+import { CHANNELS } from '../lib/channels'
 
 const PHONE_RE = /^\d{8}$/
 
@@ -91,25 +91,19 @@ function Stepper({ step, onBack, t }) {
   )
 }
 
-export default function OrderNew({ portal = false }) {
+export default function OrderNew() {
   const navigate = useNavigate()
   const toast = useToast()
   const { t } = useLang()
-  const { user } = useAuth()
 
   const [step, setStep] = useState(1)
-  // Нэг state — алхам хооронд болон горим солиход утга алдагдахгүй.
-  // Portal горимд хүлээн авагч профайлаас урьдчилан бөглөгдөнө.
-  const [form, setForm] = useState(() => ({
-    ...EMPTY_FORM,
-    ...(portal
-      ? { customerName: user?.name ?? '', customerPhone: user?.phone ?? '' }
-      : {}),
-  }))
+  // Нэг state — алхам хооронд болон горим солиход утга алдагдахгүй
+  const [form, setForm] = useState(() => ({ ...EMPTY_FORM }))
   const [errors, setErrors] = useState({})
   const [items, setItems] = useState([])
   const [submitting, setSubmitting] = useState(false)
   // Төлбөр төлсөн эсэх — "Төлсөн" бол бүтэн төлбөр захиалгатай хамт бүртгэгдэнэ
+  const [channel, setChannel] = useState('INSTAGRAM')
   const [paid, setPaid] = useState(false)
   const [payMethod, setPayMethod] = useState('CASH')
 
@@ -206,7 +200,8 @@ export default function OrderNew({ portal = false }) {
           ...(form.note.trim() ? { note: form.note.trim() } : {}),
           ...addr,
           // "Төлсөн" сонгосон бол бүтэн төлбөр хамт бүртгэгдэнэ (staff л)
-          ...(!portal && paid ? { paid: true, paymentMethod: payMethod } : {}),
+          channel,
+          ...(paid ? { paid: true, paymentMethod: payMethod } : {}),
           items: items.map((i) => ({
             productId: i.product.id,
             qty: Number(i.qty),
@@ -214,7 +209,7 @@ export default function OrderNew({ portal = false }) {
         },
       })
       toast.show(t('Захиалга {no} үүслээ', { no: order.orderNo }))
-      navigate(portal ? `/portal/orders/${order.id}` : `/orders/${order.id}`)
+      navigate(`/orders/${order.id}`)
     } catch (err) {
       toast.show(err.message, { type: 'error' })
       setStep(stepForError(err.message))
@@ -407,6 +402,29 @@ export default function OrderNew({ portal = false }) {
             </div>
           </div>
 
+          {/* Захиалга аль сувгаас ирсэн бэ (V5) */}
+          <div className="mt-8 border-t border-rule pt-6">
+            <p className="text-xs uppercase tracking-wide text-ink-muted mb-3">
+              {t('Захиалга ирсэн суваг')}
+            </p>
+            <div className="inline-flex border border-rule rounded overflow-hidden flex-wrap">
+              {CHANNELS.map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setChannel(value)}
+                  className={`px-4 py-2 text-sm font-medium transition-colors ${
+                    channel === value
+                      ? 'bg-accent/15 text-accent'
+                      : 'text-ink-muted hover:text-ink'
+                  }`}
+                >
+                  {t(label)}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="mt-8 flex justify-end">
             <Button onClick={goStep2} className="px-8">
               {t('Үргэлжлүүлэх')} →
@@ -420,7 +438,6 @@ export default function OrderNew({ portal = false }) {
           <ProductCatalog
             onPick={addProduct}
             excludeIds={items.map((i) => i.product.id)}
-            endpoint={portal ? '/portal/products' : '/products'}
           />
 
           {items.length === 0 ? (
@@ -508,8 +525,8 @@ export default function OrderNew({ portal = false }) {
               </p>
             </div>
 
-            {/* Төлбөр төлсөн эсэх — staff-д л (portal-д харагдахгүй) */}
-            {!portal && (
+            {/* Төлбөр төлсөн эсэх */}
+            {(
               <div className="mt-6 flex items-center justify-end gap-3 flex-wrap">
                 <span className="text-xs uppercase tracking-wide text-ink-muted">
                   {t('Төлбөр')}

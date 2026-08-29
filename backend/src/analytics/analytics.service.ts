@@ -206,6 +206,33 @@ export class AnalyticsService {
     });
   }
 
+  /**
+   * Суваг тус бүрийн захиалга/дүн (V5). Захиалга зөвхөн IG/FB/утаснаас
+   * ирдэг болсон тул "аль суваг хэдэн төгрөг авчирсан" нь маркетингийн
+   * гол хэмжүүр. Дүнд цуцлагдсан захиалга ОРОХГҮЙ.
+   */
+  async channels(from?: string, to?: string) {
+    const { start, end } = range(from, to);
+    const groups = await this.prisma.order.groupBy({
+      by: ['channel'],
+      where: {
+        createdAt: { gte: start, lte: end },
+        orderStatus: { not: OrderStatus.CANCELLED },
+      },
+      _count: { _all: true },
+      _sum: { totalAmount: true },
+    });
+    const total = groups.reduce((a, g) => a + g._count._all, 0);
+    return groups
+      .map((g) => ({
+        channel: g.channel,
+        orders: g._count._all,
+        amount: g._sum.totalAmount ?? 0,
+        share: total > 0 ? Math.round((g._count._all / total) * 100) : 0,
+      }))
+      .sort((a, b) => b.orders - a.orders);
+  }
+
   /** Шинэ vs давтан хүлээн авагч (утсаар бүлэглэнэ) + TOP-10 */
   async customers() {
     const groups = await this.prisma.order.groupBy({
