@@ -144,15 +144,30 @@ export class PaymentsService {
     });
   }
 
-  /** Авлага: хүргэгдсэн/дууссан гэхдээ бүрэн төлөгдөөгүй захиалгууд */
+  /**
+   * Авлага: хүргэгдсэн/дууссан гэхдээ бүрэн төлөгдөөгүй захиалгууд.
+   *
+   * БҮТЭН буцаалттай (`returnState = 'FULL'`) захиалга хасагдана: буцаалт
+   * `totalAmount`-ыг хөнддөггүй тул бүтэн буцаалт + мөнгө буцаалт хийхэд
+   * `paidAmount → 0`, `paymentStatus → UNPAID` болж, бараа нь бүрэн буцаж
+   * ирсэн атлаа «төлөгдөөгүй өр» мэт харагддаг байсан. (Мөнгө буцаагаагүй
+   * тохиолдолд ч авах өр байхгүй — бараа буцсан.)
+   */
   async receivables() {
     const orders = await this.prisma.order.findMany({
       where: {
         paymentStatus: { not: PaymentStatus.PAID },
         orderStatus: { not: OrderStatus.CANCELLED },
-        OR: [
-          { deliveryStatus: 'DELIVERED' },
-          { orderStatus: OrderStatus.COMPLETED },
+        // returnState нь nullable String — NULL мөрүүд хасагдахгүй байх
+        // ёстой тул ил бичив
+        OR: [{ returnState: null }, { returnState: { not: 'FULL' } }],
+        AND: [
+          {
+            OR: [
+              { deliveryStatus: 'DELIVERED' },
+              { orderStatus: OrderStatus.COMPLETED },
+            ],
+          },
         ],
       },
       select: {

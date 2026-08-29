@@ -1,15 +1,9 @@
 import { Injectable } from '@nestjs/common';
+import { parseDateRange } from '../date-range.util';
 import { formatShortAddress } from '../orders/address.util';
 import { PrismaService } from '../prisma/prisma.service';
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-function range(from?: string, to?: string) {
-  const start = from ? new Date(from) : new Date(Date.now() - 29 * DAY_MS);
-  if (!from) start.setHours(0, 0, 0, 0);
-  const end = to ? new Date(to) : new Date();
-  return { start, end };
-}
+const range = (from?: string, to?: string) => parseDateRange(from, to, 30);
 
 const fmtDate = (d: Date | null) =>
   d

@@ -93,6 +93,7 @@ describe('ursGAL v2 API (e2e)', () => {
   let financeOrderId: string; // гараар COMPLETED болгох санхүүгийн тест
   let raceOrderId: string; // зэрэг төлбөрийн TOCTOU тест
   let raceProductId: string; // тухайн тестийн тусдаа бараа
+  let lowStockProductId: string; // бага үлдэгдлийн БОСГЫН тестийн бараа
   const financeEntryIds: string[] = []; // гараар бүртгэсэн гүйлгээнүүд
   let payoutId: string; // жолоочийн цалингийн тооцоо
   let roA: string; // маршрутын дарааллын тест захиалгууд
@@ -167,7 +168,9 @@ describe('ursGAL v2 API (e2e)', () => {
     await prisma.orderReturn.deleteMany({
       where: { orderId: { in: orderIds } },
     });
-    const productIds = [productId, raceProductId].filter(Boolean);
+    const productIds = [productId, raceProductId, lowStockProductId].filter(
+      Boolean,
+    );
     await prisma.stockMovement.deleteMany({
       where: {
         OR: [{ productId: { in: productIds } }, { refId: { in: orderIds } }],
@@ -874,6 +877,10 @@ describe('ursGAL v2 API (e2e)', () => {
         .send({ status: 'CANCELLED' })
         .expect(200);
       expect(res.body.assignedDriverId).toBeNull();
+      // deliveryStatus нь ASSIGNED хэвээр үлдэж, жолоочийн ачааллын
+      // тоолуурт мөнхөд тоологддог байсныг зассан
+      expect(res.body.deliveryStatus).toBe('PENDING');
+      expect(res.body.routeOrder).toBeNull();
 
       const after = await api()
         .get(`/api/products/${productId}`)
@@ -1838,6 +1845,71 @@ describe('ursGAL v2 API (e2e)', () => {
       expect(await mine()).toHaveLength(1);
     });
 
+    /**
+     * Босгын зөрүү: Products хуудасны "бага үлдэгдэл" шүүлт нь
+     * `stockQty <= lowStockLimit`, харин мэдэгдэл нь `<` байсан. Үүнээс
+     * болж ЯГ лимит дээр зогссон бараа жагсаалтад орж ирдэг мөртөө
+     * мэдэгдэл нь хэзээ ч ирдэггүй байв. Одоо хоёулаа `<=`.
+     */
+    it('LOW_STOCK: ЯГ лимит дээр зогсоход мэдэгдэнэ (босго = жагсаалттай ижил)', async () => {
+      const prod = await api()
+        .post('/api/products')
+        .set(auth(tok.manager))
+        .send({
+          sku: `${SKU}-LIMIT`,
+          name: `Э2Э Босго ${T}`,
+          price: '1000.00',
+          lowStockLimit: 3,
+        })
+        .expect(201);
+      lowStockProductId = prod.body.id;
+      await api()
+        .post('/api/stock/adjust')
+        .set(auth(tok.manager))
+        .send({
+          productId: lowStockProductId,
+          qtyChange: 5,
+          reason: 'PURCHASE_IN',
+        })
+        .expect(201);
+
+      const notifs = async () => {
+        const res = await api()
+          .get('/api/notifications?limit=100')
+          .set(auth(tok.admin))
+          .expect(200);
+        return res.body.items.filter(
+          (n: { type: string; refId: string | null }) =>
+            n.type === 'LOW_STOCK' && n.refId === lowStockProductId,
+        );
+      };
+      expect(await notifs()).toHaveLength(0);
+
+      // 5 → 3: ЯГ лимит дээр зогслоо
+      const adj = await api()
+        .post('/api/stock/adjust')
+        .set(auth(tok.manager))
+        .send({
+          productId: lowStockProductId,
+          qtyChange: -2,
+          reason: 'MANUAL_OUT',
+        })
+        .expect(201);
+      expect(adj.body.product.stockQty).toBe(3);
+      expect(await notifs()).toHaveLength(1);
+
+      // Тэрхүү бараа lowStock жагсаалтад ч байна (босго ижил гэдгийн баталгаа)
+      const list = await api()
+        .get(`/api/products?lowStock=true&search=${T}&limit=50`)
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(
+        list.body.items.some(
+          (p: { id: string }) => p.id === lowStockProductId,
+        ),
+      ).toBe(true);
+    });
+
     it('DELIVERY_FAILED: ADMIN/MANAGER-үүдэд очсон', async () => {
       const res = await api()
         .get('/api/notifications?limit=100')
@@ -2367,6 +2439,33 @@ describe('ursGAL v2 API (e2e)', () => {
         .set(auth(tok.operator))
         .expect(403);
     });
+
+    /**
+     * `to=YYYY-MM-DD` нь `new Date()`-ээр UTC шөнө дунд болж хөрвөдөг тул
+     * тухайн өдрийн бичлэгүүд БҮГД мужаас хасагддаг байсан
+     * (`from` нь мөн орон нутгийн өглөөний цагуудыг алддаг).
+     */
+    it('from/to зөвхөн огноотой үед тухайн ӨДӨР бүхэлдээ багтана', async () => {
+      const today = new Date();
+      const ymd = [
+        today.getFullYear(),
+        String(today.getMonth() + 1).padStart(2, '0'),
+        String(today.getDate()).padStart(2, '0'),
+      ].join('-');
+
+      const csv = await api()
+        .get(`/api/reports/delivery.csv?from=${ymd}&to=${ymd}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      // Өнөөдөр үүсгэсэн тестийн захиалгууд мужид байх ёстой
+      expect(csv.text).toContain('ХУД, 11-р хороо');
+
+      const sales = await api()
+        .get(`/api/analytics/sales?from=${ymd}&to=${ymd}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(sales.body.totals.count).toBeGreaterThan(0);
+    });
   });
 
   // ────────────────────────────────────────────── ӨРТӨГ + АШИГ (V4)
@@ -2644,6 +2743,29 @@ describe('ursGAL v2 API (e2e)', () => {
         .expect(200);
       expect(detail.body.returns).toHaveLength(2);
       expect(detail.body.returnState).toBe('FULL');
+    });
+
+    /**
+     * Буцаалт `totalAmount`-ыг хөнддөггүй тул бүрэн буцаалт + мөнгө
+     * буцаалт хийхэд paidAmount 0 / UNPAID болж, бараа нь бүрэн буцаж
+     * ирсэн атлаа авлагын жагсаалтад «өр» болж гардаг байсан.
+     */
+    it('бүрэн буцаагдсан захиалга АВЛАГА-д гарахгүй', async () => {
+      const detail = await api()
+        .get(`/api/orders/${retOrderId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      // Урьдчилсан нөхцөл: UNPAID + DELIVERED/COMPLETED + FULL
+      expect(detail.body.paymentStatus).toBe('UNPAID');
+      expect(detail.body.returnState).toBe('FULL');
+
+      const rec = await api()
+        .get('/api/finance/receivables')
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(
+        rec.body.items.some((r: { id: string }) => r.id === retOrderId),
+      ).toBe(false);
     });
   });
 

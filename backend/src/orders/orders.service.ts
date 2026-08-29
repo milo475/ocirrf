@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import type { AuthUser } from '../auth/decorators/current-user.decorator';
 import {
+  DeliveryStatus,
   FinanceType,
   OrderStatus,
   PaymentMethod,
@@ -186,14 +187,19 @@ export class OrdersService {
         String(now.getDate()).padStart(2, '0'),
       ].join('');
       const prefix = `ORD-${ymd}-`;
-      const last = await tx.order.findFirst({
+      // Дугаарыг ТООГООР олно. `orderBy: { orderNo: 'desc' }` нь мөрийн
+      // (string) эрэмбэ тул өдөрт 9999-ээс дээш захиалга орвол '9999' нь
+      // '10000'-ээс их гэж тооцогдож дугаар давхардаж эхэлдэг байсан.
+      // Нэг өдрийн мөрүүд цөөн (нэг богино багана) тул ачаалал өчүүхэн.
+      const todays = await tx.order.findMany({
         where: { orderNo: { startsWith: prefix } },
-        orderBy: { orderNo: 'desc' },
         select: { orderNo: true },
       });
-      const nextNum = last
-        ? parseInt(last.orderNo.slice(prefix.length), 10) + 1
-        : 1;
+      const maxNum = todays.reduce((max, o) => {
+        const n = parseInt(o.orderNo.slice(prefix.length), 10);
+        return Number.isFinite(n) && n > max ? n : max;
+      }, 0);
+      const nextNum = maxNum + 1;
       const orderNo = prefix + String(nextNum).padStart(4, '0');
 
       // 3–4. Snapshot + нийт дүн (Decimal — float хэрэглэхгүй).
@@ -256,10 +262,11 @@ export class OrdersService {
             `«${updated.name}» үлдэгдэл хүрэлцэхгүй`,
           );
         }
-        // Лимитээс доош ОРОХ МӨЧ: өмнө нь ≥ лимит, одоо < лимит
+        // Лимитэд ХҮРЭХ/ДООШ ОРОХ МӨЧ: өмнө нь > лимит, одоо ≤ лимит.
+        // Босго нь Products хуудасны lowStock шүүлттэй (`<=`) ижил.
         if (
-          updated.stockQty < updated.lowStockLimit &&
-          updated.stockQty + item.qty >= updated.lowStockLimit
+          updated.stockQty <= updated.lowStockLimit &&
+          updated.stockQty + item.qty > updated.lowStockLimit
         ) {
           lowStockCrossed.push(updated);
         }
@@ -346,9 +353,14 @@ export class OrdersService {
           where: { id },
           data: {
             orderStatus: OrderStatus.CANCELLED,
-            // Жолооч хуваарилагдсан байсан бол хуваарилалтыг цуцална
+            // Жолооч хуваарилагдсан байсан бол хуваарилалтыг цуцална.
+            // deliveryStatus-ыг МӨН буцаана: өмнө нь ASSIGNED хэвээр үлдэж,
+            // жолоочийн жагсаалт/ачааллын тоолуур/маршрутын дараалалд
+            // цуцлагдсан захиалга мөнхөд тоологддог байсан.
             assignedDriverId: null,
             assignedAt: null,
+            deliveryStatus: DeliveryStatus.PENDING,
+            routeOrder: null,
           },
           include: { items: true, createdBy: CREATED_BY_SELECT },
         });
