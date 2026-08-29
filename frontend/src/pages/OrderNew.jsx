@@ -8,6 +8,7 @@ import Select from '../components/ui/Select'
 import { useToast } from '../components/ui/Toast'
 import { useLang } from '../context/LanguageContext'
 import { AIMAGS, DISTRICTS } from '../data/aimags'
+import { khorooList } from '../data/khoroo'
 import { formatFullAddress } from '../lib/address'
 import { api } from '../lib/api'
 import { formatMoney } from '../lib/format'
@@ -109,7 +110,13 @@ export default function OrderNew() {
 
   const isUB = form.region === 'ULAANBAATAR'
   const set = (key) => (e) => {
-    setForm((f) => ({ ...f, [key]: e.target.value }))
+    const value = e.target.value
+    setForm((f) => ({
+      ...f,
+      [key]: value,
+      // Дүүрэг солигдвол хуучин дүүргийн хороо утгагүй болно
+      ...(key === 'district' ? { khoroo: '' } : {}),
+    }))
     setErrors((er) => ({ ...er, [key]: undefined }))
   }
 
@@ -264,16 +271,23 @@ export default function OrderNew() {
                     </option>
                   ))}
                 </Select>
-                <Input
+                <Select
                   id="a-khoroo"
                   label={t('Хороо')}
-                  type="number"
-                  min="1"
                   value={form.khoroo}
                   onChange={set('khoroo')}
                   error={errors.khoroo}
-                  className="font-mono"
-                />
+                  disabled={!form.district}
+                >
+                  <option value="">
+                    {form.district ? '—' : t('Эхлээд дүүргээ сонгоно уу')}
+                  </option>
+                  {khorooList(form.district).map((k) => (
+                    <option key={k} value={k}>
+                      {k}-р хороо
+                    </option>
+                  ))}
+                </Select>
               </div>
               <Input
                 id="a-building"

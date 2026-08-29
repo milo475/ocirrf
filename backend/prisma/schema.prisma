@@ -81,6 +81,8 @@ model User {
   phone        String? // холбоо барих утас
   role         Role     @default(OPERATOR)
   isActive     Boolean  @default(true)
+  /// Аль харилцагч компанийн хүн бэ (V5) — голдуу OPERATOR эрхтэйд
+  companyId    String?
   /// Түр нууц үгээр нэвтэрсэн — солитол бусад API 403 (V4-06)
   mustChangePassword Boolean @default(false)
   // Нэвтрэлтийн хамгаалалт (V4-07)
@@ -101,6 +103,7 @@ model User {
   paymentsReceived Payment[]     @relation("PaymentsReceived")
   returnsCreated   OrderReturn[] @relation("ReturnsCreated")
   refreshTokens    RefreshToken[]
+  company          Company?       @relation(fields: [companyId], references: [id])
 }
 
 /// Refresh token rotation (V4-08): id = jti claim, DB-д зөвхөн hash.
@@ -243,6 +246,20 @@ model UserPermission {
   @@unique([userId, permKey])
 }
 
+/// Харилцагч компани (V5) — бараа нийлүүлдэг түнш байгууллага.
+/// Оператор (=Харилцагч эрхтэй хэрэглэгч) болон бараа нь компанид харьяалагдана.
+model Company {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  phone     String?
+  note      String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  users    User[]
+  products Product[]
+}
+
 model Category {
   id       String    @id @default(uuid())
   name     String    @unique
@@ -262,10 +279,13 @@ model Product {
   imageUrl      String?
   isActive      Boolean  @default(true)
   categoryId    String?
+  /// Аль харилцагч компанийн бараа вэ (V5)
+  companyId     String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   category   Category?       @relation(fields: [categoryId], references: [id])
+  company    Company?        @relation(fields: [companyId], references: [id])
   orderItems OrderItem[]
   stockMoves StockMovement[]
 
@@ -362,6 +382,8 @@ model DriverProfile {
   isAvailable    Boolean @default(true)
   /// Ажлын төрөл (V5): үндсэн ажилтан эсвэл цагийн
   employmentType EmploymentType @default(FULL_TIME)
+  /// Харьяалах бүс — дүүргийн товчлолууд (V5), ж: ["ХУД", "БЗД"]
+  zones          String[]       @default([])
 
   user User @relation(fields: [userId], references: [id])
 }

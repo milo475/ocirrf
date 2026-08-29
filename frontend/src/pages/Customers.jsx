@@ -13,7 +13,8 @@ export default function Customers() {
   const navigate = useNavigate()
 
   // Харилцагч = бараа нийлүүлдэг түнш (системд OPERATOR эрхтэй) — default таб
-  const [tab, setTab] = useState('partners')
+  const [tab, setTab] = useState('companies')
+  const [companies, setCompanies] = useState(null)
   const [partners, setPartners] = useState(null)
   const [byPhone, setByPhone] = useState(null)
   const [error, setError] = useState(null)
@@ -21,6 +22,7 @@ export default function Customers() {
 
   const load = useCallback(() => {
     setError(null)
+    api('/companies').then(setCompanies).catch((e) => setError(e))
     api('/customers/partners').then(setPartners).catch((e) => setError(e))
     api('/customers/by-phone').then(setByPhone).catch((e) => setError(e))
   }, [])
@@ -31,6 +33,49 @@ export default function Customers() {
 
 
   const goOrders = (phone) => navigate(`/orders?search=${phone}`)
+
+  /** Харилцагч компани — оператор ба барааны тоотой */
+  const companyColumns = [
+    { key: 'name', header: t('Компани') },
+    {
+      key: 'phone',
+      header: t('Утас'),
+      render: (c) => (
+        <span className="font-mono tabular-nums">{c.phone ?? '—'}</span>
+      ),
+    },
+    {
+      key: 'operators',
+      header: t('Оператор'),
+      align: 'right',
+      render: (c) => (
+        <span className="font-mono tabular-nums">{c.operators}</span>
+      ),
+    },
+    {
+      key: 'products',
+      header: t('Бараа'),
+      align: 'right',
+      render: (c) => (
+        <span className="font-mono tabular-nums">{c.products}</span>
+      ),
+    },
+    {
+      key: 'active',
+      header: t('Идэвхтэй'),
+      render: (c) => (
+        <span
+          className={`inline-flex font-mono text-[10px] uppercase tracking-wide border rounded px-1 py-0.5 ${
+            c.isActive
+              ? 'text-safe border-safe/40 bg-safe/12'
+              : 'text-alarm border-alarm/40 bg-alarm/10'
+          }`}
+        >
+          {t(c.isActive ? 'Идэвхтэй' : 'Идэвхгүй')}
+        </span>
+      ),
+    },
+  ]
 
   /** Харилцагч (түнш) — нэр, холбоо, захиалгын статистик */
   const partnerColumns = [
@@ -139,6 +184,7 @@ export default function Customers() {
 
       <div className="mt-8 flex gap-1 border-b border-rule pb-3 flex-wrap">
         {[
+          ['companies', 'Компаниуд', companies],
           ['partners', 'Харилцагчид', partners],
           ['phone', 'Захиалгын хүлээн авагчид', byPhone],
         ].map(([key, label, list]) => (
@@ -167,6 +213,18 @@ export default function Customers() {
             note={error.message}
             action={<Button onClick={load}>{t('Дахин оролдох')}</Button>}
           />
+        ) : tab === 'companies' ? (
+          !companies ? (
+            <div className="py-16 text-center">
+              <Spinner size={22} />
+            </div>
+          ) : (
+            <Table
+              columns={companyColumns}
+              rows={companies}
+              empty={t('Компани алга')}
+            />
+          )
         ) : tab === 'partners' ? (
           !partners ? (
             <div className="py-16 text-center">

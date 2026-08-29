@@ -13,6 +13,7 @@ import { useAuth } from '../context/AuthContext'
 import { useLang } from '../context/LanguageContext'
 import { api } from '../lib/api'
 import { formatDateTime } from '../lib/format'
+import { DISTRICTS } from '../data/aimags'
 
 const ROLE_COLORS = {
   ADMIN: 'oklch(0.62 0.15 20)',
@@ -66,7 +67,7 @@ function ActiveToggle({ checked, disabled, onChange, title }) {
   )
 }
 
-function UserForm({ submitting, error, onSubmit, onCancel, t }) {
+function UserForm({ submitting, error, onSubmit, onCancel, t, companies }) {
   const [values, setValues] = useState({
     name: '',
     email: '',
@@ -75,6 +76,8 @@ function UserForm({ submitting, error, onSubmit, onCancel, t }) {
     feePerDelivery: '3000.00',
     vehicleInfo: '',
     employmentType: 'FULL_TIME',
+    companyId: '',
+    zones: [],
   })
   const set = (key) => (e) => setValues((v) => ({ ...v, [key]: e.target.value }))
   const isDriver = values.role === 'DRIVER'
@@ -88,6 +91,8 @@ function UserForm({ submitting, error, onSubmit, onCancel, t }) {
           email: values.email,
           password: values.password,
           role: values.role,
+          ...(values.companyId ? { companyId: values.companyId } : {}),
+          ...(isDriver ? { zones: values.zones } : {}),
           ...(isDriver
             ? {
                 employmentType: values.employmentType,
@@ -135,6 +140,19 @@ function UserForm({ submitting, error, onSubmit, onCancel, t }) {
         <option value="DRIVER">{t('Жолооч')}</option>
         <option value="ADMIN">{t('Админ')}</option>
       </Select>
+      <Select
+        id="u-company"
+        label={t('Харилцагч компани')}
+        value={values.companyId}
+        onChange={set('companyId')}
+      >
+        <option value="">{t('Сонгоогүй')}</option>
+        {(companies ?? []).map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.name}
+          </option>
+        ))}
+      </Select>
       {isDriver && (
         <>
           <Select
@@ -155,6 +173,11 @@ function UserForm({ submitting, error, onSubmit, onCancel, t }) {
             value={values.feePerDelivery}
             onChange={set('feePerDelivery')}
             className="font-mono"
+          />
+          <ZonePicker
+            value={values.zones}
+            onChange={(zones) => setValues((v) => ({ ...v, zones }))}
+            t={t}
           />
           <Input
             id="u-vehicle"
@@ -184,13 +207,15 @@ function UserForm({ submitting, error, onSubmit, onCancel, t }) {
 
 
 /** Хэрэглэгч засах: эрх солих + жолоочийн хөлс/тээвэр */
-function UserEditModal({ user, self, onClose, onDone, t, toast }) {
+function UserEditModal({ user, self, onClose, onDone, t, toast, companies }) {
   const [role, setRole] = useState(user.role)
   const [fee, setFee] = useState(user.driverProfile?.feePerDelivery ?? '3000.00')
   const [vehicle, setVehicle] = useState(user.driverProfile?.vehicleInfo ?? '')
   const [employment, setEmployment] = useState(
     user.driverProfile?.employmentType ?? 'FULL_TIME',
   )
+  const [zones, setZones] = useState(user.driverProfile?.zones ?? [])
+  const [companyId, setCompanyId] = useState(user.company?.id ?? '')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
   const isDriver = role === 'DRIVER'
@@ -204,6 +229,8 @@ function UserEditModal({ user, self, onClose, onDone, t, toast }) {
         method: 'PATCH',
         body: {
           ...(role !== user.role ? { role } : {}),
+          companyId: companyId || null,
+          ...(isDriver ? { zones } : {}),
           ...(isDriver
             ? {
                 employmentType: employment,
@@ -238,8 +265,22 @@ function UserEditModal({ user, self, onClose, onDone, t, toast }) {
           <option value="DRIVER">{t('Жолооч')}</option>
           <option value="ADMIN">{t('Админ')}</option>
         </Select>
+        <Select
+          id="ue-company"
+          label={t('Харилцагч компани')}
+          value={companyId}
+          onChange={(e) => setCompanyId(e.target.value)}
+        >
+          <option value="">{t('Сонгоогүй')}</option>
+          {(companies ?? []).map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </Select>
         {isDriver && (
           <>
+            <ZonePicker value={zones} onChange={setZones} t={t} />
             <Select
               id="ue-employment"
               label={t('Ажлын төрөл')}
@@ -301,6 +342,7 @@ export default function Users() {
   const [busy, setBusy] = useState(false)
   const [deactivating, setDeactivating] = useState(null)
   const [editing, setEditing] = useState(null)
+  const [companies, setCompanies] = useState([])
   const [resetting, setResetting] = useState(null) // сэргээх гэж буй хэрэглэгч
   const [tempResult, setTempResult] = useState(null) // {name, tempPassword}
   const [copied, setCopied] = useState(false)
@@ -319,6 +361,12 @@ export default function Users() {
   useEffect(() => {
     load()
   }, [load])
+
+  useEffect(() => {
+    api('/companies')
+      .then(setCompanies)
+      .catch(() => setCompanies([]))
+  }, [])
 
   async function handleCreate(values) {
     setBusy(true)
@@ -420,6 +468,13 @@ export default function Users() {
       key: 'username',
       header: t('Имэйл'),
       render: (u) => <span className="font-mono text-sm">{u.username}</span>,
+    },
+    {
+      key: 'company',
+      header: t('Харилцагч компани'),
+      render: (u) => (
+        <span className="text-sm text-ink-muted">{u.company?.name ?? '—'}</span>
+      ),
     },
     {
       key: 'role',
@@ -533,6 +588,7 @@ export default function Users() {
       >
         <UserForm
           t={t}
+          companies={companies}
           submitting={busy}
           error={formError}
           onSubmit={handleCreate}
@@ -547,6 +603,7 @@ export default function Users() {
         <UserEditModal
           user={editing}
           self={editing.id === me?.id}
+          companies={companies}
           onClose={() => setEditing(null)}
           onDone={() => {
             setEditing(null)
@@ -615,6 +672,35 @@ export default function Users() {
         onConfirm={() => setActive(deactivating, false)}
         onCancel={() => setDeactivating(null)}
       />
+    </div>
+  )
+}
+
+/** Жолоочийн харьяалах бүс — дүүргээр (V5) */
+function ZonePicker({ value, onChange, t }) {
+  const toggle = (d) =>
+    onChange(value.includes(d) ? value.filter((x) => x !== d) : [...value, d])
+  return (
+    <div>
+      <span className="block text-xs uppercase tracking-wide text-ink-muted mb-1.5">
+        {t('Харьяалах бүс')}
+      </span>
+      <div className="flex flex-wrap gap-1.5">
+        {DISTRICTS.map((d) => (
+          <button
+            key={d}
+            type="button"
+            onClick={() => toggle(d)}
+            className={`px-2.5 py-1 rounded border text-sm transition-colors ${
+              value.includes(d)
+                ? 'border-accent/50 text-accent bg-accent/12'
+                : 'border-rule text-ink-muted hover:text-ink'
+            }`}
+          >
+            {d}
+          </button>
+        ))}
+      </div>
     </div>
   )
 }

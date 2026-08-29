@@ -116,6 +116,25 @@ export default function Drivers() {
         ),
     },
     {
+      key: 'zones',
+      header: t('Харьяалах бүс'),
+      render: (d) =>
+        d.zones?.length ? (
+          <span className="flex flex-wrap gap-1">
+            {d.zones.map((z) => (
+              <span
+                key={z}
+                className="font-mono text-[10px] border border-rule rounded px-1 py-0.5 text-ink-muted"
+              >
+                {z}
+              </span>
+            ))}
+          </span>
+        ) : (
+          <span className="text-ink-muted">—</span>
+        ),
+    },
+    {
       key: 'employment',
       header: t('Ажлын төрөл'),
       render: (d) => (

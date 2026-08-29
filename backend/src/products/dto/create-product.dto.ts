@@ -40,6 +40,11 @@ export class CreateProductDto {
   @IsUUID('4', { message: 'categoryId буруу форматтай' })
   categoryId?: string;
 
+  /** Аль харилцагч компанийн бараа вэ (V5) */
+  @IsOptional()
+  @IsUUID('4', { message: 'companyId буруу форматтай' })
+  companyId?: string;
+
   @IsOptional()
   @IsString()
   @IsNotEmpty()

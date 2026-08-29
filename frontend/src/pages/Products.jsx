@@ -43,6 +43,8 @@ export default function Products() {
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [categoryId, setCategoryId] = useState('')
+  const [companyId, setCompanyId] = useState('')
+  const [companies, setCompanies] = useState([])
   const [lowStockOnly, setLowStockOnly] = useState(false)
   // Backend-ийн default нь isActive=true тул шүүлт илгээхгүй бол
   // идэвхгүй бараа ХЭЗЭЭ Ч харагдахгүй — "Идэвхгүй" badge-ийн салаа код
@@ -74,18 +76,22 @@ export default function Products() {
     const q = new URLSearchParams({ page: String(page), limit: String(LIMIT) })
     if (search) q.set('search', search)
     if (categoryId) q.set('categoryId', categoryId)
+    if (companyId) q.set('companyId', companyId)
     if (lowStockOnly) q.set('lowStock', 'true')
     if (showInactive) q.set('isActive', 'false')
     api(`/products?${q}`)
       .then(setData)
       .catch((e) => setError(e))
-  }, [search, categoryId, lowStockOnly, showInactive, page])
+  }, [search, categoryId, companyId, lowStockOnly, showInactive, page])
 
   useEffect(() => {
     load()
   }, [load])
 
   useEffect(() => {
+    api('/companies')
+      .then(setCompanies)
+      .catch(() => setCompanies([]))
     api('/categories')
       .then(setCategories)
       .catch(() => {})
@@ -134,6 +140,13 @@ export default function Products() {
       render: (p) => <span className="font-mono text-ink-muted">{p.sku}</span>,
     },
     { key: 'name', header: t('Нэр') },
+    {
+      key: 'company',
+      header: t('Харилцагч'),
+      render: (p) => (
+        <span className="text-sm text-ink-muted">{p.company?.name ?? '—'}</span>
+      ),
+    },
     {
       key: 'category',
       header: t('Ангилал'),
@@ -262,6 +275,23 @@ export default function Products() {
             </option>
           ))}
         </Select>
+        <Select
+          id="product-company"
+          label={t('Харилцагч')}
+          value={companyId}
+          onChange={(e) => {
+            setCompanyId(e.target.value)
+            setPage(1)
+          }}
+          className="w-44"
+        >
+          <option value="">{t('Бүх харилцагч')}</option>
+          {companies.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </Select>
         <button
           type="button"
           onClick={() => {
@@ -329,6 +359,7 @@ export default function Products() {
           key={editing?.id ?? 'new'}
           initial={editing}
           categories={categories}
+          companies={companies}
           submitting={busy}
           error={formError}
           onSubmit={handleFormSubmit}

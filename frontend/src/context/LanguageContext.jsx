@@ -401,6 +401,17 @@ const DICT = {
     'Хуваарилж чадсангүй: {list}': 'Could not assign: {list}',
     'DR%': 'DR%',
 
+    // — Компани / бүс (V5) —
+    'Харилцагч компани': 'Partner company',
+    'Компаниуд': 'Companies',
+    'Компани': 'Company',
+    'Оператор': 'Operators',
+    'Компани алга': 'No companies',
+    'Сонгоогүй': 'Not selected',
+    'Бүх харилцагч': 'All partners',
+    'Харьяалах бүс': 'Assigned zones',
+    'Эхлээд дүүргээ сонгоно уу': 'Select a district first',
+
     // — Жолооч (V5) —
     'Ажлын төрөл': 'Employment type',
     'Үндсэн': 'Full-time',

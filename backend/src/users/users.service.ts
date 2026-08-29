@@ -37,8 +37,10 @@ const SAFE_SELECT = {
       vehicleInfo: true,
       employmentType: true,
       isAvailable: true,
+      zones: true,
     },
   },
+  company: { select: { id: true, name: true } },
 };
 
 @Injectable()
@@ -67,6 +69,7 @@ export class UsersService {
           data: {
             username: dto.email, // email хэлбэрийн утга username талбарт
             fullName: dto.name,
+            companyId: dto.companyId,
             passwordHash,
             role: dto.role,
           },
@@ -80,6 +83,7 @@ export class UsersService {
               feePerDelivery: dto.feePerDelivery!,
               vehicleInfo: dto.vehicleInfo,
               employmentType: dto.employmentType ?? 'FULL_TIME',
+              zones: dto.zones ?? [],
             },
           });
         }
@@ -138,6 +142,7 @@ export class UsersService {
 
     const data: Record<string, unknown> = {};
     if (dto.name !== undefined) data.fullName = dto.name;
+    if (dto.companyId !== undefined) data.companyId = dto.companyId;
     if (dto.role !== undefined) data.role = dto.role;
     if (dto.isActive !== undefined) data.isActive = dto.isActive;
     if (dto.password !== undefined) {
@@ -159,7 +164,8 @@ export class UsersService {
       const profileTouched =
         dto.feePerDelivery !== undefined ||
         dto.vehicleInfo !== undefined ||
-        dto.employmentType !== undefined;
+        dto.employmentType !== undefined ||
+        dto.zones !== undefined;
 
       // DRIVER болж байгаад profile байхгүй бол үүсгэнэ;
       // байгаа жолоочийн хөлс/тээврийг шинэчилнэ
@@ -170,6 +176,7 @@ export class UsersService {
             ...(dto.feePerDelivery !== undefined
               ? { feePerDelivery: dto.feePerDelivery }
               : {}),
+            ...(dto.zones !== undefined ? { zones: dto.zones } : {}),
             ...(dto.employmentType !== undefined
               ? { employmentType: dto.employmentType }
               : {}),

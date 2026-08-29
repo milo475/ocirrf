@@ -1,4 +1,6 @@
 import {
+  IsUUID,
+  IsArray,
   IsBoolean,
   IsEnum,
   IsOptional,
@@ -43,4 +45,15 @@ export class UpdateUserDto {
   @IsOptional()
   @IsEnum(EmploymentType, { message: 'Ажлын төрөл буруу' })
   employmentType?: EmploymentType;
+
+  /** Аль харилцагч компанийн хүн бэ (V5) */
+  @IsOptional()
+  @IsUUID('4', { message: 'companyId буруу форматтай' })
+  companyId?: string;
+
+  /** Жолоочийн харьяалах бүс — дүүргийн товчлолууд (V5) */
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  zones?: string[];
 }

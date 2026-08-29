@@ -8,6 +8,7 @@ import Select from '../ui/Select'
 export default function ProductForm({
   initial,
   categories,
+  companies = [],
   submitting,
   error,
   onSubmit,
@@ -18,6 +19,7 @@ export default function ProductForm({
     name: initial?.name ?? '',
     sku: initial?.sku ?? '',
     categoryId: initial?.categoryId ?? '',
+    companyId: initial?.companyId ?? '',
     price: initial?.price ?? '',
     costPrice: initial?.costPrice ?? '',
     lowStockLimit: initial?.lowStockLimit ?? 5,
@@ -37,6 +39,7 @@ export default function ProductForm({
         : {}),
       lowStockLimit: Number(values.lowStockLimit),
       ...(values.categoryId ? { categoryId: values.categoryId } : {}),
+      ...(values.companyId ? { companyId: values.companyId } : {}),
     })
   }
 
@@ -68,6 +71,20 @@ export default function ProductForm({
       >
         <option value="">{t('Ангилалгүй')}</option>
         {categories.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.name}
+          </option>
+        ))}
+      </Select>
+
+      <Select
+        id="p-company"
+        label={t('Харилцагч компани')}
+        value={values.companyId}
+        onChange={set('companyId')}
+      >
+        <option value="">{t('Сонгоогүй')}</option>
+        {companies.map((c) => (
           <option key={c.id} value={c.id}>
             {c.name}
           </option>
