@@ -401,6 +401,18 @@ const DICT = {
     'Хуваарилж чадсангүй: {list}': 'Could not assign: {list}',
     'DR%': 'DR%',
 
+    // — Захиалга засах (V5) —
+    'Захиалга зассан': 'Order updated',
+    'Бараа нэмэх': 'Add product',
+    'Нэмэлт утас': 'Extra phone',
+    'Хүргэлтийн хаяг': 'Delivery address',
+    'Бүс': 'Region',
+    'Улаанбаатар': 'Ulaanbaatar',
+    'Нэмэлт хаяг': 'Address detail',
+    'Захиалгад дор хаяж 1 бараа байна': 'An order needs at least 1 product',
+    'Төлсөн дүн {paid} — дүн өөрчлөгдвөл төлбөрийн төлөв дагаж шинэчлэгдэнэ':
+      'Paid {paid} — the payment status follows the new total',
+
     // — Борлуулагч (V5) —
     'Борлуулагч': 'Seller',
     'Борлуулагчийн самбар': 'Seller board',

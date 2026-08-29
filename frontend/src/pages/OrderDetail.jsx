@@ -15,6 +15,7 @@ import Modal from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { useLang } from '../context/LanguageContext'
 import CustomerHistoryModal from '../components/customers/CustomerHistoryModal'
+import EditOrderDrawer from '../components/orders/EditOrderDrawer'
 import { useAuth } from '../context/AuthContext'
 import { api } from '../lib/api'
 import { formatDateTime, formatMoney } from '../lib/format'
@@ -46,6 +47,7 @@ export default function OrderDetail() {
   const { state: navState } = useLocation()
   const [proofOpen, setProofOpen] = useState(false)
   const [history, setHistory] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
 
   const load = useCallback(() => {
     setError(null)
@@ -154,6 +156,10 @@ export default function OrderDetail() {
    *    оронд нь шууд «Дуусгах».
    */
   const isKeeper = hasPerm('warehouse.handover')
+  /** Дууссан/цуцалсан захиалга хөшинө — backend-тэй ижил жагсаалт */
+  const canEdit =
+    hasPerm('orders.edit') &&
+    ['NEW', 'CONFIRMED', 'PREPARING', 'READY'].includes(order.orderStatus)
   const needsDriver = canAssign && !order.assignedDriver
   const forward = nextStatuses.filter((s) => {
     if (s === 'CANCELLED') return false
@@ -392,7 +398,7 @@ export default function OrderDetail() {
       )}
 
       {/* Статусын шилжилтийн товчнууд */}
-      {(forward.length > 0 || canCancel || canAssign) && (
+      {(forward.length > 0 || canCancel || canAssign || canEdit) && (
         <section className="mt-10 border-t border-rule pt-6 flex items-center gap-3">
           {forward.map((s) => (
             <Button key={s} loading={busy} onClick={() => transition(s)}>
@@ -408,6 +414,11 @@ export default function OrderDetail() {
               {order.region === 'ORON_NUTAG'
                 ? t('Тээвэрт гаргах')
                 : t('Жолооч хуваарилах')}
+            </Button>
+          )}
+          {canEdit && (
+            <Button variant="ghost" onClick={() => setEditOpen(true)}>
+              ✎ {t('Засах')}
             </Button>
           )}
           {canCancel && (
@@ -458,6 +469,17 @@ export default function OrderDetail() {
         onConfirm={() => transition('CANCELLED')}
         onCancel={() => setCancelOpen(false)}
       />
+      {editOpen && (
+        <EditOrderDrawer
+          order={order}
+          onClose={() => setEditOpen(false)}
+          onSaved={() => {
+            setEditOpen(false)
+            load()
+          }}
+        />
+      )}
+
       {history && (
         <CustomerHistoryModal
           phone={order.phone}

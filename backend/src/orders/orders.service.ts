@@ -16,9 +16,11 @@ import {
 import { NotificationsService } from '../notifications/notifications.service';
 import { PERM } from '../permissions/permission-keys';
 import { PermissionsService } from '../permissions/permissions.service';
+import { lockOrderForUpdate } from '../prisma/lock.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { formatFullAddress, formatShortAddress } from './address.util';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { UpdateOrderDto } from './dto/update-order.dto';
 import { QueryOrdersDto } from './dto/query-orders.dto';
 
 /**
@@ -307,6 +309,220 @@ export class OrdersService {
       return order;
     });
     return { order, lowStockCrossed };
+  }
+
+  /** Засвар зөвшөөрөгдөх төлөвүүд — дууссан/цуцалсан захиалга хөшинө */
+  private static readonly EDITABLE: OrderStatus[] = [
+    OrderStatus.NEW,
+    OrderStatus.CONFIRMED,
+    OrderStatus.PREPARING,
+    OrderStatus.READY,
+  ];
+
+  /**
+   * Захиалга засах (V5) — хаяг, хүлээн авагч, бараа.
+   *
+   * DM-ээр ажилладаг тул «хаягаа буруу хэлсэн», «нэгийг нэмээд өгөөч»
+   * гэдэг өдөр тутмын явдал. Өмнө нь баталгаажсаны дараа засах арга
+   * байхгүй тул цуцлаад дахин шивдэг байв — дугаар үсэрч, түүх тасардаг.
+   *
+   * Бараа солиход ҮЛДЭГДЭЛ ЗӨРҮҮГЭЭР нь тохируулагдана (нэмсэн нь
+   * хасагдаж, хассан нь буцаж орно). Үнэ нь ХУУЧИН мөрүүд дээр
+   * snapshot-оороо үлдэнэ — засвар нь өнөөдрийн үнээр дахин үнэлэхгүй.
+   */
+  async update(id: string, dto: UpdateOrderDto, user: AuthUser) {
+    if (dto.items) {
+      const ids = dto.items.map((i) => i.productId);
+      if (new Set(ids).size !== ids.length) {
+        throw new BadRequestException('Нэг бараа давхардаж орсон байна');
+      }
+    }
+
+    const lowStockCrossed: {
+      id: string;
+      name: string;
+      stockQty: number;
+      lowStockLimit: number;
+    }[] = [];
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      // Төлбөр/буцаалттай зэрэг орохоос хамгаална (paidAmount уншиж бичнэ)
+      const exists = await lockOrderForUpdate(tx, id);
+      if (!exists) {
+        throw new NotFoundException('Захиалга олдсонгүй');
+      }
+      const order = await tx.order.findUniqueOrThrow({
+        where: { id },
+        include: { items: true, returns: { select: { id: true } } },
+      });
+
+      if (!OrdersService.EDITABLE.includes(order.orderStatus)) {
+        throw new BadRequestException(
+          `${order.orderStatus} төлөвтэй захиалгыг засах боломжгүй`,
+        );
+      }
+
+      let totalAmount = order.totalAmount;
+
+      if (dto.items) {
+        if (order.returns.length > 0) {
+          throw new BadRequestException(
+            'Буцаалт бүртгэгдсэн захиалгын барааг засах боломжгүй',
+          );
+        }
+
+        const wanted = new Map(dto.items.map((i) => [i.productId, i.qty]));
+        const current = new Map(order.items.map((i) => [i.productId, i]));
+        const touched = [...new Set([...wanted.keys(), ...current.keys()])];
+
+        const products = await tx.product.findMany({
+          where: { id: { in: touched } },
+        });
+        const byId = new Map(products.map((p) => [p.id, p]));
+
+        // 1. Зөрүүг бүрэн шалгана — нэг нь ч бүтэхгүй бол юу ч хөдлөхгүй
+        for (const productId of touched) {
+          const want = wanted.get(productId) ?? 0;
+          const have = current.get(productId)?.qty ?? 0;
+          const delta = want - have; // + нэмсэн, − хассан
+          if (delta === 0) continue;
+          const product = byId.get(productId);
+          if (!product) {
+            throw new BadRequestException(`Бараа олдсонгүй (id: ${productId})`);
+          }
+          if (delta > 0 && !product.isActive) {
+            throw new BadRequestException(`«${product.name}» идэвхгүй байна`);
+          }
+          if (delta > product.stockQty) {
+            throw new BadRequestException(
+              `«${product.name}» үлдэгдэл хүрэлцэхгүй (байгаа: ${product.stockQty}, нэмэх: ${delta})`,
+            );
+          }
+        }
+
+        // 2. Мөрүүдийг тааруулж, үлдэгдлийг зөрүүгээр нь хөдөлгөнө
+        totalAmount = new Prisma.Decimal(0);
+        for (const productId of touched) {
+          const want = wanted.get(productId) ?? 0;
+          const line = current.get(productId);
+          const product = byId.get(productId)!;
+          // Хуучин мөрийн үнэ snapshot-оороо үлдэнэ; шинэ мөр өнөөдрийнхөөр
+          const price = line?.priceAtOrder ?? product.price;
+          const delta = want - (line?.qty ?? 0);
+
+          if (want === 0) {
+            await tx.orderItem.delete({ where: { id: line!.id } });
+          } else if (line) {
+            await tx.orderItem.update({
+              where: { id: line.id },
+              data: { qty: want, lineTotal: price.mul(want) },
+            });
+          } else {
+            await tx.orderItem.create({
+              data: {
+                orderId: id,
+                productId,
+                productName: product.name,
+                qty: want,
+                priceAtOrder: price,
+                costAtOrder: product.costPrice,
+                lineTotal: price.mul(want),
+              },
+            });
+          }
+          if (want > 0) totalAmount = totalAmount.add(price.mul(want));
+
+          if (delta !== 0) {
+            const updated = await tx.product.update({
+              where: { id: productId },
+              data: { stockQty: { decrement: delta } },
+            });
+            if (updated.stockQty < 0) {
+              throw new BadRequestException(
+                `«${updated.name}» үлдэгдэл хүрэлцэхгүй`,
+              );
+            }
+            if (
+              delta > 0 &&
+              updated.stockQty <= updated.lowStockLimit &&
+              updated.stockQty + delta > updated.lowStockLimit
+            ) {
+              lowStockCrossed.push(updated);
+            }
+            await tx.stockMovement.create({
+              data: {
+                productId,
+                qtyChange: -delta,
+                reason: 'ORDER_EDIT',
+                note: `Захиалга ${order.orderNo} засварлав`,
+                refId: id,
+                userId: user.id,
+              },
+            });
+          }
+        }
+      }
+
+      // 3. Хаяг — region илгээвэл эсрэг горимынхыг цэвэрлэнэ
+      const address: Prisma.OrderUpdateInput = {};
+      if (dto.region) {
+        const isUB = dto.region === 'ULAANBAATAR';
+        Object.assign(address, {
+          region: dto.region,
+          district: isUB ? dto.district : null,
+          khoroo: isUB ? dto.khoroo : null,
+          building: isUB ? dto.building : null,
+          entrance: isUB ? (dto.entrance ?? null) : null,
+          floor: isUB ? (dto.floor ?? null) : null,
+          door: isUB ? (dto.door ?? null) : null,
+          province: isUB ? null : dto.province,
+          soum: isUB ? null : dto.soum,
+          transport: isUB ? null : (dto.transport ?? null),
+          addressDetail: isUB ? null : (dto.addressDetail ?? null),
+        });
+      }
+
+      return tx.order.update({
+        where: { id },
+        data: {
+          ...address,
+          ...(dto.customerName !== undefined
+            ? { customerName: dto.customerName }
+            : {}),
+          ...(dto.customerPhone !== undefined
+            ? { phone: dto.customerPhone }
+            : {}),
+          ...(dto.extraPhone !== undefined
+            ? { extraPhone: dto.extraPhone || null }
+            : {}),
+          ...(dto.note !== undefined ? { note: dto.note || null } : {}),
+          ...(dto.channel !== undefined ? { channel: dto.channel } : {}),
+          ...(dto.items
+            ? {
+                totalAmount,
+                // Дүн өөрчлөгдвөл төлбөрийн төлөв дагаж шинэчлэгдэнэ:
+                // 20,000-ийн PAID захиалга 30,000 болбол PARTIAL болно
+                paymentStatus: order.paidAmount.gte(totalAmount)
+                  ? PaymentStatus.PAID
+                  : order.paidAmount.gt(0)
+                    ? PaymentStatus.PARTIAL
+                    : PaymentStatus.UNPAID,
+              }
+            : {}),
+        },
+        include: {
+          items: true,
+          createdBy: CREATED_BY_SELECT,
+          assignedDriver: CREATED_BY_SELECT,
+          warehouse: { select: { id: true, fullName: true } },
+        },
+      });
+    });
+
+    for (const p of lowStockCrossed) {
+      await this.notifications.notifyLowStock(p);
+    }
+    return { ...result, fullAddress: formatFullAddress(result) };
   }
 
   async updateStatus(id: string, status: OrderStatus, user: AuthUser) {

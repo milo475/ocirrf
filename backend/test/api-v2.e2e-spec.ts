@@ -107,6 +107,8 @@ describe('ursGAL v2 API (e2e)', () => {
   const feeOrderIds: string[] = []; // тарифын тест захиалгууд (V4-05)
   /** Тестийн үүсгэсэн хүсэлтүүд — мэдэгдэл нь эдгээрийг заадаг */
   const requestIds: string[] = [];
+  /** Засварын тестийн нэмэлт бараанууд */
+  const editProductIds: string[] = [];
   let sellerId: string; // борлуулагчийн тест хэрэглэгч (V5)
   let sellerToken: string;
   let keeperId: string; // няравын тест хэрэглэгч (V5)
@@ -176,6 +178,7 @@ describe('ursGAL v2 API (e2e)', () => {
       raceProductId,
       lowStockProductId,
       readyProductId,
+      ...editProductIds,
     ].filter(Boolean);
     await prisma.stockMovement.deleteMany({
       where: {
@@ -1142,7 +1145,6 @@ describe('ursGAL v2 API (e2e)', () => {
         (g: { items: Item[] }) => g.items.map((i) => i.key),
       );
       for (const dead of [
-        'orders.edit',
         'orders.delete',
         'customers.create',
         'customers.delete',
@@ -1153,9 +1155,10 @@ describe('ursGAL v2 API (e2e)', () => {
       }
       // Панелын түлхүүр бүр backend-ийн ямар нэг route-д хэрэглэгддэг
       // (V5-д нярав нэмэгдэхэд +2: orders.assign_warehouse, warehouse.handover)
-      expect(allKeys).toHaveLength(27);
+      expect(allKeys).toHaveLength(28);
       expect(allKeys).toContain('orders.assign_warehouse');
       expect(allKeys).toContain('warehouse.handover');
+      expect(allKeys).toContain('orders.edit');
 
       // Хасагдсан түлхүүрийг олгох гэвэл валидацид унана
       await api()
@@ -4014,6 +4017,200 @@ describe('ursGAL v2 API (e2e)', () => {
         .set(auth(sellerToken))
         .expect(403);
       await api().get('/api/users').set(auth(sellerToken)).expect(403);
+    });
+  });
+
+  // ────────────────────────────────────── V5: ЗАХИАЛГА ЗАСАХ
+  describe('V5: Захиалга засах ⭐', () => {
+    let editOrderId: string;
+    let secondProductId: string;
+
+    beforeAll(async () => {
+      await api()
+        .post('/api/stock/adjust')
+        .set(auth(tok.manager))
+        .send({ productId, qtyChange: 10, reason: 'PURCHASE_IN' })
+        .expect(201);
+
+      // Хоёр дахь бараа — засварт шинээр нэмэхэд
+      const p2 = await api()
+        .post('/api/products')
+        .set(auth(tok.admin))
+        .send({
+          sku: `${SKU}-EDIT`,
+          name: `Э2Э Засвар бараа ${T}`,
+          price: '1000.00',
+          costPrice: '600.00',
+        })
+        .expect(201);
+      secondProductId = p2.body.id;
+      editProductIds.push(secondProductId);
+      await api()
+        .post('/api/stock/adjust')
+        .set(auth(tok.admin))
+        .send({ productId: secondProductId, qtyChange: 10, reason: 'PURCHASE_IN' })
+        .expect(201);
+
+      const res = await api()
+        .post('/api/orders')
+        .set(auth(tok.manager))
+        .send({
+          customerName: `Э2Э-Засвар-${T}`,
+          customerPhone: `9${T}`,
+          ...UB_ADDR,
+          items: [{ productId, qty: 2 }],
+        })
+        .expect(201);
+      editOrderId = res.body.id;
+      feeOrderIds.push(editOrderId);
+      await api()
+        .patch(`/api/orders/${editOrderId}/status`)
+        .set(auth(tok.manager))
+        .send({ status: 'CONFIRMED' })
+        .expect(200);
+    });
+
+    it('баталгаажсаны дараа ХАЯГ засагдана ⭐', async () => {
+      const res = await api()
+        .patch(`/api/orders/${editOrderId}`)
+        .set(auth(tok.manager))
+        .send({
+          customerName: `Э2Э-Засвар-ЗАССАН-${T}`,
+          region: 'ULAANBAATAR',
+          district: 'БЗД',
+          khoroo: '5',
+          building: 'Шинэ байр',
+          entrance: '3',
+          floor: '7',
+          door: '705',
+          note: 'Хаяг зассан',
+        })
+        .expect(200);
+      expect(res.body.district).toBe('БЗД');
+      expect(res.body.fullAddress).toBe(
+        'БЗД, 5-р хороо, Шинэ байр, 3-р орц, 7 давхар, 705 тоот',
+      );
+      expect(res.body.note).toBe('Хаяг зассан');
+      // Орон нутгийн талбарууд цэвэрлэгдсэн хэвээр
+      expect(res.body.province).toBeNull();
+    });
+
+    it('бараа солиход ҮЛДЭГДЭЛ ЗӨРҮҮГЭЭР нь хөдөлнө ⭐', async () => {
+      const before = await api()
+        .get(`/api/products/${productId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      const before2 = await api()
+        .get(`/api/products/${secondProductId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+
+      // 2 ш байсныг 1 болгож, шинэ бараанаас 3 нэмнэ
+      const res = await api()
+        .patch(`/api/orders/${editOrderId}`)
+        .set(auth(tok.manager))
+        .send({
+          items: [
+            { productId, qty: 1 },
+            { productId: secondProductId, qty: 3 },
+          ],
+        })
+        .expect(200);
+      expect(res.body.items).toHaveLength(2);
+
+      const after = await api()
+        .get(`/api/products/${productId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      const after2 = await api()
+        .get(`/api/products/${secondProductId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      // ⭐ Хассан нь БУЦАЖ орсон, нэмсэн нь хасагдсан
+      expect(after.body.stockQty).toBe(before.body.stockQty + 1);
+      expect(after2.body.stockQty).toBe(before2.body.stockQty - 3);
+
+      // Нийт дүн дахин бодогдсон
+      const unit = Number(
+        res.body.items.find(
+          (i: { productId: string }) => i.productId === secondProductId,
+        ).priceAtOrder,
+      );
+      expect(unit).toBe(1000);
+      expect(Number(res.body.totalAmount)).toBe(
+        Number(before.body.price) * 1 + 1000 * 3,
+      );
+
+      // Хөдөлгөөн ORDER_EDIT шалтгаантай бүртгэгдсэн
+      const moves = await api()
+        .get(`/api/stock/movements?productId=${secondProductId}&reason=ORDER_EDIT`)
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(moves.body.items.length).toBeGreaterThan(0);
+      expect(moves.body.items[0].qtyChange).toBe(-3);
+    });
+
+    it('бараа хасахад мөр устаж, дүн буурна', async () => {
+      const res = await api()
+        .patch(`/api/orders/${editOrderId}`)
+        .set(auth(tok.manager))
+        .send({ items: [{ productId: secondProductId, qty: 3 }] })
+        .expect(200);
+      expect(res.body.items).toHaveLength(1);
+      expect(Number(res.body.totalAmount)).toBe(3000);
+    });
+
+    it('хоосон бараа / хүрэлцэхгүй үлдэгдэл → 400, үлдэгдэл хөдлөхгүй', async () => {
+      const before = await api()
+        .get(`/api/products/${secondProductId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+
+      await api()
+        .patch(`/api/orders/${editOrderId}`)
+        .set(auth(tok.manager))
+        .send({ items: [] })
+        .expect(400);
+
+      await api()
+        .patch(`/api/orders/${editOrderId}`)
+        .set(auth(tok.manager))
+        .send({ items: [{ productId: secondProductId, qty: 99999 }] })
+        .expect(400);
+
+      const after = await api()
+        .get(`/api/products/${secondProductId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(after.body.stockQty).toBe(before.body.stockQty);
+    });
+
+    it('дууссан захиалга ХӨШИНӨ ⭐', async () => {
+      await api()
+        .patch(`/api/orders/${editOrderId}/status`)
+        .set(auth(tok.manager))
+        .send({ status: 'COMPLETED' })
+        .expect(200);
+
+      const res = await api()
+        .patch(`/api/orders/${editOrderId}`)
+        .set(auth(tok.manager))
+        .send({ note: 'оройтсон засвар' })
+        .expect(400);
+      expect(res.body.message).toContain('засах боломжгүй');
+    });
+
+    it('эрхгүй хүн засахгүй → 403', async () => {
+      await api()
+        .patch(`/api/orders/${editOrderId}`)
+        .set(auth(tok.driver))
+        .send({ note: 'хакер' })
+        .expect(403);
+      await api()
+        .patch(`/api/orders/${editOrderId}`)
+        .set(auth(tok.operator))
+        .send({ note: 'хакер' })
+        .expect(403);
     });
   });
 
