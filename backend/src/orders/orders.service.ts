@@ -434,6 +434,7 @@ export class OrdersService {
           _count: { select: { items: true } },
           createdBy: CREATED_BY_SELECT,
           assignedDriver: CREATED_BY_SELECT,
+          warehouse: { select: { id: true, fullName: true } },
         },
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,

@@ -19,8 +19,8 @@ export default function Dashboard() {
       return <OperatorDashboard />
     case 'DRIVER':
       return <DriverDashboard />
-    case 'CUSTOMER':
-      return <Navigate to="/portal" replace />
+    case 'WAREHOUSE':
+      return <Navigate to="/warehouse" replace />
     default:
       // Аюулгүйн fallback — танигдаагүй эрхэд хуучин нөөцийн самбар
       return <StockHealthDashboard />

@@ -133,6 +133,19 @@ export default function Orders() {
 
   // ── Олноор жолооч хуваарилах (V5) ──
   const [bulkOpen, setBulkOpen] = useState(false)
+  const [keeperOpen, setKeeperOpen] = useState(false)
+
+  /** Сонгосон захиалгуудыг няравт өгнө — түүний бэлтгэлийн самбарт гарна */
+  async function bulkAssignKeeper(warehouseId) {
+    const res = await api('/warehouse/assign', {
+      method: 'POST',
+      body: { warehouseId, orderIds: [...selected] },
+    })
+    setKeeperOpen(false)
+    setSelected(new Set())
+    toast.show(t('{n} захиалга няравт өглөө', { n: res.assigned }))
+    load()
+  }
 
   async function bulkAssign(driverId) {
     const res = await api('/orders/assign-driver/bulk', {
@@ -262,6 +275,13 @@ export default function Orders() {
       ),
     },
     {
+      key: 'warehouse',
+      header: t('Нярав'),
+      render: (o) => (
+        <span className="text-ink-muted">{o.warehouse?.fullName ?? '—'}</span>
+      ),
+    },
+    {
       key: 'assignedDriver',
       header: t('Жолооч'),
       render: (o) => (
@@ -296,6 +316,11 @@ export default function Orders() {
           {selected.size > 0 && hasPerm('orders.assign_driver') && (
             <Button variant="ghost" onClick={() => setBulkOpen(true)}>
               🚚 {t('Жолооч хуваарилах')} ({selected.size})
+            </Button>
+          )}
+          {selected.size > 0 && hasPerm('orders.assign_warehouse') && (
+            <Button variant="ghost" onClick={() => setKeeperOpen(true)}>
+              📦 {t('Нярав хуваарилах')} ({selected.size})
             </Button>
           )}
           {selected.size > 0 && (
@@ -437,6 +462,15 @@ export default function Orders() {
         />
       )}
 
+      {keeperOpen && (
+        <BulkKeeperModal
+          count={selected.size}
+          onClose={() => setKeeperOpen(false)}
+          onAssign={bulkAssignKeeper}
+          t={t}
+        />
+      )}
+
       {/* Хэвлэсний дараах шилжүүлэлт (V4-11) */}
       <ConfirmDialog
         open={!!prepareAsk}
@@ -451,6 +485,71 @@ export default function Orders() {
         onCancel={() => setPrepareAsk(null)}
       />
     </div>
+  )
+}
+
+/** Олноор няравт хуваарилах цонх (V5) */
+function BulkKeeperModal({ count, onClose, onAssign, t }) {
+  const [keepers, setKeepers] = useState(null)
+  const [warehouseId, setWarehouseId] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    api('/warehouse/keepers')
+      .then(setKeepers)
+      .catch(() => setKeepers([]))
+  }, [])
+
+  async function submit(e) {
+    e.preventDefault()
+    if (!warehouseId) return
+    setBusy(true)
+    try {
+      await onAssign(warehouseId)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} title={t('Нярав хуваарилах')}>
+      <form onSubmit={submit} className="space-y-4">
+        <p className="text-sm text-ink-muted">
+          {t('Сонгосон {n} захиалга тухайн няравын бэлтгэлийн самбарт орно.', {
+            n: count,
+          })}
+        </p>
+        {keepers === null ? (
+          <p className="text-sm text-ink-muted">…</p>
+        ) : keepers.length === 0 ? (
+          <p className="text-sm text-ink-muted">
+            {t('Идэвхтэй нярав алга — User хэсэгт нэмнэ үү')}
+          </p>
+        ) : (
+          <Select
+            id="bulk-keeper"
+            label={t('Нярав')}
+            value={warehouseId}
+            onChange={(e) => setWarehouseId(e.target.value)}
+          >
+            <option value="">—</option>
+            {keepers.map((k) => (
+              <option key={k.id} value={k.id}>
+                {k.fullName}
+              </option>
+            ))}
+          </Select>
+        )}
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="ghost" onClick={onClose} disabled={busy}>
+            {t('Болих')}
+          </Button>
+          <Button type="submit" loading={busy} disabled={!warehouseId}>
+            {t('Хуваарилах')}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   )
 }
 

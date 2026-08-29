@@ -20,12 +20,14 @@ const ROLE_COLORS = {
   MANAGER: 'oklch(0.62 0.12 250)',
   OPERATOR: 'oklch(0.60 0.13 155)',
   DRIVER: 'oklch(0.68 0.13 80)',
+  WAREHOUSE: 'oklch(0.64 0.11 300)',
 }
 const ROLE_LABELS = {
   ADMIN: 'Админ',
   MANAGER: 'Менежер',
   OPERATOR: 'Харилцагч', // бараа нийлүүлдэг түнш — захиалга шивэх эрхтэй
   DRIVER: 'Жолооч',
+  WAREHOUSE: 'Нярав',
 }
 
 function RoleBadge({ role, t }) {
@@ -138,6 +140,7 @@ function UserForm({ submitting, error, onSubmit, onCancel, t, companies }) {
         <option value="OPERATOR">{t('Харилцагч')}</option>
         <option value="MANAGER">{t('Менежер')}</option>
         <option value="DRIVER">{t('Жолооч')}</option>
+        <option value="WAREHOUSE">{t('Нярав')}</option>
         <option value="ADMIN">{t('Админ')}</option>
       </Select>
       <Select
@@ -263,6 +266,7 @@ function UserEditModal({ user, self, onClose, onDone, t, toast, companies }) {
           <option value="OPERATOR">{t('Харилцагч')}</option>
           <option value="MANAGER">{t('Менежер')}</option>
           <option value="DRIVER">{t('Жолооч')}</option>
+          <option value="WAREHOUSE">{t('Нярав')}</option>
           <option value="ADMIN">{t('Админ')}</option>
         </Select>
         <Select

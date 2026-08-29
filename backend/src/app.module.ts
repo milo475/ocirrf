@@ -32,6 +32,7 @@ import { ProductsModule } from './products/products.module';
 import { StockModule } from './stock/stock.module';
 import { UPLOADS_DIR } from './uploads.config';
 import { UsersModule } from './users/users.module';
+import { WarehouseModule } from './warehouse/warehouse.module';
 
 @Module({
   imports: [
@@ -85,6 +86,7 @@ import { UsersModule } from './users/users.module';
     AnalyticsModule,
     ReportsModule,
     UsersModule,
+    WarehouseModule,
     LoggingModule,
   ],
   controllers: [AppController],

@@ -30,6 +30,7 @@ import Settings from './pages/Settings'
 import Stock from './pages/Stock'
 import UserPermissions from './pages/UserPermissions'
 import Users from './pages/Users'
+import Warehouse from './pages/Warehouse'
 
 function App() {
   return (
@@ -65,6 +66,9 @@ function App() {
                     </Route>
                     <Route element={<PermRoute perm="orders.create" />}>
                       <Route path="/orders/new" element={<OrderNew />} />
+                    </Route>
+                    <Route element={<PermRoute perm="warehouse.handover" />}>
+                      <Route path="/warehouse" element={<Warehouse />} />
                     </Route>
                     <Route element={<PermRoute perm="inventory.view" />}>
                       <Route path="/products" element={<Products />} />

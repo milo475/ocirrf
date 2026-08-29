@@ -12,6 +12,8 @@ export const PERM = {
   ORDERS_ASSIGN_DRIVER: 'orders.assign_driver',
   ORDERS_CHANGE_STATUS: 'orders.change_status',
   ORDERS_REFUND: 'orders.refund',
+  ORDERS_ASSIGN_WAREHOUSE: 'orders.assign_warehouse',
+  WAREHOUSE_HANDOVER: 'warehouse.handover',
   // Харилцагч
   CUSTOMERS_VIEW: 'customers.view',
   CUSTOMERS_EDIT: 'customers.edit',
@@ -52,6 +54,8 @@ export const PERM_LABELS: Record<PermKey, string> = {
   [PERM.ORDERS_ASSIGN_DRIVER]: 'Жолооч хуваарилах',
   [PERM.ORDERS_CHANGE_STATUS]: 'Захиалгын статус солих',
   [PERM.ORDERS_REFUND]: 'Буцаалт бүртгэх',
+  [PERM.ORDERS_ASSIGN_WAREHOUSE]: 'Нярав хуваарилах',
+  [PERM.WAREHOUSE_HANDOVER]: 'Жолоочид хүлээлгэн өгөх',
   [PERM.CUSTOMERS_VIEW]: 'Харилцагч харах',
   [PERM.CUSTOMERS_EDIT]: 'Харилцагч засах',
   [PERM.DRIVERS_VIEW]: 'Жолооч харах',
@@ -84,6 +88,8 @@ export const PERM_GROUPS: { group: string; keys: PermKey[] }[] = [
       PERM.ORDERS_ASSIGN_DRIVER,
       PERM.ORDERS_CHANGE_STATUS,
       PERM.ORDERS_REFUND,
+      PERM.ORDERS_ASSIGN_WAREHOUSE,
+      PERM.WAREHOUSE_HANDOVER,
     ],
   },
   {
@@ -140,6 +146,7 @@ export const ROLE_DEFAULTS: Record<Role, PermKey[]> = {
     PERM.ORDERS_CHANGE_STATUS,
     PERM.ORDERS_ASSIGN_DRIVER,
     PERM.ORDERS_REFUND, // V4: буцаалт ADMIN+MANAGER
+    PERM.ORDERS_ASSIGN_WAREHOUSE, // V5: няравт хуваарилах
     PERM.INVENTORY_VIEW,
     PERM.INVENTORY_ADJUSTMENT,
     PERM.DRIVERS_VIEW,
@@ -162,4 +169,17 @@ export const ROLE_DEFAULTS: Record<Role, PermKey[]> = {
     PERM.INVENTORY_VIEW,
   ],
   [Role.DRIVER]: [],
+  /**
+   * Нярав (V5): агуулахын орлого/зарлага, бэлтгэл, жолоочид хүлээлгэн
+   * өгөх. Захиалгыг харах, статусыг нь ахиулах эрхтэй ч жолооч
+   * хуваарилах, санхүү, эрхийн тохиргоонд хүрэхгүй.
+   */
+  [Role.WAREHOUSE]: [
+    PERM.ORDERS_VIEW,
+    PERM.ORDERS_CHANGE_STATUS,
+    PERM.INVENTORY_VIEW,
+    PERM.INVENTORY_ADJUSTMENT,
+    PERM.WAREHOUSE_HANDOVER,
+    PERM.DRIVERS_VIEW,
+  ],
 };

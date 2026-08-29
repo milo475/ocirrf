@@ -401,6 +401,42 @@ const DICT = {
     'Хуваарилж чадсангүй: {list}': 'Could not assign: {list}',
     'DR%': 'DR%',
 
+    // — Нярав (V5) —
+    'Нярав': 'Keeper',
+    'Нярав хуваарилах': 'Assign keeper',
+    'Сонгосон {n} захиалга тухайн няравын бэлтгэлийн самбарт орно.':
+      'The {n} selected orders go to that keeper’s prep board.',
+    'Идэвхтэй нярав алга — User хэсэгт нэмнэ үү':
+      'No active keeper — add one on the User page',
+    '{n} захиалга няравт өглөө': '{n} orders handed to the keeper',
+    'Бэлтгэл, жолоочид хүлээлгэн өгөх, хуудасны түүх':
+      'Preparation, driver handover and sheet history',
+    'Бэлтгэл': 'Preparation',
+    'Хүлээлгэсэн хуудсууд': 'Handover sheets',
+    'Надад хуваарилаагүйг ч харах': 'Show orders not assigned to me',
+    'Бэлтгэх захиалга алга': 'Nothing to prepare',
+    'Менежер захиалга хуваарилахад энд гарч ирнэ':
+      'Orders appear here once a manager assigns them',
+    'захиалга': 'orders',
+    'бэлэн': 'ready',
+    'Бэлэн': 'Ready',
+    'Нийт түүх бараа': 'Total goods to pick',
+    'Хүлээлгэн өгөх': 'Hand over',
+    'Баталгаажуулж хэвлэх': 'Confirm and print',
+    'Хоёр тал гарын үсгээ зурсны дараа баталгаажна':
+      'Both parties must sign before confirming',
+    'Тэмдэглэл (заавал биш)': 'Note (optional)',
+    '{no} хуудас үүслээ': 'Sheet {no} created',
+    'Хуудас алга': 'No sheets yet',
+    'Хэвлэх цонхыг зөвшөөрнө үү': 'Please allow the print window',
+    'Дээр нь гарын үсгээ зурна уу': 'Draw your signature above',
+    'Арилгах': 'Clear',
+    'Бараа хүлээлгэн өгсөн хуудас': 'Goods handover sheet',
+    'Нийт хүлээлгэн өгсөн бараа': 'Total goods handed over',
+    'Захиалга тус бүр': 'Per order',
+    'Хүлээлгэн өгсөн (нярав)': 'Handed over by (keeper)',
+    'Хүлээн авсан (жолооч)': 'Received by (driver)',
+
     'Зураг солих': 'Change image',
     'Зураг хадгалагдлаа': 'Image saved',
 

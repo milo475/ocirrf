@@ -17,6 +17,7 @@ import {
   UsersRound,
   Wallet,
   Inbox,
+  PackageOpen,
 } from 'lucide-react'
 
 /**
@@ -41,7 +42,7 @@ export const NAV_ITEMS = [
     icon: Home,
     path: '/',
     end: true,
-    roles: ['ADMIN', 'MANAGER', 'OPERATOR', 'DRIVER'],
+    roles: ['ADMIN', 'MANAGER', 'OPERATOR', 'DRIVER', 'WAREHOUSE'],
   },
 
   // ── Staff үндсэн цэсүүд (permission-оороо автоматаар) ──
@@ -82,6 +83,13 @@ export const NAV_ITEMS = [
     icon: Package,
     path: '/products',
     perm: 'inventory.view',
+  },
+  {
+    key: 'warehouse',
+    label: 'Нярав',
+    icon: PackageOpen,
+    path: '/warehouse',
+    perm: 'warehouse.handover',
   },
   {
     key: 'stock',

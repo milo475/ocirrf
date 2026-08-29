@@ -13,6 +13,7 @@ enum Role {
   MANAGER
   OPERATOR
   DRIVER
+  WAREHOUSE // нярав (V5)
 }
 
 enum OrderStatus {
@@ -101,6 +102,9 @@ model User {
   orders         Order[]         @relation("CreatedOrders")
   stockMoves     StockMovement[]
   assignedOrders Order[]         @relation("AssignedOrders")
+  warehouseOrders Order[]        @relation("WarehouseOrders")
+  handoversMade  DriverHandover[] @relation("HandoversMade")
+  handoversTaken DriverHandover[] @relation("HandoversTaken")
   driverProfile  DriverProfile?
   permissions    UserPermission[]
   financeEntries FinanceEntry[]  @relation("FinanceEntries")
@@ -207,6 +211,32 @@ model OrderReturnItem {
   return      OrderReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
   orderItemId String
   qty         Int
+}
+
+/// Жолоочид бараа хүлээлгэн өгсөн хуудас (V5).
+/// Нярав захиалгуудыг нэг хуудсанд багцалж, хоёр тал ДЭЛГЭЦЭН ДЭЭР
+/// гарын үсэг зурснаар баталгаажна. Хэвлэж болно.
+model DriverHandover {
+  id     String @id @default(uuid())
+  number String @unique // ХҮЛ-YYYYMMDD-NNN
+
+  driverId String
+  driver   User   @relation("HandoversTaken", fields: [driverId], references: [id])
+
+  keeperId String
+  keeper   User   @relation("HandoversMade", fields: [keeperId], references: [id])
+
+  note String?
+  /// Гарын үсэг — дэлгэц дээр зурсан зураг (data URL)
+  keeperSignature String?
+  driverSignature String?
+
+  handedAt  DateTime?
+  createdAt DateTime  @default(now())
+
+  orders Order[]
+
+  @@index([driverId, createdAt])
 }
 
 /// Захиалгын төлбөрийн бүртгэл (бэлэн/шилжүүлэг/карт)
@@ -385,6 +415,11 @@ model Order {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
+  /// Аль нярав бэлтгэх вэ (V5) — менежер жолооч хуваарилсны дараа онооно
+  warehouseId String?
+  /// Аль хүлээлгэн өгөх хуудсанд орсон бэ (V5)
+  handoverId  String?
+
   // Хүргэлт (v2)
   assignedDriverId String?
   assignedAt       DateTime?
@@ -408,6 +443,8 @@ model Order {
 
   createdBy      User          @relation("CreatedOrders", fields: [createdById], references: [id])
   assignedDriver User?         @relation("AssignedOrders", fields: [assignedDriverId], references: [id])
+  warehouse      User?         @relation("WarehouseOrders", fields: [warehouseId], references: [id])
+  handover       DriverHandover? @relation(fields: [handoverId], references: [id])
   payout         DriverPayout? @relation("PayoutOrders", fields: [payoutId], references: [id])
   items          OrderItem[]
   payments       Payment[]
