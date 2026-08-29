@@ -7,6 +7,7 @@ import Button from '../components/ui/Button'
 import EmptyState from '../components/ui/EmptyState'
 import Spinner from '../components/ui/Spinner'
 import { useToast } from '../components/ui/Toast'
+import { useAuth } from '../context/AuthContext'
 import { useLang } from '../context/LanguageContext'
 import { api } from '../lib/api'
 import { formatMoney } from '../lib/format'
@@ -48,8 +49,13 @@ function OrderCard({ o, t, onOpen }) {
 
 export default function DeliveryOps() {
   const { t } = useLang()
+  const { hasPerm } = useAuth()
   const toast = useToast()
   const navigate = useNavigate()
+
+  // Хуудсанд drivers.view-ээр ордог ч ХАДГАЛАХ нь drivers.assign
+  // шаарддаг — эрхгүй хүн эрэмбэлээд хадгалахад 403 иддэг байсан
+  const canAssign = hasPerm('drivers.assign')
 
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
@@ -229,7 +235,7 @@ export default function DeliveryOps() {
                         <button
                           type="button"
                           aria-label={`${o.orderNo} дээш`}
-                          disabled={i === 0}
+                          disabled={i === 0 || !canAssign}
                           onClick={() => move(i, -1)}
                           className="text-ink-muted hover:text-ink disabled:opacity-30"
                         >
@@ -238,7 +244,7 @@ export default function DeliveryOps() {
                         <button
                           type="button"
                           aria-label={`${o.orderNo} доош`}
-                          disabled={i === routeList.length - 1}
+                          disabled={i === routeList.length - 1 || !canAssign}
                           onClick={() => move(i, 1)}
                           className="text-ink-muted hover:text-ink disabled:opacity-30"
                         >
@@ -249,16 +255,21 @@ export default function DeliveryOps() {
                   ))}
                 </ol>
               )}
-              {routeList.length > 0 && (
-                <Button
-                  onClick={saveRoute}
-                  loading={saving}
-                  disabled={!dirty}
-                  className="w-full mt-4"
-                >
-                  {t('Дараалал хадгалах')}
-                </Button>
-              )}
+              {routeList.length > 0 &&
+                (canAssign ? (
+                  <Button
+                    onClick={saveRoute}
+                    loading={saving}
+                    disabled={!dirty}
+                    className="w-full mt-4"
+                  >
+                    {t('Дараалал хадгалах')}
+                  </Button>
+                ) : (
+                  <p className="mt-4 text-xs text-ink-muted text-center">
+                    {t('Дараалал хадгалах эрх байхгүй')}
+                  </p>
+                ))}
             </div>
           )}
         </aside>

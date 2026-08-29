@@ -20,7 +20,10 @@ import type { AuthUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../generated/prisma/client';
 import { PERM } from '../permissions/permission-keys';
-import { RequirePermission } from '../permissions/require-permission.decorator';
+import {
+  RequireAnyPermission,
+  RequirePermission,
+} from '../permissions/require-permission.decorator';
 import { UPLOADS_DIR } from '../uploads.config';
 import { DeliveryService } from './delivery.service';
 import { AssignDriverDto } from './dto/assign-driver.dto';
@@ -56,9 +59,15 @@ export class DeliveryController {
     return this.deliveryService.assignDriver(id, dto.driverId);
   }
 
-  /** Жолооч нарын жагсаалт — MANAGER гүйцэтгэл/ачааллыг харна */
+  /**
+   * Жолооч нарын жагсаалт — MANAGER гүйцэтгэл/ачааллыг харна.
+   * Жолооч хуваарилах модал ч мөн ЭНЭ жагсаалтыг уншина, тиймээс
+   * orders.assign_driver эрхтэй хүнд ч нээлттэй (өмнө нь модал нь
+   * @Roles(MANAGER, ADMIN)-тай /dashboard/manager-ээс уншдаг байсан
+   * тул override-оор эрх авсан OPERATOR 403 иддэг байв).
+   */
   @Get('drivers')
-  @RequirePermission(PERM.DRIVERS_VIEW)
+  @RequireAnyPermission(PERM.DRIVERS_VIEW, PERM.ORDERS_ASSIGN_DRIVER)
   driversList() {
     return this.deliveryService.driversList();
   }

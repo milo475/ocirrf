@@ -575,6 +575,8 @@ const DICT = {
     'Өөрчлөлт': 'Change',
     'Холбоос': 'Reference',
     'Захиалга харах': 'View order',
+    'Захиалгын төлбөр': 'Order payment',
+    'Дараалал хадгалах эрх байхгүй': 'No permission to save the order',
     'reason.order': 'Order',
     'Цуцлалт': 'Cancellation',
     'Эхний орлого': 'Initial stock',

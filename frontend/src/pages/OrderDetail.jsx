@@ -53,6 +53,37 @@ export default function OrderDetail() {
     load()
   }, [load])
 
+  /**
+   * Бэлтгэх хуудас хэвлэх. Orders.jsx-тэй ижил: SKU-г бараануудаас
+   * best-effort татаж дамжуулна (өмнө нь 3 дахь аргумент дамждаггүй
+   * тул SKU багана үргэлж хоосон гардаг байсан), popup хаагдсан бол
+   * чимээгүй өнгөрөхгүй.
+   */
+  const [printing, setPrinting] = useState(false)
+  async function printPickingSheet() {
+    setPrinting(true)
+    try {
+      const skuById = {}
+      if (hasPerm('inventory.view')) {
+        const pids = [...new Set(order.items.map((i) => i.productId))]
+        await Promise.all(
+          pids.slice(0, 30).map((pid) =>
+            api(`/products/${pid}`)
+              .then((p) => {
+                skuById[pid] = p.sku
+              })
+              .catch(() => {}),
+          ),
+        )
+      }
+      if (!openPickingSheet([order], t, skuById)) {
+        toast.show(t('Popup хориглогдсон — зөвшөөрнө үү'), { type: 'error' })
+      }
+    } finally {
+      setPrinting(false)
+    }
+  }
+
   async function transition(status) {
     setBusy(true)
     try {
@@ -118,7 +149,8 @@ export default function OrderDetail() {
           {['CONFIRMED', 'PREPARING'].includes(order.orderStatus) && (
             <Button
               variant="ghost"
-              onClick={() => openPickingSheet([order], t)}
+              loading={printing}
+              onClick={printPickingSheet}
             >
               🖨 {t('Бэлтгэх хуудас')}
             </Button>

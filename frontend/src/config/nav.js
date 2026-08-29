@@ -116,7 +116,9 @@ export const NAV_ITEMS = [
     label: 'Агуулах',
     icon: Boxes,
     path: '/stock',
-    perm: 'inventory.adjustment',
+    // Route нь inventory.view — цэс нь adjustment шаардаж байсан тул
+    // зөвхөн харах эрхтэй хүнд цэс нуугдаад URL-ээр л ордог байв
+    perm: 'inventory.view',
   },
   {
     key: 'delivery-ops',
@@ -131,7 +133,13 @@ export const NAV_ITEMS = [
     icon: Wallet,
     path: '/finance',
     end: true,
-    anyPerm: ['finance.view_income', 'finance.view_expense'],
+    // Авлагын таб нь view_receivables-тэй тул түүнийг ганцаараа
+    // эзэмшсэн хүн ч хуудсанд орох ёстой (route-той ижил жагсаалт)
+    anyPerm: [
+      'finance.view_income',
+      'finance.view_expense',
+      'finance.view_receivables',
+    ],
   },
   {
     key: 'analytics',

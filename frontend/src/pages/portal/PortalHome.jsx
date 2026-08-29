@@ -124,7 +124,7 @@ export default function PortalHome() {
           {active.map((o) => (
             <Link
               key={o.id}
-              to="/portal/orders"
+              to={`/portal/orders/${o.id}`}
               className="block bg-surface border border-accent/40 rounded-lg p-5 hover:border-accent transition-colors"
             >
               <div className="flex items-baseline justify-between gap-3">

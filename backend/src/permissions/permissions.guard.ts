@@ -3,7 +3,10 @@ import { Reflector } from '@nestjs/core';
 import type { AuthUser } from '../auth/decorators/current-user.decorator';
 import type { PermKey } from './permission-keys';
 import { PermissionsService } from './permissions.service';
-import { PERMISSIONS_KEY } from './require-permission.decorator';
+import {
+  ANY_PERMISSION_KEY,
+  PERMISSIONS_KEY,
+} from './require-permission.decorator';
 
 /**
  * Global guard — JwtAuthGuard, RolesGuard-ын ДАРАА ажиллана.
@@ -18,11 +21,18 @@ export class PermissionsGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    const targets = [context.getHandler(), context.getClass()];
     const required = this.reflector.getAllAndOverride<PermKey[]>(
       PERMISSIONS_KEY,
-      [context.getHandler(), context.getClass()],
+      targets,
     );
-    if (!required || required.length === 0) {
+    const anyOf = this.reflector.getAllAndOverride<PermKey[]>(
+      ANY_PERMISSION_KEY,
+      targets,
+    );
+    const needsAll = required && required.length > 0;
+    const needsAny = anyOf && anyOf.length > 0;
+    if (!needsAll && !needsAny) {
       return true;
     }
 
@@ -37,6 +47,12 @@ export class PermissionsGuard implements CanActivate {
       user.id,
       user.role,
     );
-    return required.every((key) => effective.has(key));
+    if (needsAll && !required.every((key) => effective.has(key))) {
+      return false;
+    }
+    if (needsAny && !anyOf.some((key) => effective.has(key))) {
+      return false;
+    }
+    return true;
   }
 }

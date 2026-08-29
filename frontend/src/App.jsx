@@ -78,6 +78,7 @@ function App() {
                           anyOf={[
                             'finance.view_income',
                             'finance.view_expense',
+                            'finance.view_receivables',
                           ]}
                         />
                       }

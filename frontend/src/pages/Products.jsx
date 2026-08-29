@@ -44,6 +44,10 @@ export default function Products() {
   const [search, setSearch] = useState('')
   const [categoryId, setCategoryId] = useState('')
   const [lowStockOnly, setLowStockOnly] = useState(false)
+  // Backend-ийн default нь isActive=true тул шүүлт илгээхгүй бол
+  // идэвхгүй бараа ХЭЗЭЭ Ч харагдахгүй — "Идэвхгүй" badge-ийн салаа код
+  // үхмэл байсан бөгөөд soft-delete хийсэн барааг эргүүлэх арга ч байгаагүй
+  const [showInactive, setShowInactive] = useState(false)
   const [page, setPage] = useState(1)
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
@@ -71,10 +75,11 @@ export default function Products() {
     if (search) q.set('search', search)
     if (categoryId) q.set('categoryId', categoryId)
     if (lowStockOnly) q.set('lowStock', 'true')
+    if (showInactive) q.set('isActive', 'false')
     api(`/products?${q}`)
       .then(setData)
       .catch((e) => setError(e))
-  }, [search, categoryId, lowStockOnly, page])
+  }, [search, categoryId, lowStockOnly, showInactive, page])
 
   useEffect(() => {
     load()
@@ -304,6 +309,20 @@ export default function Products() {
           }`}
         >
           {t('Бага үлдэгдэлтэй')}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setShowInactive((v) => !v)
+            setPage(1)
+          }}
+          className={`px-3 py-2 rounded border text-sm transition-colors ${
+            showInactive
+              ? 'border-ink-muted text-ink bg-surface'
+              : 'border-rule text-ink-muted hover:text-ink'
+          }`}
+        >
+          {t('Идэвхгүй')}
         </button>
       </div>
 

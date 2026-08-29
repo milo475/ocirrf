@@ -20,8 +20,15 @@ const CATEGORIES = {
   EXPENSE: ['Түрээс', 'Тээвэр', 'Хангамж', 'Цалин', 'Бусад зарлага'],
 }
 /** Системийн авто ангиллуудын харагдах нэр */
+/**
+ * Backend-ийн автомат ангилалууд. Эдгээр нь FinanceService/PaymentsService/
+ * ReturnsService-ийн бичдэг ЯГ утгууд — 'ORDER' гэсэн утгыг backend хэзээ ч
+ * бичдэггүй байсан тул PAYMENT/REFUND бичилтүүд "авто" гэж танигдахгүй,
+ * захиалга руу линкгүй харагддаг байв.
+ */
 const AUTO_CATEGORY = {
-  ORDER: 'Захиалга (авто)',
+  PAYMENT: 'Захиалгын төлбөр',
+  REFUND: 'Буцаалт',
   DRIVER_PAYROLL: 'Жолоочийн цалин',
 }
 
@@ -184,7 +191,7 @@ export default function Finance() {
       key: 'ref',
       header: '',
       render: (e) =>
-        e.category === 'ORDER' && e.refOrderId ? (
+        e.refOrderId && e.category !== 'DRIVER_PAYROLL' ? (
           <Link
             to={`/orders/${e.refOrderId}`}
             className="text-xs text-accent hover:underline underline-offset-2"

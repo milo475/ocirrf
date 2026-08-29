@@ -1281,6 +1281,42 @@ describe('ursGAL v2 API (e2e)', () => {
         .expect(200);
     });
 
+    /**
+     * AssignDriverModal нь жолоочийн жагсаалтыг @Roles(MANAGER, ADMIN)-тай
+     * /dashboard/manager-ээс уншдаг байсан тул orders.assign_driver
+     * override авсан OPERATOR-т товч гарч ирээд dropdown хоосон, 403
+     * алдаа өгдөг байв. Одоо GET /drivers нь drivers.view ЭСВЭЛ
+     * orders.assign_driver-ийн аль нэгийг хүлээж авна.
+     */
+    it('GET /drivers: assign_driver override-той OPERATOR-т нээгдэнэ', async () => {
+      // Анхны байдал: OPERATOR-т аль нь ч байхгүй → 403
+      await api().get('/api/drivers').set(auth(permUserToken)).expect(403);
+
+      await api()
+        .put(`/api/users/${permUserId}/permissions`)
+        .set(auth(tok.admin))
+        .send({ changes: [{ key: 'orders.assign_driver', allowed: true }] })
+        .expect(200);
+      const res = await api()
+        .get('/api/drivers')
+        .set(auth(permUserToken))
+        .expect(200);
+      expect(Array.isArray(res.body)).toBe(true);
+
+      // drivers.view-тэй хүн ч мөн адил (manager)
+      await api().get('/api/drivers').set(auth(tok.manager)).expect(200);
+      // Аль нь ч байхгүй DRIVER → 403 хэвээр
+      await api().get('/api/drivers').set(auth(tok.driver)).expect(403);
+
+      // цэвэрлэгээ
+      await api()
+        .put(`/api/users/${permUserId}/permissions`)
+        .set(auth(tok.admin))
+        .send({ changes: [{ key: 'orders.assign_driver', allowed: null }] })
+        .expect(200);
+      await api().get('/api/drivers').set(auth(permUserToken)).expect(403);
+    });
+
     it('нэвтрэлтгүйгээр хоёулаа 401', async () => {
       await api().get('/api/dashboard/stock-health').expect(401);
       await api().get('/api/categories').expect(401);
