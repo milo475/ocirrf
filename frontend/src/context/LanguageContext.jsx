@@ -405,6 +405,19 @@ const DICT = {
     'Хэрэглэгчтэй ярилцаад дахин жолооч хуваарилна':
       'Call the customer, then assign a driver again',
 
+    // — Жолоочийн бүс (V5) —
+    'Жолоочийн бүс': 'Driver zones',
+    'Дүүрэг бүрт хэн явахыг эндээс тохируулна. «Дүүргээр автоматаар хуваарилах» энэ жагсаалтаар ажиллана.':
+      'Set who covers each district here. "Auto by district" runs off this list.',
+    'жолоочгүй': 'no driver',
+    'жолооч': 'drivers',
+    'Жолооч нэмэх': 'Add driver',
+    'хасах': 'remove',
+    'жолооч нэмэх': 'add driver',
+    'Бүсгүй жолооч': 'Drivers with no zone',
+    'Бүсгүй жолооч автомат хуваарилалтад орохгүй — гараар л өгнө':
+      'Drivers with no zone are skipped by auto-assign — assign them by hand',
+
     // — Нийлүүлэлт (V5) —
     'Нийлүүлэлт': 'Supplies',
     'Харилцагчаас хүлээж авсан бараа ба тооцоо':

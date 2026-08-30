@@ -1179,7 +1179,8 @@ describe('ursGAL v2 API (e2e)', () => {
       }
       // Панелын түлхүүр бүр backend-ийн ямар нэг route-д хэрэглэгддэг
       // (V5-д нярав нэмэгдэхэд +2: orders.assign_warehouse, warehouse.handover)
-      expect(allKeys).toHaveLength(31);
+      expect(allKeys).toHaveLength(32);
+      expect(allKeys).toContain('drivers.zones');
       expect(allKeys).toContain('supplies.create');
       expect(allKeys).toContain('orders.assign_warehouse');
       expect(allKeys).toContain('warehouse.handover');
@@ -4545,6 +4546,79 @@ describe('ursGAL v2 API (e2e)', () => {
         .expect(400);
 
       await api().get('/api/supplies').set(auth(tok.driver)).expect(403);
+    });
+  });
+
+  // ──────────────────────────────────── V5: ЖОЛООЧИЙН БҮС
+  describe('V5: Жолоочийн бүс — дүүргээр хуваарилалт ⭐', () => {
+    it('нярав бүс нэмж, хасаж чадна ⭐', async () => {
+      // Нэмэх
+      const set = await api()
+        .patch(`/api/drivers/${e2eDriverId}/zones`)
+        .set(auth(keeperToken))
+        .send({ zones: ['ХУД', 'БЗД'] })
+        .expect(200);
+      expect(set.body.zones.sort()).toEqual(['БЗД', 'ХУД']);
+
+      // Жагсаалтад тусгагдсан
+      const list = await api()
+        .get('/api/drivers')
+        .set(auth(keeperToken))
+        .expect(200);
+      const row = list.body.find((d: { id: string }) => d.id === e2eDriverId);
+      expect(row.zones.sort()).toEqual(['БЗД', 'ХУД']);
+
+      // Хасах — бүтэн жагсаалтыг дахин илгээнэ
+      const less = await api()
+        .patch(`/api/drivers/${e2eDriverId}/zones`)
+        .set(auth(keeperToken))
+        .send({ zones: ['ХУД'] })
+        .expect(200);
+      expect(less.body.zones).toEqual(['ХУД']);
+
+      // Бүгдийг цэвэрлэх нь хүчинтэй төлөв
+      const none = await api()
+        .patch(`/api/drivers/${e2eDriverId}/zones`)
+        .set(auth(keeperToken))
+        .send({ zones: [] })
+        .expect(200);
+      expect(none.body.zones).toEqual([]);
+    });
+
+    it('давхардал цэвэрлэгдэж, буруу дүүрэг → 400', async () => {
+      const dup = await api()
+        .patch(`/api/drivers/${e2eDriverId}/zones`)
+        .set(auth(keeperToken))
+        .send({ zones: ['ХУД', 'ХУД', 'БЗД'] })
+        .expect(200);
+      expect(dup.body.zones).toHaveLength(2);
+
+      await api()
+        .patch(`/api/drivers/${e2eDriverId}/zones`)
+        .set(auth(keeperToken))
+        .send({ zones: ['БАЙХГҮЙ'] })
+        .expect(400);
+    });
+
+    it('жолооч биш хүнд бүс тохируулах → 404', async () => {
+      await api()
+        .patch(`/api/drivers/${keeperId}/zones`)
+        .set(auth(tok.manager))
+        .send({ zones: ['ХУД'] })
+        .expect(404);
+    });
+
+    it('эрхгүй хүн бүс өөрчлөхгүй → 403', async () => {
+      await api()
+        .patch(`/api/drivers/${e2eDriverId}/zones`)
+        .set(auth(tok.driver))
+        .send({ zones: ['ХУД'] })
+        .expect(403);
+      await api()
+        .patch(`/api/drivers/${e2eDriverId}/zones`)
+        .set(auth(tok.operator))
+        .send({ zones: ['ХУД'] })
+        .expect(403);
     });
   });
 

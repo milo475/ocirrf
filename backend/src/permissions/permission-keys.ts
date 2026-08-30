@@ -24,6 +24,7 @@ export const PERM = {
   // Жолооч
   DRIVERS_VIEW: 'drivers.view',
   DRIVERS_ASSIGN: 'drivers.assign',
+  DRIVERS_ZONES: 'drivers.zones',
   // Агуулах
   INVENTORY_VIEW: 'inventory.view',
   INVENTORY_ADJUSTMENT: 'inventory.adjustment',
@@ -68,6 +69,7 @@ export const PERM_LABELS: Record<PermKey, string> = {
   [PERM.CUSTOMERS_EDIT]: 'Харилцагч засах',
   [PERM.DRIVERS_VIEW]: 'Жолооч харах',
   [PERM.DRIVERS_ASSIGN]: 'Жолооч томилох',
+  [PERM.DRIVERS_ZONES]: 'Жолоочийн бүс тохируулах',
   [PERM.INVENTORY_VIEW]: 'Агуулах харах',
   [PERM.INVENTORY_ADJUSTMENT]: 'Тохируулга хийх',
   [PERM.FINANCE_VIEW_INCOME]: 'Орлогын гүйлгээ харах',
@@ -105,7 +107,10 @@ export const PERM_GROUPS: { group: string; keys: PermKey[] }[] = [
     group: 'CUSTOMERS',
     keys: [PERM.CUSTOMERS_VIEW, PERM.CUSTOMERS_EDIT],
   },
-  { group: 'DRIVERS', keys: [PERM.DRIVERS_VIEW, PERM.DRIVERS_ASSIGN] },
+  {
+    group: 'DRIVERS',
+    keys: [PERM.DRIVERS_VIEW, PERM.DRIVERS_ASSIGN, PERM.DRIVERS_ZONES],
+  },
   {
     group: 'SUPPLIES',
     keys: [PERM.SUPPLIES_VIEW, PERM.SUPPLIES_CREATE, PERM.SUPPLIES_PAY],
@@ -168,6 +173,7 @@ export const ROLE_DEFAULTS: Record<Role, PermKey[]> = {
     PERM.SUPPLIES_PAY,
     PERM.DRIVERS_VIEW,
     PERM.DRIVERS_ASSIGN,
+    PERM.DRIVERS_ZONES,
     PERM.FINANCE_VIEW_INCOME,
     PERM.FINANCE_CREATE_INCOME,
     PERM.FINANCE_VIEW_EXPENSE,
@@ -206,6 +212,8 @@ export const ROLE_DEFAULTS: Record<Role, PermKey[]> = {
     PERM.SUPPLIES_CREATE,
     PERM.WAREHOUSE_HANDOVER,
     PERM.DRIVERS_VIEW,
+    // Аль жолооч аль дүүрэгт явахыг өдөр бүр мэддэг нь нярав
+    PERM.DRIVERS_ZONES,
     // Хэрэглэгчийн худалдан авалтын түүх — нярав тооцоо/төлөвлөлт хийхэд
     PERM.CUSTOMERS_VIEW,
   ],

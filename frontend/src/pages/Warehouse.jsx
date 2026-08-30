@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import DriverOptions from '../components/orders/DriverOptions'
+import DriverZones from '../components/warehouse/DriverZones'
 import SignaturePad from '../components/warehouse/SignaturePad'
 import Button from '../components/ui/Button'
 import EmptyState from '../components/ui/EmptyState'
@@ -39,6 +40,7 @@ export default function Warehouse() {
       <div className="mt-8 flex gap-1 border-b border-rule pb-3">
         {[
           ['board', 'Бэлтгэл'],
+          ['zones', 'Жолоочийн бүс'],
           ['history', 'Хүлээлгэсэн хуудсууд'],
         ].map(([key, label]) => (
           <button
@@ -56,7 +58,13 @@ export default function Warehouse() {
         ))}
       </div>
 
-      {tab === 'board' ? <Board t={t} toast={toast} /> : <History t={t} toast={toast} />}
+      {tab === 'board' ? (
+        <Board t={t} toast={toast} />
+      ) : tab === 'zones' ? (
+        <DriverZones />
+      ) : (
+        <History t={t} toast={toast} />
+      )}
     </div>
   )
 }

@@ -30,6 +30,7 @@ import {
   AssignDriverDto,
   AutoAssignDriverDto,
   BulkAssignDriverDto,
+  SetZonesDto,
 } from './dto/assign-driver.dto';
 import { CompleteDeliveryDto } from './dto/complete-delivery.dto';
 import { RouteOrderDto } from './dto/route-order.dto';
@@ -88,6 +89,19 @@ export class DeliveryController {
   @RequireAnyPermission(PERM.DRIVERS_VIEW, PERM.ORDERS_ASSIGN_DRIVER)
   driversList() {
     return this.deliveryService.driversList();
+  }
+
+  /**
+   * Жолоочийн харьяалах бүс — нярав/менежер өдөр тутам өөрчилнө.
+   * Бүтэн жагсаалт ирнэ: нэмэх ч, хасах ч энэ нэг замаар.
+   */
+  @Patch('drivers/:id/zones')
+  @RequirePermission(PERM.DRIVERS_ZONES)
+  setZones(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SetZonesDto,
+  ) {
+    return this.deliveryService.setZones(id, dto.zones);
   }
 
   /** Хүргэлтийн ops самбар — статус бүрээр бүлэглэсэн + жолоочдын ачаалал */

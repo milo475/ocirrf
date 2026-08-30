@@ -548,6 +548,36 @@ export class DeliveryService {
     return { assigned, skipped };
   }
 
+  /**
+   * Жолоочийн харьяалах бүсийг тохируулах (V5).
+   *
+   * Өмнө нь зөвхөн Хэрэглэгч хуудсаар (users.manage — админ) засагддаг
+   * тул аль жолооч аль дүүрэгт явахыг ӨДӨР БҮР мэддэг НЯРАВ өөрөө
+   * өөрчилж чаддаггүй байв. Бүтэн жагсаалтыг солино (нэмэх/хасах хоёул).
+   */
+  async setZones(driverId: string, zones: string[]) {
+    const driver = await this.prisma.user.findUnique({
+      where: { id: driverId },
+      include: { driverProfile: true },
+    });
+    if (!driver || driver.role !== Role.DRIVER) {
+      throw new NotFoundException('Жолооч олдсонгүй');
+    }
+    if (!driver.driverProfile) {
+      throw new BadRequestException('Жолоочийн профайл бүрдээгүй байна');
+    }
+    const unique = [...new Set(zones)];
+    const profile = await this.prisma.driverProfile.update({
+      where: { userId: driverId },
+      data: { zones: unique },
+    });
+    return {
+      id: driver.id,
+      name: driver.fullName,
+      zones: profile.zones,
+    };
+  }
+
   /** Жолоочийн маршрутын дараалал тавих: orderIds[i] → routeOrder i+1 */
   async setRouteOrder(driverId: string, orderIds: string[]) {
     if (new Set(orderIds).size !== orderIds.length) {
