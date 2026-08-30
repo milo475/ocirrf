@@ -66,6 +66,17 @@ export type SellerDashboard = {
     totalAmount: unknown;
     createdAt: Date;
   }[];
+  /** Амжилтгүй болсон хүргэлтүүд — хэрэглэгчтэй эргэж холбогдоно */
+  failedDeliveries: {
+    id: string;
+    orderNo: string;
+    customerName: string | null;
+    phone: string;
+    shortAddress: string;
+    driverName: string | null;
+    deliveryNote: string | null;
+    totalAmount: unknown;
+  }[];
 };
 
 /** GET /api/dashboard/manager */

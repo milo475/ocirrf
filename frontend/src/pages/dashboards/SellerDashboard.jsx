@@ -58,6 +58,59 @@ export default function SellerDashboard() {
         </section>
       </Rise>
 
+      {/* Яаралтай: амжилтгүй хүргэлт — хэрэглэгчтэй эргэж ярина */}
+      {data.failedDeliveries.length > 0 && (
+        <Rise delay={90}>
+          <section className="mt-16 border-t border-alarm/40 pt-8">
+            <p className="text-xs uppercase tracking-wide text-alarm mb-4">
+              ⚠ {t('Амжилтгүй хүргэлт')} ({data.failedDeliveries.length})
+            </p>
+            <ul className="border border-alarm/40 rounded-lg divide-y divide-rule">
+              {data.failedDeliveries.map((o) => (
+                <li key={o.id}>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/orders/${o.id}`)}
+                    className="w-full text-left px-4 py-3 flex items-start justify-between gap-4 hover:bg-bg transition-colors"
+                  >
+                    <span className="min-w-0">
+                      <span className="block font-mono text-sm">
+                        {o.orderNo}
+                        {o.driverName && (
+                          <span className="ml-2 text-ink-muted">
+                            🚚 {o.driverName}
+                          </span>
+                        )}
+                      </span>
+                      <span className="block text-sm">
+                        {o.customerName}
+                        <span className="ml-2 font-mono text-xs text-ink-muted">
+                          {o.phone}
+                        </span>
+                      </span>
+                      <span className="block text-xs text-ink-muted truncate">
+                        {o.shortAddress}
+                      </span>
+                      {o.deliveryNote && (
+                        <span className="block mt-1 text-sm text-alarm">
+                          ✕ {o.deliveryNote}
+                        </span>
+                      )}
+                    </span>
+                    <span className="font-mono text-sm tabular-nums shrink-0">
+                      {formatMoney(o.totalAmount)}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-xs text-ink-muted">
+              {t('Хэрэглэгчтэй ярилцаад дахин жолооч хуваарилна')}
+            </p>
+          </section>
+        </Rise>
+      )}
+
       {/* 1. Шалгах ээлж — линкээр ирсэн хүсэлтүүд */}
       <Rise delay={120}>
         <section className="mt-16 border-t border-rule pt-8">

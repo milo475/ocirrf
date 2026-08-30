@@ -65,9 +65,13 @@ export class NotificationsService {
 
   /** Олон хэрэглэгчид нэг мэдэгдэл */
   async notify(userIds: string[], data: NotifyData) {
-    if (userIds.length === 0) return;
+    // Хүлээн авагчид олон эх сурвалжаас нийлдэг (ж: ADMIN бөгөөд
+    // борлуулагч) — давхардвал нэг хүнд хоёр мөр үүсч хонх худал
+    // тоолно
+    const targets = [...new Set(userIds)];
+    if (targets.length === 0) return;
     await this.prisma.notification.createMany({
-      data: userIds.map((userId) => ({
+      data: targets.map((userId) => ({
         userId,
         type: data.type,
         title: data.title,
@@ -78,9 +82,7 @@ export class NotificationsService {
     });
     // Real-time push (V4-09) — push бүтэхгүй байсан ч мэдэгдэл үүссэн байна
     await Promise.all(
-      [...new Set(userIds)].map((id) =>
-        this.pushUnread(id).catch(() => undefined),
-      ),
+      targets.map((id) => this.pushUnread(id).catch(() => undefined)),
     );
   }
 
@@ -192,16 +194,32 @@ export class NotificationsService {
     });
   }
 
-  /** Хүргэлт амжилтгүй болоход — ADMIN/MANAGER-үүдэд */
+  /**
+   * Хүргэлт амжилтгүй болоход — ADMIN/MANAGER-ээс ГАДНА БОРЛУУЛАГЧид (V5).
+   *
+   * Хэрэглэгчтэй IG/FB дээр ЯРЬДАГ нь борлуулагч. Өмнө нь мэдэгдэл
+   * зөвхөн удирдлагад очдог тул «яагаад ирээгүй юм бэ?» гэсэн асуултад
+   * борлуулагч хариулж чадахгүй, менежерээс асуух хэрэгтэй болдог байв.
+   * Дахин жолооч хуваарилах эрх нь мөн борлуулагчид байдаг.
+   */
   async notifyDeliveryFailed(
-    order: { id: string; orderNo: string },
+    order: {
+      id: string;
+      orderNo: string;
+      customerName?: string | null;
+      phone?: string;
+    },
     reason: string,
   ) {
-    const staff = await this.staffWithPermission();
-    await this.notify(staff, {
+    const [staff, sellers] = await Promise.all([
+      this.staffWithPermission(),
+      this.activeByRole([Role.SELLER]),
+    ]);
+    const who = [order.customerName, order.phone].filter(Boolean).join(' · ');
+    await this.notify([...staff, ...sellers], {
       type: 'DELIVERY_FAILED',
       title: `Хүргэлт амжилтгүй: ${order.orderNo}`,
-      body: reason,
+      body: who ? `${who}\n${reason}` : reason,
       refType: 'order',
       refId: order.id,
     });

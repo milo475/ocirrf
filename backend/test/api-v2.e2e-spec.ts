@@ -2127,7 +2127,10 @@ describe('ursGAL v2 API (e2e)', () => {
           n.type === 'DELIVERY_FAILED' && n.refId === order2Id,
       );
       expect(failed).toBeDefined();
-      expect(failed.body).toBe('Хаалгаа нээсэнгүй');
+      // V5: биед нь хэн болох + шалтгаан хамт (борлуулагч руу ч очдог тул
+      // хэрэглэгчийг таних мэдээлэл хэрэгтэй)
+      expect(failed.body).toContain('Хаалгаа нээсэнгүй');
+      expect(failed.body).toContain(`7${T}`);
     });
 
     it('activity-log: бичилтүүд + permission_change + эрхийн шалгалт', async () => {
@@ -3993,6 +3996,83 @@ describe('ursGAL v2 API (e2e)', () => {
       expect(count(after.body.items)).toBe(count(before.body.items));
     });
 
+    it('хүргэлт амжилтгүй болоход БОРЛУУЛАГЧ мэдэгдэл авна ⭐', async () => {
+      // Захиалга үүсгээд жолоочид өгч, жолооч нь амжилтгүй гэж бүртгэнэ
+      const res = await api()
+        .post('/api/orders')
+        .set(auth(sellerToken))
+        .send({
+          customerName: `Э2Э-Амжилтгүй-${T}`,
+          customerPhone: SELLER_PHONE,
+          ...UB_ADDR,
+          items: [{ productId, qty: 1 }],
+        })
+        .expect(201);
+      const failId = res.body.id;
+      feeOrderIds.push(failId);
+      await api()
+        .patch(`/api/orders/${failId}/status`)
+        .set(auth(sellerToken))
+        .send({ status: 'CONFIRMED' })
+        .expect(200);
+      await api()
+        .patch(`/api/orders/${failId}/assign-driver`)
+        .set(auth(sellerToken))
+        .send({ driverId: e2eDriverId })
+        .expect(200);
+
+      await api()
+        .post(`/api/deliveries/${failId}/complete`)
+        .set(auth(e2eDriverToken))
+        .field('success', 'false')
+        .field('note', 'Хаяг олдсонгүй, утас авахгүй')
+        .expect(201);
+
+      // ⭐ Борлуулагч мэдэгдэл авсан — хэрэглэгчтэй ярьдаг нь тэр
+      const mine = await api()
+        .get('/api/notifications?limit=20')
+        .set(auth(sellerToken))
+        .expect(200);
+      const note = mine.body.items.find(
+        (n: { type: string; refId: string }) =>
+          n.type === 'DELIVERY_FAILED' && n.refId === failId,
+      );
+      expect(note).toBeTruthy();
+      expect(note.body).toContain('Хаяг олдсонгүй');
+      expect(note.body).toContain(SELLER_PHONE);
+
+      // Менежер ч хэвээр авна
+      const mgr = await api()
+        .get('/api/notifications?limit=20')
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(
+        mgr.body.items.filter(
+          (n: { type: string; refId: string }) =>
+            n.type === 'DELIVERY_FAILED' && n.refId === failId,
+        ),
+      ).toHaveLength(1); // давхардахгүй
+
+      // Самбарын «дахин хуваарилах» ээлжид гарсан
+      const board = await api()
+        .get('/api/dashboard/seller')
+        .set(auth(sellerToken))
+        .expect(200);
+      const row = board.body.failedDeliveries.find(
+        (o: { id: string }) => o.id === failId,
+      );
+      expect(row).toBeTruthy();
+      expect(row.deliveryNote).toBe('Хаяг олдсонгүй, утас авахгүй');
+      expect(row.driverName).toBeTruthy();
+
+      // Борлуулагч дахин жолооч хуваарилж чадна
+      await api()
+        .patch(`/api/orders/${failId}/assign-driver`)
+        .set(auth(sellerToken))
+        .send({ driverId: e2eDriverId })
+        .expect(200);
+    });
+
     it('борлуулагчийн самбар — гурван алхмын дараалал', async () => {
       const res = await api()
         .get('/api/dashboard/seller')
@@ -4003,6 +4083,7 @@ describe('ursGAL v2 API (e2e)', () => {
       expect(res.body.releasedToday).toBeGreaterThanOrEqual(1);
       expect(Array.isArray(res.body.pendingRequests)).toBe(true);
       expect(Array.isArray(res.body.awaitingDriver)).toBe(true);
+      expect(Array.isArray(res.body.failedDeliveries)).toBe(true);
 
       // Бусад эрх энэ самбарт хүрэхгүй
       await api()

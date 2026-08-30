@@ -401,6 +401,10 @@ const DICT = {
     'Хуваарилж чадсангүй: {list}': 'Could not assign: {list}',
     'DR%': 'DR%',
 
+    'Амжилтгүй хүргэлт': 'Failed deliveries',
+    'Хэрэглэгчтэй ярилцаад дахин жолооч хуваарилна':
+      'Call the customer, then assign a driver again',
+
     // — Захиалга засах (V5) —
     'Захиалга зассан': 'Order updated',
     'Бараа нэмэх': 'Add product',

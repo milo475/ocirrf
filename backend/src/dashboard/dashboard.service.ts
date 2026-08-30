@@ -257,6 +257,7 @@ export class DashboardService {
       releasedToday,
       pending,
       awaiting,
+      failed,
     ] = await Promise.all([
       this.prisma.orderRequest.count({ where: { status: 'NEW' } }),
       this.prisma.orderRequest.count({
@@ -285,6 +286,17 @@ export class DashboardService {
         orderBy: { createdAt: 'asc' },
         take: 10,
       }),
+      // Амжилтгүй хүргэлт — хэрэглэгчтэй ярьдаг нь борлуулагч тул
+      // дахин ярилцаж жолооч солих нь түүний ажил
+      this.prisma.order.findMany({
+        where: {
+          deliveryStatus: DeliveryStatus.FAILED,
+          orderStatus: { notIn: [OrderStatus.COMPLETED, OrderStatus.CANCELLED] },
+        },
+        include: { assignedDriver: { select: { fullName: true } } },
+        orderBy: { updatedAt: 'desc' },
+        take: 10,
+      }),
     ]);
 
     return {
@@ -302,6 +314,16 @@ export class DashboardService {
         district: o.district,
         totalAmount: o.totalAmount,
         createdAt: o.createdAt,
+      })),
+      failedDeliveries: failed.map((o) => ({
+        id: o.id,
+        orderNo: o.orderNo,
+        customerName: o.customerName,
+        phone: o.phone,
+        shortAddress: formatShortAddress(o),
+        driverName: o.assignedDriver?.fullName ?? null,
+        deliveryNote: o.deliveryNote,
+        totalAmount: o.totalAmount,
       })),
     };
   }
