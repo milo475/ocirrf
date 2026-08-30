@@ -31,3 +31,5 @@ uploads/
 Thumbs.db
 .idea/
 *.swp
+.vercel
+.env*
