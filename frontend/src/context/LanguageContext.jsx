@@ -518,19 +518,17 @@ const DICT = {
     'Нийт түүх бараа': 'Total goods to pick',
     'Хүлээлгэн өгөх': 'Hand over',
     'Баталгаажуулж хэвлэх': 'Confirm and print',
-    'Хоёр тал гарын үсгээ зурсны дараа баталгаажна':
-      'Both parties must sign before confirming',
     'Тэмдэглэл (заавал биш)': 'Note (optional)',
     '{no} хуудас үүслээ': 'Sheet {no} created',
     'Хуудас алга': 'No sheets yet',
     'Хэвлэх цонхыг зөвшөөрнө үү': 'Please allow the print window',
-    'Дээр нь гарын үсгээ зурна уу': 'Draw your signature above',
-    'Арилгах': 'Clear',
     'Бараа хүлээлгэн өгсөн хуудас': 'Goods handover sheet',
     'Нийт хүлээлгэн өгсөн бараа': 'Total goods handed over',
     'Захиалга тус бүр': 'Per order',
     'Хүлээлгэн өгсөн (нярав)': 'Handed over by (keeper)',
     'Хүлээн авсан (жолооч)': 'Received by (driver)',
+    'Баталгаажуулахад хуудас хэвлэгдэнэ — гарын үсгээ цаасан дээр нь зурна':
+      'Confirming prints the sheet — sign it on paper',
 
     'Зураг солих': 'Change image',
     'Зураг хадгалагдлаа': 'Image saved',

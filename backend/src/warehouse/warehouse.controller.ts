@@ -5,7 +5,6 @@ import {
   IsOptional,
   IsString,
   IsUUID,
-  MaxLength,
 } from 'class-validator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../auth/decorators/current-user.decorator';
@@ -35,17 +34,6 @@ class CreateHandoverDto {
   @IsOptional()
   @IsString()
   note?: string;
-
-  /** Дэлгэц дээр зурсан гарын үсэг (data URL) — хэмжээг хязгаарлана */
-  @IsOptional()
-  @IsString()
-  @MaxLength(300_000, { message: 'Гарын үсгийн зураг хэт том байна' })
-  keeperSignature?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(300_000, { message: 'Гарын үсгийн зураг хэт том байна' })
-  driverSignature?: string;
 }
 
 @Controller('warehouse')

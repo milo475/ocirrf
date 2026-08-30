@@ -1,7 +1,7 @@
 /**
  * Жолоочид бараа хүлээлгэн өгсөн хуудас — хэвлэх цонх (V5).
  * Дээр нь нэгтгэсэн барааны жагсаалт, доор нь захиалга тус бүр,
- * төгсгөлд нь хоёр талын гарын үсэг (дэлгэц дээр зурсан) харагдана.
+ * төгсгөлд нь хоёр талын гарын үсгийн зай (цаасан дээр нь зурна).
  */
 import { formatDateTime } from './format'
 
@@ -31,10 +31,11 @@ export function openHandoverSheet(h, t) {
     )
     .join('')
 
-  const sig = (src, name, role) => `
+  // Гарын үсгийг ЦААСАН дээр нь гараар зурна — хоосон зай + нэрийн мөр
+  const sig = (name, role) => `
     <div class="sig">
       <p class="muted">${esc(role)}</p>
-      ${src ? `<img src="${src}" alt="" />` : '<div class="sigbox"></div>'}
+      <div class="sigbox"></div>
       <p class="line">${esc(name)}</p>
     </div>`
 
@@ -56,7 +57,6 @@ export function openHandoverSheet(h, t) {
   .num { text-align: right; font-variant-numeric: tabular-nums; }
   .sigs { display: flex; gap: 40px; margin-top: 40px; }
   .sig { flex: 1; text-align: center; }
-  .sig img { height: 70px; display: block; margin: 0 auto; }
   .sigbox { height: 70px; }
   .line { border-top: 1px solid #111; margin: 4px 0 0; padding-top: 4px; font-size: 13px; }
   @media print { body { margin: 12mm; } .noprint { display: none; } }
@@ -92,8 +92,8 @@ export function openHandoverSheet(h, t) {
   ${h.note ? `<p class="muted" style="margin-top:16px">✎ ${esc(h.note)}</p>` : ''}
 
   <div class="sigs">
-    ${sig(h.keeperSignature, h.keeper?.fullName ?? '', t('Хүлээлгэн өгсөн (нярав)'))}
-    ${sig(h.driverSignature, h.driver?.fullName ?? '', t('Хүлээн авсан (жолооч)'))}
+    ${sig(h.keeper?.fullName ?? '', t('Хүлээлгэн өгсөн (нярав)'))}
+    ${sig(h.driver?.fullName ?? '', t('Хүлээн авсан (жолооч)'))}
   </div>
 
   <div class="noprint"><button onclick="window.print()">🖨 ${esc(t('Хэвлэх'))}</button></div>

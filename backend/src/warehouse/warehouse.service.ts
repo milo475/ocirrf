@@ -135,17 +135,15 @@ export class WarehouseService {
   }
 
   /**
-   * Жолоочид хүлээлгэн өгөх хуудас үүсгэнэ. Хоёр талын гарын үсгийг
-   * дэлгэц дээр зурж хадгална. Хуудсанд орсон захиалгууд READY болж,
-   * дахин өөр хуудсанд орохгүй (handoverId тавигдана).
+   * Жолоочид хүлээлгэн өгөх хуудас үүсгэнэ. Хуудсанд орсон захиалгууд
+   * READY болж, дахин өөр хуудсанд орохгүй (handoverId тавигдана).
+   * Гарын үсгийг хэвлэсэн цаасан дээр нь гараар зурна.
    */
   async createHandover(
     dto: {
       driverId: string;
       orderIds: string[];
       note?: string;
-      keeperSignature?: string;
-      driverSignature?: string;
     },
     user: AuthUser,
   ) {
@@ -209,8 +207,6 @@ export class WarehouseService {
           driverId: dto.driverId,
           keeperId: user.id,
           note: dto.note?.trim() || null,
-          keeperSignature: dto.keeperSignature ?? null,
-          driverSignature: dto.driverSignature ?? null,
           handedAt: new Date(),
         },
       });

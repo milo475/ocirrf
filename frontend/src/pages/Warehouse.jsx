@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import DriverOptions from '../components/orders/DriverOptions'
 import DriverZones from '../components/warehouse/DriverZones'
-import SignaturePad from '../components/warehouse/SignaturePad'
 import Button from '../components/ui/Button'
 import EmptyState from '../components/ui/EmptyState'
 import Modal from '../components/ui/Modal'
@@ -382,13 +381,11 @@ function AssignDriverBoardModal({ group, t, toast, onClose, onDone }) {
   )
 }
 
-/** Хоёр талын гарын үсэгтэй хүлээлгэн өгөх цонх */
+/** Жолоочид хүлээлгэн өгөх цонх — баталгаажмагц хуудас хэвлэгдэнэ */
 function HandoverModal({ group, t, toast, onClose, onDone }) {
   const ready = group.orders.filter((o) => o.orderStatus === 'READY')
   const [picked, setPicked] = useState(() => ready.map((o) => o.id))
   const [note, setNote] = useState('')
-  const [keeperSignature, setKeeper] = useState(null)
-  const [driverSignature, setDriver] = useState(null)
   const [saving, setSaving] = useState(false)
 
   async function submit() {
@@ -400,8 +397,6 @@ function HandoverModal({ group, t, toast, onClose, onDone }) {
           driverId: group.driverId,
           orderIds: picked,
           note: note.trim() || undefined,
-          keeperSignature,
-          driverSignature,
         },
       })
       toast.show(t('{no} хуудас үүслээ', { no: h.number }))
@@ -425,7 +420,7 @@ function HandoverModal({ group, t, toast, onClose, onDone }) {
           </Button>
           <Button
             loading={saving}
-            disabled={picked.length === 0 || !keeperSignature || !driverSignature}
+            disabled={picked.length === 0}
             onClick={submit}
           >
             {t('Баталгаажуулж хэвлэх')}
@@ -467,15 +462,9 @@ function HandoverModal({ group, t, toast, onClose, onDone }) {
         className="mt-3 w-full bg-bg border border-rule rounded px-3 py-2 text-sm focus:outline-none focus:border-ink-muted"
       />
 
-      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <SignaturePad label={t('Нярав')} onChange={setKeeper} />
-        <SignaturePad label={t('Жолооч')} onChange={setDriver} />
-      </div>
-      {(!keeperSignature || !driverSignature) && (
-        <p className="mt-2 text-xs text-ink-muted">
-          {t('Хоёр тал гарын үсгээ зурсны дараа баталгаажна')}
-        </p>
-      )}
+      <p className="mt-3 text-xs text-ink-muted">
+        {t('Баталгаажуулахад хуудас хэвлэгдэнэ — гарын үсгээ цаасан дээр нь зурна')}
+      </p>
     </Modal>
   )
 }

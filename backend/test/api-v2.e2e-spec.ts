@@ -3553,29 +3553,56 @@ describe('ursGAL v2 API (e2e)', () => {
     });
 
     it('хэн ч хамаардаггүй дүүрэг / орон нутаг → шалтгаантай алгасна', async () => {
-      // Хэн ч бүсдээ аваагүй дүүрэг
-      const bhd = await api()
-        .post('/api/orders')
+      // Аль дүүргийг ХЭН Ч хамраагүйг АЖИЛЛАХ ҮЕДЭЭ олно. Тухайн
+      // дүүргийг нэрлээд бичвэл бодит DB-д тэр бүс хэн нэгэнд
+      // оноогдмогц тест унадаг (өгөгдлөөс хараат байх ёсгүй).
+      const drv = await api()
+        .get('/api/drivers')
         .set(auth(tok.manager))
-        .send({
-          customerName: `Э2Э Бүс-БХД-${T}`,
-          customerPhone: `8${T}`,
-          region: 'ULAANBAATAR',
-          district: 'БХД',
-          khoroo: '2',
-          building: 'Э2Э байр',
-          entrance: '1',
-          floor: '1',
-          door: '1',
-          items: [{ productId, qty: 1 }],
-        })
-        .expect(201);
-      feeOrderIds.push(bhd.body.id);
-      await api()
-        .patch(`/api/orders/${bhd.body.id}/status`)
-        .set(auth(tok.manager))
-        .send({ status: 'CONFIRMED' })
         .expect(200);
+      const covered = new Set<string>(
+        drv.body
+          .filter((d: { isActive: boolean }) => d.isActive)
+          .flatMap((d: { zones?: string[] }) => d.zones ?? []),
+      );
+      const freeDistrict = [
+        'БХД',
+        'БНД',
+        'НД',
+        'БГД',
+        'СБД',
+        'ЧД',
+        'СХД',
+        'БЗД',
+        'ХУД',
+      ].find((d) => !covered.has(d));
+
+      const uncoveredIds: string[] = [];
+      if (freeDistrict) {
+        const res = await api()
+          .post('/api/orders')
+          .set(auth(tok.manager))
+          .send({
+            customerName: `Э2Э Бүс-${freeDistrict}-${T}`,
+            customerPhone: `8${T}`,
+            region: 'ULAANBAATAR',
+            district: freeDistrict,
+            khoroo: '2',
+            building: 'Э2Э байр',
+            entrance: '1',
+            floor: '1',
+            door: '1',
+            items: [{ productId, qty: 1 }],
+          })
+          .expect(201);
+        feeOrderIds.push(res.body.id);
+        uncoveredIds.push(res.body.id);
+        await api()
+          .patch(`/api/orders/${res.body.id}/status`)
+          .set(auth(tok.manager))
+          .send({ status: 'CONFIRMED' })
+          .expect(200);
+      }
 
       // Орон нутаг — дүүрэггүй тул бүсээр хуваарилахгүй
       const far = await api()
@@ -3602,24 +3629,28 @@ describe('ursGAL v2 API (e2e)', () => {
       const auto = await api()
         .patch('/api/orders/assign-driver/auto')
         .set(auth(tok.manager))
-        .send({ orderIds: [bhd.body.id, farOrderId] })
+        .send({ orderIds: [...uncoveredIds, farOrderId] })
         .expect(200);
       expect(auto.body.assigned).toHaveLength(0);
-      expect(auto.body.skipped).toHaveLength(2);
+      expect(auto.body.skipped).toHaveLength(1 + uncoveredIds.length);
       const reasons = auto.body.skipped.map(
         (x: { reason: string }) => x.reason,
       );
-      expect(reasons).toContain('БХД-ыг хамардаг сул жолооч алга');
       expect(reasons).toContain(
         'Орон нутгийн захиалга — бүсээр хуваарилахгүй',
       );
 
-      // Хуваарилагдаагүй хэвээр
-      const still = await api()
-        .get(`/api/orders/${bhd.body.id}`)
-        .set(auth(tok.manager))
-        .expect(200);
-      expect(still.body.assignedDriver).toBeNull();
+      if (freeDistrict) {
+        expect(reasons).toContain(
+          `${freeDistrict}-ыг хамардаг сул жолооч алга`,
+        );
+        // Хуваарилагдаагүй хэвээр
+        const still = await api()
+          .get(`/api/orders/${uncoveredIds[0]}`)
+          .set(auth(tok.manager))
+          .expect(200);
+        expect(still.body.assignedDriver).toBeNull();
+      }
     });
 
     it('эрхгүй хүн автомат хуваарилалт хийхгүй → 403', async () => {
@@ -3763,7 +3794,7 @@ describe('ursGAL v2 API (e2e)', () => {
       expect(g.readyCount).toBeGreaterThanOrEqual(2);
     });
 
-    it('хүлээлгэн өгөх: дугаар, гарын үсэг, нэгтгэл, ASSIGNED ⭐', async () => {
+    it('хүлээлгэн өгөх: дугаар, нэгтгэл, ASSIGNED ⭐', async () => {
       const res = await api()
         .post('/api/warehouse/handovers')
         .set(auth(keeperToken))
@@ -3771,8 +3802,6 @@ describe('ursGAL v2 API (e2e)', () => {
           driverId: e2eDriverId,
           orderIds: [whOrderA, whOrderB],
           note: 'Э2Э хүлээлгэлт',
-          keeperSignature: 'data:image/png;base64,AAAA',
-          driverSignature: 'data:image/png;base64,BBBB',
         })
         .expect(201);
       handoverId = res.body.id;
@@ -3780,8 +3809,6 @@ describe('ursGAL v2 API (e2e)', () => {
       expect(res.body.number).toMatch(/^ХҮЛ-\d{8}-\d{3}$/);
       expect(res.body.keeper.id).toBe(keeperId);
       expect(res.body.driver.id).toBe(e2eDriverId);
-      expect(res.body.keeperSignature).toBe('data:image/png;base64,AAAA');
-      expect(res.body.driverSignature).toBe('data:image/png;base64,BBBB');
       expect(res.body.handedAt).toBeTruthy();
       expect(res.body.orders).toHaveLength(2);
       // Хэвлэх хуудсанд нэгтгэсэн бараа

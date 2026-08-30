@@ -217,8 +217,8 @@ model OrderReturnItem {
 }
 
 /// Жолоочид бараа хүлээлгэн өгсөн хуудас (V5).
-/// Нярав захиалгуудыг нэг хуудсанд багцалж, хоёр тал ДЭЛГЭЦЭН ДЭЭР
-/// гарын үсэг зурснаар баталгаажна. Хэвлэж болно.
+/// Нярав захиалгуудыг нэг хуудсанд багцалж жолоочид хүлээлгэн өгнө.
+/// Хуудсыг хэвлээд хоёр тал цаасан дээр нь гарын үсгээ зурна.
 model DriverHandover {
   id     String @id @default(uuid())
   number String @unique // ХҮЛ-YYYYMMDD-NNN
@@ -230,9 +230,6 @@ model DriverHandover {
   keeper   User   @relation("HandoversMade", fields: [keeperId], references: [id])
 
   note String?
-  /// Гарын үсэг — дэлгэц дээр зурсан зураг (data URL)
-  keeperSignature String?
-  driverSignature String?
 
   handedAt  DateTime?
   createdAt DateTime  @default(now())
