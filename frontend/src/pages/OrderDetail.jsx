@@ -142,7 +142,9 @@ export default function OrderDetail() {
     hasPerm('orders.change_status') &&
     (user?.role !== 'OPERATOR' || order.createdBy?.id === user?.id)
   const nextStatuses = canManage ? (TRANSITIONS[order.orderStatus] ?? []) : []
-  const canCancel = nextStatuses.includes('CANCELLED')
+  // Цуцлах нь тусдаа эрх (V5) — нярав төлөв ахиулна, цуцлахгүй
+  const canCancel =
+    nextStatuses.includes('CANCELLED') && hasPerm('orders.cancel')
   const canAssign =
     hasPerm('orders.assign_driver') &&
     (order.orderStatus === 'CONFIRMED' || order.orderStatus === 'PREPARING')

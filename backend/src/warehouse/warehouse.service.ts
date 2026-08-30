@@ -70,7 +70,12 @@ export class WarehouseService {
       where: {
         orderStatus: { in: [OrderStatus.CONFIRMED, ...HANDOVER_READY] },
         handoverId: null,
-        ...(mineOnly ? { warehouseId: user.id } : {}),
+        // mineOnly нь ЗӨВХӨН няравт утгатай — менежер/админ энэ
+        // хуудсанд орвол (нярав ирээгүй өдөр) бүх бэлтгэлийг харна,
+        // эс тэгвэл өөрт нь оноогдоогүй тул хоосон дэлгэц гарна
+        ...(mineOnly && user.role === Role.WAREHOUSE
+          ? { warehouseId: user.id }
+          : {}),
       },
       include: {
         items: true,

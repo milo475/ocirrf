@@ -1179,8 +1179,9 @@ describe('ursGAL v2 API (e2e)', () => {
       }
       // Панелын түлхүүр бүр backend-ийн ямар нэг route-д хэрэглэгддэг
       // (V5-д нярав нэмэгдэхэд +2: orders.assign_warehouse, warehouse.handover)
-      expect(allKeys).toHaveLength(32);
+      expect(allKeys).toHaveLength(33);
       expect(allKeys).toContain('drivers.zones');
+      expect(allKeys).toContain('orders.cancel');
       expect(allKeys).toContain('supplies.create');
       expect(allKeys).toContain('orders.assign_warehouse');
       expect(allKeys).toContain('warehouse.handover');
@@ -4828,6 +4829,117 @@ describe('ursGAL v2 API (e2e)', () => {
         .set(auth(tok.operator))
         .send({ zones: ['ХУД'] })
         .expect(403);
+    });
+  });
+
+  // ───────────────────── V5: ҮҮРГИЙН ХИЛ (эрхийн аудитын 5–8)
+  describe('V5: Үүргийн хил — цуцлалт, төлбөр, хүлээлгэлт ⭐', () => {
+    let boundaryOrderId: string;
+
+    beforeAll(async () => {
+      await api()
+        .post('/api/stock/adjust')
+        .set(auth(tok.manager))
+        .send({ productId, qtyChange: 5, reason: 'PURCHASE_IN' })
+        .expect(201);
+      const res = await api()
+        .post('/api/orders')
+        .set(auth(tok.seller))
+        .send({
+          customerName: `Э2Э-Хил-${T}`,
+          customerPhone: `9${T}`,
+          ...UB_ADDR,
+          items: [{ productId, qty: 1 }],
+        })
+        .expect(201);
+      boundaryOrderId = res.body.id;
+      feeOrderIds.push(boundaryOrderId);
+      await api()
+        .patch(`/api/orders/${boundaryOrderId}/status`)
+        .set(auth(tok.seller))
+        .send({ status: 'CONFIRMED' })
+        .expect(200);
+    });
+
+    it('НЯРАВ төлөв ахиулна ч ЦУЦЛАХГҮЙ ⭐', async () => {
+      // Бэлтгэлийн алхам нь түүний ажил
+      await api()
+        .patch(`/api/orders/${boundaryOrderId}/status`)
+        .set(auth(keeperToken))
+        .send({ status: 'PREPARING' })
+        .expect(200);
+
+      // Цуцлах нь үлдэгдэл/мөнгө буцаах арилжааны шийдвэр — эрхгүй
+      const denied = await api()
+        .patch(`/api/orders/${boundaryOrderId}/status`)
+        .set(auth(keeperToken))
+        .send({ status: 'CANCELLED' })
+        .expect(403);
+      expect(denied.body.message).toContain('цуцлах');
+
+      // Захиалга хөндөгдөөгүй
+      const still = await api()
+        .get(`/api/orders/${boundaryOrderId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(still.body.orderStatus).toBe('PREPARING');
+    });
+
+    it('БОРЛУУЛАГЧ төлбөр бүртгэнэ ⭐', async () => {
+      // Гүйлгээний баримтыг шалгадаг нь тэр — менежер рүү явахгүй
+      const pay = await api()
+        .post(`/api/orders/${boundaryOrderId}/payments`)
+        .set(auth(tok.seller))
+        .send({ amount: '1000.00', method: 'TRANSFER' })
+        .expect(201);
+      expect(Number(pay.body.order?.paidAmount ?? pay.body.paidAmount)).toBe(
+        1000,
+      );
+
+      // Гэхдээ санхүүгийн модуль нээгдэхгүй хэвээр
+      await api()
+        .get('/api/finance/summary')
+        .set(auth(tok.seller))
+        .expect(403);
+      await api()
+        .get('/api/finance/receivables')
+        .set(auth(tok.seller))
+        .expect(403);
+    });
+
+    it('МЕНЕЖЕР няравын самбарт орж хүлээлгэн өгч чадна ⭐', async () => {
+      // Нярав ирээгүй өдөр хүргэлт зогсохгүй
+      const board = await api()
+        .get('/api/warehouse/board')
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(Array.isArray(board.body)).toBe(true);
+      // mineOnly нь няравт л үйлчилнэ — менежерт бүх бэлтгэл харагдана
+      expect(
+        board.body.some((g: { orders: { id: string }[] }) =>
+          g.orders.some((o) => o.id === boundaryOrderId),
+        ),
+      ).toBe(true);
+
+      await api()
+        .get('/api/warehouse/handovers')
+        .set(auth(tok.manager))
+        .expect(200);
+    });
+
+    it('БОРЛУУЛАГЧ цуцална, ХАРИЛЦАГЧ цуцлахгүй ⭐', async () => {
+      await api()
+        .patch(`/api/orders/${boundaryOrderId}/status`)
+        .set(auth(tok.operator))
+        .send({ status: 'CANCELLED' })
+        .expect(403);
+
+      const done = await api()
+        .patch(`/api/orders/${boundaryOrderId}/status`)
+        .set(auth(tok.seller))
+        .send({ status: 'CANCELLED' })
+        .expect(200);
+      expect(done.body.orderStatus).toBe('CANCELLED');
     });
   });
 

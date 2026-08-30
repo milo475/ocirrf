@@ -429,6 +429,8 @@ const DICT = {
 
     // — Эрхийн панелын нэршил: customers.* нь нийлүүлэгч компанийнх —
     'Нийлүүлэгч компани': 'Supplier company',
+    'Захиалга цуцлах': 'Cancel orders',
+    'Маршрутын дараалал тавих': 'Set route order',
     'Нийлүүлэгч компани харах': 'View supplier companies',
     'Нийлүүлэгч компани засах': 'Edit supplier companies',
 

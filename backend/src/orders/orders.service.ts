@@ -541,6 +541,19 @@ export class OrdersService {
       );
     }
 
+    // Цуцлах нь тусдаа эрх (V5) — бэлтгэл хийдэг нярав арилжааны
+    // шийдвэр гаргахгүй. Төлөвийн шилжилтийн шалгалтаас ӨМНӨ.
+    if (status === OrderStatus.CANCELLED) {
+      const canCancel = await this.permissions.has(
+        user.id,
+        user.role,
+        PERM.ORDERS_CANCEL,
+      );
+      if (!canCancel) {
+        throw new ForbiddenException('Захиалга цуцлах эрх байхгүй');
+      }
+    }
+
     if (!ALLOWED_TRANSITIONS[order.orderStatus].includes(status)) {
       throw new BadRequestException(
         `${order.orderStatus}-ээс ${status} руу шууд шилжих боломжгүй`,

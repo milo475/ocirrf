@@ -12,6 +12,13 @@ export const PERM = {
   ORDERS_ASSIGN_DRIVER: 'orders.assign_driver',
   ORDERS_CHANGE_STATUS: 'orders.change_status',
   ORDERS_EDIT: 'orders.edit',
+  /**
+   * Захиалга ЦУЦЛАХ. orders.change_status-аас САЛГАВ (V5): цуцлах нь
+   * үлдэгдэл буцаах, мөнгө буцаах, үйлчлүүлэгчтэй ярих арилжааны
+   * шийдвэр — бэлтгэл хийдэг няравын ажил биш. Нярав төлөв ахиулсаар
+   * (PREPARING→READY) байх боловч цуцлахгүй.
+   */
+  ORDERS_CANCEL: 'orders.cancel',
   ORDERS_REFUND: 'orders.refund',
   ORDERS_ASSIGN_WAREHOUSE: 'orders.assign_warehouse',
   WAREHOUSE_HANDOVER: 'warehouse.handover',
@@ -41,6 +48,13 @@ export const PERM = {
   CUSTOMERS_EDIT: 'customers.edit',
   // Жолооч
   DRIVERS_VIEW: 'drivers.view',
+  /**
+   * ⚠ Нэр нь төөрөгдүүлдэг: жолоочийг ЗАХИАЛГАД томилох нь
+   * orders.assign_driver. Энэ түлхүүр зөвхөн ЖОЛООЧИЙН МАРШРУТЫН
+   * ДАРААЛЛЫГ (PATCH /deliveries/route-order) хамгаална. Түлхүүрийг
+   * солихгүй (override-ууд түлхүүрийн мөрөөр хадгалагддаг) — зөвхөн
+   * харагдах текстийг зассан.
+   */
   DRIVERS_ASSIGN: 'drivers.assign',
   DRIVERS_ZONES: 'drivers.zones',
   // Агуулах
@@ -77,6 +91,7 @@ export const PERM_LABELS: Record<PermKey, string> = {
   [PERM.ORDERS_ASSIGN_DRIVER]: 'Жолооч хуваарилах',
   [PERM.ORDERS_CHANGE_STATUS]: 'Захиалгын статус солих',
   [PERM.ORDERS_EDIT]: 'Захиалга засах (хаяг, бараа)',
+  [PERM.ORDERS_CANCEL]: 'Захиалга цуцлах',
   [PERM.ORDERS_REFUND]: 'Буцаалт бүртгэх',
   [PERM.ORDERS_ASSIGN_WAREHOUSE]: 'Нярав хуваарилах',
   [PERM.WAREHOUSE_HANDOVER]: 'Жолоочид хүлээлгэн өгөх',
@@ -86,7 +101,7 @@ export const PERM_LABELS: Record<PermKey, string> = {
   [PERM.CUSTOMERS_VIEW]: 'Нийлүүлэгч компани харах',
   [PERM.CUSTOMERS_EDIT]: 'Нийлүүлэгч компани засах',
   [PERM.DRIVERS_VIEW]: 'Жолооч харах',
-  [PERM.DRIVERS_ASSIGN]: 'Жолооч томилох',
+  [PERM.DRIVERS_ASSIGN]: 'Маршрутын дараалал тавих',
   [PERM.DRIVERS_ZONES]: 'Жолоочийн бүс тохируулах',
   [PERM.INVENTORY_VIEW]: 'Агуулах харах',
   [PERM.INVENTORY_ADJUSTMENT]: 'Тохируулга хийх',
@@ -116,6 +131,7 @@ export const PERM_GROUPS: { group: string; keys: PermKey[] }[] = [
       PERM.ORDERS_ASSIGN_DRIVER,
       PERM.ORDERS_CHANGE_STATUS,
       PERM.ORDERS_EDIT,
+      PERM.ORDERS_CANCEL,
       PERM.ORDERS_REFUND,
       PERM.ORDERS_ASSIGN_WAREHOUSE,
       PERM.WAREHOUSE_HANDOVER,
@@ -184,6 +200,7 @@ export const ROLE_DEFAULTS: Record<Role, PermKey[]> = {
     PERM.ORDERS_CHANGE_STATUS,
     PERM.ORDERS_ASSIGN_DRIVER,
     PERM.ORDERS_EDIT, // V5: хаяг/бараа засах
+    PERM.ORDERS_CANCEL, // V5: цуцлалт нь арилжааны шийдвэр
     PERM.ORDERS_REFUND, // V4: буцаалт ADMIN+MANAGER
     PERM.ORDERS_ASSIGN_WAREHOUSE, // V5: няравт хуваарилах
     PERM.INVENTORY_VIEW,
@@ -191,6 +208,9 @@ export const ROLE_DEFAULTS: Record<Role, PermKey[]> = {
     PERM.SUPPLIES_VIEW,
     PERM.SUPPLIES_CREATE,
     PERM.SUPPLIES_PAY,
+    // Нярав ажилдаа ирээгүй өдөр хүргэлт зогсохгүйн тулд (V5) —
+    // урвуу тохиолдол нь (нярав жолооч оноох) аль хэдийн нээгдсэн
+    PERM.WAREHOUSE_HANDOVER,
     PERM.DRIVERS_VIEW,
     PERM.DRIVERS_ASSIGN,
     PERM.DRIVERS_ZONES,
@@ -251,8 +271,13 @@ export const ROLE_DEFAULTS: Record<Role, PermKey[]> = {
     PERM.ORDERS_CHANGE_STATUS,
     // Хэрэглэгч хаягаа буруу хэлэх/бараагаа солих нь DM-д байнга гардаг
     PERM.ORDERS_EDIT,
+    // Үйлчлүүлэгчтэй ярьдаг нь борлуулагч тул цуцлалт нь түүний ажил
+    PERM.ORDERS_CANCEL,
     PERM.ORDERS_ASSIGN_DRIVER,
     PERM.ORDERS_ASSIGN_WAREHOUSE,
+    // Гүйлгээний баримтыг ШАЛГАДАГ нь борлуулагч — дараа орсон
+    // мөнгийг бүртгэхийн тулд менежер рүү явах шаардлагагүй
+    PERM.FINANCE_CREATE_INCOME,
     PERM.CUSTOMERS_VIEW,
     PERM.INVENTORY_VIEW,
     PERM.DRIVERS_VIEW,
