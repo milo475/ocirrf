@@ -273,6 +273,43 @@ function NewSupplyModal({ t, toast, onClose, onDone }) {
   const [pick, setPick] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
+  /** Урсгал доторх хурдан үүсгэлт — компанигүйн улмаас гацахгүйн тулд */
+  const [newCo, setNewCo] = useState(null) // {name, phone} | null
+  const [coBusy, setCoBusy] = useState(false)
+  const [coError, setCoError] = useState(null)
+
+  async function createCompany(e) {
+    e.preventDefault()
+    const name = newCo.name.trim()
+    if (name.length < 2) return
+    setCoBusy(true)
+    setCoError(null)
+    try {
+      const co = await api('/companies/quick', {
+        method: 'POST',
+        body: { name, phone: newCo.phone.trim() || undefined },
+      })
+      setCompanies((list) => [...(list ?? []), co])
+      setCompanyId(co.id)
+      setNewCo(null)
+      toast.show(t('{name} нэмэгдлээ', { name: co.name }))
+    } catch (err) {
+      // Нэр давхардвал сервер байгаа компанийг санал болгодог
+      const dup = err.existing
+      if (dup) {
+        setCompanies((list) =>
+          (list ?? []).some((c) => c.id === dup.id) ? list : [...(list ?? []), dup],
+        )
+        setCompanyId(dup.id)
+        setNewCo(null)
+        toast.show(t('{name} аль хэдийн бүртгэлтэй — сонголоо', { name: dup.name }))
+      } else {
+        setCoError(err.message)
+      }
+    } finally {
+      setCoBusy(false)
+    }
+  }
 
   useEffect(() => {
     Promise.all([api('/companies'), api('/products?limit=200')])
@@ -336,22 +373,70 @@ function NewSupplyModal({ t, toast, onClose, onDone }) {
       <form onSubmit={submit} className="space-y-4">
         {companies === null ? (
           <p className="text-sm text-ink-muted">…</p>
-        ) : companies.length === 0 ? (
-          <p className="text-sm text-ink-muted">
-            {t('Харилцагч компани алга — Харилцагчид хуудаснаас нэмнэ үү')}
-          </p>
+        ) : newCo ? (
+          <div className="border border-rule rounded p-3 space-y-3">
+            <p className="text-xs uppercase tracking-wide text-ink-muted">
+              {t('Шинэ нийлүүлэгч компани')}
+            </p>
+            <Input
+              id="co-name"
+              label={t('Нэр')}
+              autoFocus
+              value={newCo.name}
+              onChange={(e) => setNewCo({ ...newCo, name: e.target.value })}
+            />
+            <Input
+              id="co-phone"
+              label={t('Утас')}
+              value={newCo.phone}
+              onChange={(e) => setNewCo({ ...newCo, phone: e.target.value })}
+            />
+            {coError && (
+              <p className="text-sm text-alarm border border-alarm rounded px-3 py-2">
+                {coError}
+              </p>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setNewCo(null)
+                  setCoError(null)
+                }}
+                disabled={coBusy}
+              >
+                {t('Болих')}
+              </Button>
+              <Button
+                loading={coBusy}
+                disabled={newCo.name.trim().length < 2}
+                onClick={createCompany}
+              >
+                {t('Үүсгэх')}
+              </Button>
+            </div>
+          </div>
         ) : (
-          <Select
-            id="sup-company"
-            label={t('Харилцагч компани')}
-            value={companyId}
-            onChange={(e) => setCompanyId(e.target.value)}
-          >
-            <option value="">—</option>
-            {companies.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </Select>
+          <div>
+            <Select
+              id="sup-company"
+              label={t('Харилцагч компани')}
+              value={companyId}
+              onChange={(e) => {
+                if (e.target.value === '__new__') {
+                  setNewCo({ name: '', phone: '' })
+                  return
+                }
+                setCompanyId(e.target.value)
+              }}
+            >
+              <option value="">—</option>
+              {companies.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+              <option value="__new__">+ {t('Шинэ компани үүсгэх')}</option>
+            </Select>
+          </div>
         )}
 
         <div className="flex gap-2 items-end">

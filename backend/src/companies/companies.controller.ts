@@ -1,5 +1,6 @@
 import {
   Body,
+  ConflictException,
   Controller,
   Get,
   NotFoundException,
@@ -26,6 +27,17 @@ class CompanyDto {
   @IsOptional()
   @IsString()
   note?: string;
+}
+
+/** Урсгал доторх хурдан үүсгэлт — хамгийн цөөн талбар */
+class QuickCompanyDto {
+  @IsString()
+  @MinLength(2, { message: 'Компанийн нэр хамгийн багадаа 2 тэмдэгт' })
+  name: string;
+
+  @IsOptional()
+  @IsString()
+  phone?: string;
 }
 
 class UpdateCompanyDto {
@@ -86,6 +98,40 @@ export class CompaniesController {
   @RequirePermission(PERM.CUSTOMERS_EDIT)
   create(@Body() dto: CompanyDto) {
     return this.prisma.company.create({ data: dto });
+  }
+
+  /**
+   * Нийлүүлэлтийн урсгал доторх ХУРДАН ҮҮСГЭЛТ (V5).
+   *
+   * Нийлүүлэлт бүртгэхэд компани заавал хэрэгтэй атал компани үүсгэх нь
+   * customers.edit (зөвхөн админ) байсан тул supplies.create эрхтэй
+   * менежер/нярав урсгалынхаа дундуур гацдаг байв. Урсгалыг эзэмшдэг
+   * эрх тухайн урсгалын заавал алхмаа хийж чадах ёстой.
+   *
+   * Зөвхөн ҮҮСГЭНЭ — засах/устгах нь customers.edit-д хэвээр үлдэнэ.
+   * Үүссэн компани Харилцагчид хуудсанд бусадтай адил харагдана.
+   */
+  @Post('quick')
+  @RequirePermission(PERM.SUPPLIES_CREATE)
+  async quickCreate(@Body() dto: QuickCompanyDto) {
+    const name = dto.name.trim();
+    const existing = await this.prisma.company.findUnique({ where: { name } });
+    if (existing) {
+      throw new ConflictException({
+        message: `«${name}» нэртэй компани бүртгэлтэй байна`,
+        existing: {
+          id: existing.id,
+          name: existing.name,
+          isActive: existing.isActive,
+        },
+      });
+    }
+    return this.prisma.company.create({
+      data: {
+        name,
+        phone: dto.phone?.trim() || null,
+      },
+    });
   }
 
   @Patch(':id')

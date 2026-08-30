@@ -56,7 +56,9 @@ function normalizeError(status, payload) {
       ? payload.message.join(', ')
       : payload.message
   }
-  return { status, message }
+  // Серверийн нэмэлт талбаруудыг үлдээнэ — 409 үед байгаа компанийг
+  // санал болгох зэрэгт хэрэгтэй (status/message-ийг дарж бичихгүй)
+  return { ...(payload ?? {}), status, message }
 }
 
 async function rawRequest(path, { method = 'GET', body } = {}) {

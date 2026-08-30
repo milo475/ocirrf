@@ -4402,10 +4402,14 @@ describe('ursGAL v2 API (e2e)', () => {
     let partnerToken: string;
     let supProductId: string;
     let otherCompanyId: string;
+    let quickCompanyId: string;
 
     afterAll(async () => {
-      if (otherCompanyId) {
-        await prisma.company.deleteMany({ where: { id: otherCompanyId } });
+      // Нийлүүлэлт нь эдгээр компанийг заадаг тул түүнээс ХОЙШ устна —
+      // үндсэн afterAll supplyIds-ыг эхлээд цэвэрлэдэг
+      for (const id of [otherCompanyId, quickCompanyId].filter(Boolean)) {
+        await prisma.supply.deleteMany({ where: { companyId: id } });
+        await prisma.company.deleteMany({ where: { id } });
       }
     });
 
@@ -4606,6 +4610,74 @@ describe('ursGAL v2 API (e2e)', () => {
         .post(`/api/supplies/${supplyId}/pay`)
         .set(auth(partnerToken))
         .send({ amount: '100' })
+        .expect(403);
+    });
+
+    it('supplies.create-тэй хүн компаниа ӨӨРӨӨ үүсгэнэ ⭐', async () => {
+      // Урсгалыг эзэмшдэг эрх урсгалынхаа заавал алхмыг хийж чадах ёстой:
+      // нийлүүлэлт бүртгэхэд компани заавал хэрэгтэй атал компани үүсгэх
+      // нь зөвхөн админд байсан тул нярав/менежер дундуур гацдаг байв.
+      const quick = await api()
+        .post('/api/companies/quick')
+        .set(auth(keeperToken))
+        .send({ name: `Э2Э Хурдан ${T}`, phone: '77445566' })
+        .expect(201);
+      quickCompanyId = quick.body.id;
+      expect(quick.body.name).toBe(`Э2Э Хурдан ${T}`);
+
+      // Харилцагчид хуудсанд бусадтай адил харагдана
+      const list = await api()
+        .get('/api/companies')
+        .set(auth(tok.admin))
+        .expect(200);
+      expect(
+        list.body.some((c: { id: string }) => c.id === quickCompanyId),
+      ).toBe(true);
+
+      // Нэр давхардвал 409 + байгаа компанийг санал болгоно
+      const dup = await api()
+        .post('/api/companies/quick')
+        .set(auth(keeperToken))
+        .send({ name: `Э2Э Хурдан ${T}` })
+        .expect(409);
+      expect(dup.body.existing.id).toBe(quickCompanyId);
+
+      // Тэр компанид шууд нийлүүлэлт бүртгэж чадна — урсгал тасрахгүй
+      const sup = await api()
+        .post('/api/supplies')
+        .set(auth(keeperToken))
+        .send({
+          companyId: quickCompanyId,
+          items: [{ productId: supProductId, qty: 1, unitCost: '100' }],
+        })
+        .expect(201);
+      supplyIds.push(sup.body.id);
+    });
+
+    it('үүсгэх нээгдсэн ч ЗАСАХ нь хэвээр хаалттай ⭐', async () => {
+      // customers.edit өргөсөөгүй — Харилцагчид хуудасны бүрэн
+      // удирдлага админд үлдэнэ
+      await api()
+        .patch(`/api/companies/${quickCompanyId}`)
+        .set(auth(keeperToken))
+        .send({ name: 'Өөрчилсөн нэр' })
+        .expect(403);
+      await api()
+        .post('/api/companies')
+        .set(auth(keeperToken))
+        .send({ name: `Э2Э Бүрэн ${T}` })
+        .expect(403);
+
+      // supplies.create-гүй хүн хурдан үүсгэлт ч хийхгүй
+      await api()
+        .post('/api/companies/quick')
+        .set(auth(partnerToken))
+        .send({ name: `Э2Э Хориотой ${T}` })
+        .expect(403);
+      await api()
+        .post('/api/companies/quick')
+        .set(auth(tok.driver))
+        .send({ name: `Э2Э Хориотой2 ${T}` })
         .expect(403);
     });
 

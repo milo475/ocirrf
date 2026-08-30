@@ -420,6 +420,13 @@ const DICT = {
 
     'Цэс': 'Menu',
 
+    'Шинэ компани үүсгэх': 'Create a new company',
+    'Шинэ нийлүүлэгч компани': 'New supplier company',
+    'Үүсгэх': 'Create',
+    '{name} нэмэгдлээ': '{name} added',
+    '{name} аль хэдийн бүртгэлтэй — сонголоо':
+      '{name} already exists — selected it',
+
     // — Нийлүүлэгчийн самбар (V5) —
     'Нийлүүлэгч': 'Supplier',
     'Танай компани бүртгэгдээгүй байна': 'Your company is not registered yet',
@@ -455,8 +462,6 @@ const DICT = {
     'Төлбөр бүртгэгдлээ': 'Payment recorded',
     'Хүлээж авах': 'Receive',
     '{no} бүртгэгдлээ': '{no} recorded',
-    'Харилцагч компани алга — Харилцагчид хуудаснаас нэмнэ үү':
-      'No partner companies — add one on the Partners page',
     'Өртөг': 'Cost',
 
     // — Захиалга засах (V5) —

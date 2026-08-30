@@ -16,6 +16,12 @@ export const PERM = {
   ORDERS_ASSIGN_WAREHOUSE: 'orders.assign_warehouse',
   WAREHOUSE_HANDOVER: 'warehouse.handover',
   SUPPLIES_VIEW: 'supplies.view',
+  /**
+   * Нийлүүлэлт хүлээж авах. Урсгалын заавал алхам болох НИЙЛҮҮЛЭГЧ
+   * КОМПАНИЙГ ХУРДАН ҮҮСГЭХ (POST /companies/quick) энэ түлхүүрт
+   * багтана — эс тэгвэл эрхтэй хүн компанигүйн улмаас гацна.
+   * Компани ЗАСАХ/УСТГАХ нь customers.edit-д хэвээр.
+   */
   SUPPLIES_CREATE: 'supplies.create',
   SUPPLIES_PAY: 'supplies.pay',
   // Харилцагч
