@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router'
 import { AIMAGS, DISTRICTS } from '../data/aimags'
 import { khorooList } from '../data/khoroo'
+import { API_BASE } from '../lib/api'
 import { formatMoney } from '../lib/format'
 
 /**
@@ -80,7 +81,7 @@ export default function PublicOrder() {
   const touch = (k) => () => setTouched((t) => ({ ...t, [k]: true }))
 
   useEffect(() => {
-    fetch(`/api/public/order-form?token=${encodeURIComponent(token)}`)
+    fetch(`${API_BASE}/public/order-form?token=${encodeURIComponent(token)}`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error('Линк хүчингүй байна'))))
       .then(setCfg)
       .catch((e) => setError(e.message))
@@ -166,7 +167,7 @@ export default function PublicOrder() {
       if (proof) fd.append('proof', proof)
 
       const res = await fetch(
-        `/api/public/order-requests?token=${encodeURIComponent(token)}`,
+        `${API_BASE}/public/order-requests?token=${encodeURIComponent(token)}`,
         { method: 'POST', body: fd },
       )
       if (!res.ok) {

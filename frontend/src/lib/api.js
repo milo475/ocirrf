@@ -7,7 +7,13 @@
  * - Бүх алдаа { status, message } хэлбэртэй throw хийгдэнэ
  */
 
-const BASE = '/api'
+/**
+ * API-ийн хаяг. Нэг серверээс үйлчилдэг үед харьцангуй '/api' хангалттай;
+ * frontend-ийг тусад нь (жишээ нь Vercel) байршуулбал backend өөр домэйнд
+ * байх тул VITE_API_BASE-ээр бүтэн хаягийг өгнө.
+ */
+export const API_BASE = import.meta.env.VITE_API_BASE ?? '/api'
+const BASE = API_BASE
 const REFRESH_KEY = 'refreshToken'
 
 let accessToken = null

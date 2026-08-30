@@ -13,7 +13,7 @@ import ConfirmDialog from '../ui/ConfirmDialog'
 import { mobileTabsFor, navFor } from '../../config/nav'
 import { useAuth } from '../../context/AuthContext'
 import { useLang } from '../../context/LanguageContext'
-import { api, getAccessToken } from '../../lib/api'
+import { API_BASE, api, getAccessToken } from '../../lib/api'
 import { initOfflineQueue } from '../../lib/offlineQueue'
 import NotificationBell from './NotificationBell'
 import ThemeToggle from './ThemeToggle'
@@ -99,7 +99,7 @@ export default function AppShell() {
         return
       }
       es = new EventSource(
-        `/api/notifications/stream?token=${encodeURIComponent(token)}`,
+        `${API_BASE}/notifications/stream?token=${encodeURIComponent(token)}`,
       )
       es.onmessage = (e) => {
         try {
