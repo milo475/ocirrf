@@ -11,6 +11,7 @@ const GROUP_LABELS = {
   ORDERS: 'Захиалга',
   CUSTOMERS: 'Харилцагч',
   DRIVERS: 'Жолооч',
+  SUPPLIES: 'Нийлүүлэлт',
   INVENTORY: 'Агуулах',
   FINANCE: 'Санхүү',
   REPORTS: 'Тайлан',

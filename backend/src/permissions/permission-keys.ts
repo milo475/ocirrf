@@ -15,6 +15,9 @@ export const PERM = {
   ORDERS_REFUND: 'orders.refund',
   ORDERS_ASSIGN_WAREHOUSE: 'orders.assign_warehouse',
   WAREHOUSE_HANDOVER: 'warehouse.handover',
+  SUPPLIES_VIEW: 'supplies.view',
+  SUPPLIES_CREATE: 'supplies.create',
+  SUPPLIES_PAY: 'supplies.pay',
   // Харилцагч
   CUSTOMERS_VIEW: 'customers.view',
   CUSTOMERS_EDIT: 'customers.edit',
@@ -58,6 +61,9 @@ export const PERM_LABELS: Record<PermKey, string> = {
   [PERM.ORDERS_REFUND]: 'Буцаалт бүртгэх',
   [PERM.ORDERS_ASSIGN_WAREHOUSE]: 'Нярав хуваарилах',
   [PERM.WAREHOUSE_HANDOVER]: 'Жолоочид хүлээлгэн өгөх',
+  [PERM.SUPPLIES_VIEW]: 'Нийлүүлэлт харах',
+  [PERM.SUPPLIES_CREATE]: 'Нийлүүлэлт хүлээж авах',
+  [PERM.SUPPLIES_PAY]: 'Харилцагчид төлбөр хийх',
   [PERM.CUSTOMERS_VIEW]: 'Харилцагч харах',
   [PERM.CUSTOMERS_EDIT]: 'Харилцагч засах',
   [PERM.DRIVERS_VIEW]: 'Жолооч харах',
@@ -100,6 +106,10 @@ export const PERM_GROUPS: { group: string; keys: PermKey[] }[] = [
     keys: [PERM.CUSTOMERS_VIEW, PERM.CUSTOMERS_EDIT],
   },
   { group: 'DRIVERS', keys: [PERM.DRIVERS_VIEW, PERM.DRIVERS_ASSIGN] },
+  {
+    group: 'SUPPLIES',
+    keys: [PERM.SUPPLIES_VIEW, PERM.SUPPLIES_CREATE, PERM.SUPPLIES_PAY],
+  },
   {
     group: 'INVENTORY',
     keys: [PERM.INVENTORY_VIEW, PERM.INVENTORY_ADJUSTMENT],
@@ -153,6 +163,9 @@ export const ROLE_DEFAULTS: Record<Role, PermKey[]> = {
     PERM.ORDERS_ASSIGN_WAREHOUSE, // V5: няравт хуваарилах
     PERM.INVENTORY_VIEW,
     PERM.INVENTORY_ADJUSTMENT,
+    PERM.SUPPLIES_VIEW,
+    PERM.SUPPLIES_CREATE,
+    PERM.SUPPLIES_PAY,
     PERM.DRIVERS_VIEW,
     PERM.DRIVERS_ASSIGN,
     PERM.FINANCE_VIEW_INCOME,
@@ -171,6 +184,8 @@ export const ROLE_DEFAULTS: Record<Role, PermKey[]> = {
     PERM.ORDERS_CREATE,
     PERM.ORDERS_CHANGE_STATUS,
     PERM.INVENTORY_VIEW,
+    // Өөрийн компанийн нийлүүлэлт ба тооцоо (service дотор шүүгдэнэ)
+    PERM.SUPPLIES_VIEW,
   ],
   [Role.DRIVER]: [],
   /**
@@ -186,6 +201,9 @@ export const ROLE_DEFAULTS: Record<Role, PermKey[]> = {
     PERM.ORDERS_ASSIGN_DRIVER,
     PERM.INVENTORY_VIEW,
     PERM.INVENTORY_ADJUSTMENT,
+    // Барааг агуулахад хүлээж авдаг нь нярав
+    PERM.SUPPLIES_VIEW,
+    PERM.SUPPLIES_CREATE,
     PERM.WAREHOUSE_HANDOVER,
     PERM.DRIVERS_VIEW,
     // Хэрэглэгчийн худалдан авалтын түүх — нярав тооцоо/төлөвлөлт хийхэд

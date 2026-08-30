@@ -227,13 +227,18 @@ export class NotificationsService {
 
   /**
    * Бараа лимитээс ДООШ ОРОХ МӨЧИД — inventory.view эрхтэй
-   * ADMIN/MANAGER-үүдэд. Нэг бараанд өдөрт 1-ээс олон илгээхгүй.
+   * ADMIN/MANAGER-үүдэд БА тухайн барааг НИЙЛҮҮЛДЭГ ХАРИЛЦАГЧид (V5).
+   *
+   * Өмнө нь харилцагч өөрийн барааны үлдэгдэл дуусахыг мэдэх ямар ч
+   * зам байсангүй — ажилтан утсаар залгаж «дууслаа, авчир» гэдэг байв.
+   * Одоо тэдний хонх дээр шууд гарна. Нэг бараанд өдөрт 1 удаа.
    */
   async notifyLowStock(product: {
     id: string;
     name: string;
     stockQty: number;
     lowStockLimit: number;
+    companyId?: string | null;
   }) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -247,13 +252,60 @@ export class NotificationsService {
     });
     if (dup) return;
 
-    const staff = await this.staffWithPermission(PERM.INVENTORY_VIEW);
-    await this.notify(staff, {
+    // Барааны нийлүүлэгч компанийн харилцагчид (companyId нь Product
+    // дээр байхгүй ирвэл DB-ээс уншина — дуудагч бүр дамжуулдаггүй)
+    const companyId =
+      product.companyId ??
+      (
+        await this.prisma.product.findUnique({
+          where: { id: product.id },
+          select: { companyId: true },
+        })
+      )?.companyId ??
+      null;
+    const [staff, partners] = await Promise.all([
+      this.staffWithPermission(PERM.INVENTORY_VIEW),
+      companyId
+        ? this.prisma.user
+            .findMany({
+              where: { companyId, role: Role.OPERATOR, isActive: true },
+              select: { id: true },
+            })
+            .then((u) => u.map((x) => x.id))
+        : Promise.resolve([]),
+    ]);
+    await this.notify([...staff, ...partners], {
       type: 'LOW_STOCK',
       title: `Үлдэгдэл бага: ${product.name}`,
       body: `${product.stockQty}ш үлдлээ (доод хязгаар ${product.lowStockLimit})`,
       refType: 'product',
       refId: product.id,
+    });
+  }
+
+  /**
+   * Нийлүүлэлт хүлээж авахад — удирдлагад (V5).
+   * Excel дээр бүртгэдэг байсныг систем рүү шилжүүлсэн тул хэн юуг
+   * хэдээр авчирсныг менежер шууд хардаг болов.
+   */
+  async notifySupplyReceived(input: {
+    supplyId: string;
+    number: string;
+    companyName: string;
+    items: string;
+    totalCost: string;
+    receivedBy: string;
+  }) {
+    const staff = await this.staffWithPermission(PERM.INVENTORY_VIEW);
+    await this.notify(staff, {
+      type: 'SUPPLY_RECEIVED',
+      title: `Нийлүүлэлт: ${input.companyName} · ${input.totalCost}`,
+      body: [
+        `${input.number} · ${input.receivedBy} хүлээж авав`,
+        input.items,
+      ].join('\n'),
+      refType: 'supply',
+      refId: input.supplyId,
     });
   }
 

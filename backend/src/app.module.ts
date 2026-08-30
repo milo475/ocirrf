@@ -31,6 +31,7 @@ import { SettingsModule } from './settings/settings.module';
 import { ProductsModule } from './products/products.module';
 import { StockModule } from './stock/stock.module';
 import { UPLOADS_DIR } from './uploads.config';
+import { SuppliesModule } from './supplies/supplies.module';
 import { UsersModule } from './users/users.module';
 import { WarehouseModule } from './warehouse/warehouse.module';
 
@@ -85,6 +86,7 @@ import { WarehouseModule } from './warehouse/warehouse.module';
     SettingsModule,
     AnalyticsModule,
     ReportsModule,
+    SuppliesModule,
     UsersModule,
     WarehouseModule,
     LoggingModule,

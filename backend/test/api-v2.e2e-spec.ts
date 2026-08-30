@@ -109,6 +109,10 @@ describe('ursGAL v2 API (e2e)', () => {
   const requestIds: string[] = [];
   /** Засварын тестийн нэмэлт бараанууд */
   const editProductIds: string[] = [];
+  /** Нийлүүлэлтийн тест — компани/нийлүүлэлт/харилцагч */
+  let supCompanyId: string;
+  let supPartnerId: string;
+  const supplyIds: string[] = [];
   let sellerId: string; // борлуулагчийн тест хэрэглэгч (V5)
   let sellerToken: string;
   let keeperId: string; // няравын тест хэрэглэгч (V5)
@@ -173,6 +177,19 @@ describe('ursGAL v2 API (e2e)', () => {
     await prisma.orderReturn.deleteMany({
       where: { orderId: { in: orderIds } },
     });
+    // Нийлүүлэлт — SupplyItem нь Product руу RESTRICT-ээр заадаг тул
+    // барааг устгахаас ӨМНӨ салгана. (Энэ дараалал буруу байхад afterAll
+    // унаж, бүх тестийн ул мөр DB-д үлддэг байв.)
+    if (supplyIds.length) {
+      await prisma.stockMovement.deleteMany({
+        where: { refId: { in: supplyIds } },
+      });
+      await prisma.notification.deleteMany({
+        where: { refId: { in: supplyIds } },
+      });
+      await prisma.supply.deleteMany({ where: { id: { in: supplyIds } } });
+    }
+
     const productIds = [
       productId,
       raceProductId,
@@ -237,6 +254,12 @@ describe('ursGAL v2 API (e2e)', () => {
     }
     if (sellerId) {
       await prisma.user.deleteMany({ where: { id: sellerId } });
+    }
+    if (supPartnerId) {
+      await prisma.user.deleteMany({ where: { id: supPartnerId } });
+    }
+    if (supCompanyId) {
+      await prisma.company.deleteMany({ where: { id: supCompanyId } });
     }
     if (e2eMgrId) {
       await prisma.user.deleteMany({ where: { id: e2eMgrId } });
@@ -1120,6 +1143,7 @@ describe('ursGAL v2 API (e2e)', () => {
         'ORDERS',
         'CUSTOMERS',
         'DRIVERS',
+        'SUPPLIES',
         'INVENTORY',
         'FINANCE',
         'REPORTS',
@@ -1155,7 +1179,8 @@ describe('ursGAL v2 API (e2e)', () => {
       }
       // Панелын түлхүүр бүр backend-ийн ямар нэг route-д хэрэглэгддэг
       // (V5-д нярав нэмэгдэхэд +2: orders.assign_warehouse, warehouse.handover)
-      expect(allKeys).toHaveLength(28);
+      expect(allKeys).toHaveLength(31);
+      expect(allKeys).toContain('supplies.create');
       expect(allKeys).toContain('orders.assign_warehouse');
       expect(allKeys).toContain('warehouse.handover');
       expect(allKeys).toContain('orders.edit');
@@ -4292,6 +4317,234 @@ describe('ursGAL v2 API (e2e)', () => {
         .set(auth(tok.operator))
         .send({ note: 'хакер' })
         .expect(403);
+    });
+  });
+
+  // ─────────────────────────────── V5: ХАРИЛЦАГЧИЙН НИЙЛҮҮЛЭЛТ
+  describe('V5: Харилцагчийн нийлүүлэлт ⭐', () => {
+    let supplyId: string;
+    let partnerToken: string;
+    let supProductId: string;
+    let otherCompanyId: string;
+
+    afterAll(async () => {
+      if (otherCompanyId) {
+        await prisma.company.deleteMany({ where: { id: otherCompanyId } });
+      }
+    });
+
+    it('харилцагч компани + нийлүүлэгч хүн бүртгэгдэнэ', async () => {
+      const co = await api()
+        .post('/api/companies')
+        .set(auth(tok.admin))
+        .send({ name: `Э2Э Нийлүүлэгч ${T}`, phone: '77001122' })
+        .expect(201);
+      supCompanyId = co.body.id;
+
+      const other = await api()
+        .post('/api/companies')
+        .set(auth(tok.admin))
+        .send({ name: `Э2Э Өөр компани ${T}` })
+        .expect(201);
+      otherCompanyId = other.body.id;
+
+      const user = await api()
+        .post('/api/users')
+        .set(auth(tok.admin))
+        .send({
+          email: `e2e-partner-${T}@ursgal.mn`,
+          password: 'partner123',
+          name: `Э2Э Харилцагч ${T}`,
+          role: 'OPERATOR',
+          companyId: supCompanyId,
+        })
+        .expect(201);
+      supPartnerId = user.body.id;
+
+      const login = await api()
+        .post('/api/auth/login')
+        .send({ email: `e2e-partner-${T}@ursgal.mn`, password: 'partner123' })
+        .expect(200);
+      partnerToken = login.body.accessToken;
+
+      const p = await api()
+        .post('/api/products')
+        .set(auth(tok.admin))
+        .send({
+          sku: `${SKU}-SUP`,
+          name: `Э2Э Нийлүүлэх бараа ${T}`,
+          price: '9000.00',
+          costPrice: '1000.00',
+          lowStockLimit: 5,
+        })
+        .expect(201);
+      supProductId = p.body.id;
+      editProductIds.push(supProductId);
+    });
+
+    it('нийлүүлэлт: ҮЛДЭГДЭЛ НЭМЭГДЭЖ, өртөг шинэчлэгдэнэ ⭐', async () => {
+      const before = await api()
+        .get(`/api/products/${supProductId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+
+      const res = await api()
+        .post('/api/supplies')
+        .set(auth(tok.manager))
+        .send({
+          companyId: supCompanyId,
+          supplierId: supPartnerId,
+          note: 'Эхний ачаа',
+          items: [{ productId: supProductId, qty: 20, unitCost: '5000' }],
+        })
+        .expect(201);
+      supplyId = res.body.id;
+      supplyIds.push(supplyId);
+
+      expect(res.body.number).toMatch(/^НИЙ-\d{8}-\d{3}$/);
+      expect(Number(res.body.totalCost)).toBe(100000);
+      expect(Number(res.body.paidAmount)).toBe(0);
+      expect(res.body.supplier.id).toBe(supPartnerId);
+
+      const after = await api()
+        .get(`/api/products/${supProductId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(after.body.stockQty).toBe(before.body.stockQty + 20);
+      expect(Number(after.body.costPrice)).toBe(5000);
+      expect(after.body.companyId).toBe(supCompanyId);
+
+      const moves = await api()
+        .get(`/api/stock/movements?productId=${supProductId}&reason=SUPPLY`)
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(moves.body.items[0].qtyChange).toBe(20);
+    });
+
+    it('тооцоо: нийт өртөг, төлсөн, ӨР ⭐', async () => {
+      const res = await api()
+        .get('/api/supplies/balances')
+        .set(auth(tok.manager))
+        .expect(200);
+      const row = res.body.find(
+        (c: { companyId: string }) => c.companyId === supCompanyId,
+      );
+      expect(row.supplies).toBe(1);
+      expect(Number(row.totalCost)).toBe(100000);
+      expect(Number(row.dueAmount)).toBe(100000);
+    });
+
+    it('хэсэгчилсэн төлбөр — ЗАРЛАГА болж бүртгэгдэнэ ⭐', async () => {
+      const res = await api()
+        .post(`/api/supplies/${supplyId}/pay`)
+        .set(auth(tok.manager))
+        .send({ amount: '60000' })
+        .expect(201);
+      expect(Number(res.body.paidAmount)).toBe(60000);
+      expect(Number(res.body.dueAmount)).toBe(40000);
+
+      await api()
+        .post(`/api/supplies/${supplyId}/pay`)
+        .set(auth(tok.manager))
+        .send({ amount: '999999' })
+        .expect(400);
+
+      const fin = await api()
+        .get('/api/finance/entries?type=EXPENSE&limit=50')
+        .set(auth(tok.manager))
+        .expect(200);
+      const entry = (fin.body.items ?? fin.body).find(
+        (e: { category: string; note: string | null }) =>
+          e.category === 'SUPPLY' && e.note?.includes('НИЙ-'),
+      );
+      expect(entry).toBeTruthy();
+      expect(Number(entry.amount)).toBe(60000);
+      financeEntryIds.push(entry.id);
+    });
+
+    it('үлдэгдэл дуусахад НИЙЛҮҮЛЭГЧид мэдэгдэнэ ⭐', async () => {
+      const cur = await api()
+        .get(`/api/products/${supProductId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      await api()
+        .post('/api/stock/adjust')
+        .set(auth(tok.manager))
+        .send({
+          productId: supProductId,
+          qtyChange: -(cur.body.stockQty - 2),
+          reason: 'MANUAL_OUT',
+        })
+        .expect(201);
+
+      const mine = await api()
+        .get('/api/notifications?limit=20')
+        .set(auth(partnerToken))
+        .expect(200);
+      expect(
+        mine.body.items.some(
+          (n: { type: string; refId: string }) =>
+            n.type === 'LOW_STOCK' && n.refId === supProductId,
+        ),
+      ).toBe(true);
+    });
+
+    it('харилцагч ЗӨВХӨН өөрийн компанийн тооцоог харна ⭐', async () => {
+      const list = await api()
+        .get('/api/supplies')
+        .set(auth(partnerToken))
+        .expect(200);
+      expect(list.body.length).toBeGreaterThan(0);
+      expect(
+        list.body.every(
+          (s: { companyId: string }) => s.companyId === supCompanyId,
+        ),
+      ).toBe(true);
+
+      const bal = await api()
+        .get('/api/supplies/balances')
+        .set(auth(partnerToken))
+        .expect(200);
+      expect(bal.body).toHaveLength(1);
+      expect(bal.body[0].companyId).toBe(supCompanyId);
+
+      const filtered = await api()
+        .get(`/api/supplies?companyId=${otherCompanyId}`)
+        .set(auth(partnerToken))
+        .expect(200);
+      expect(
+        filtered.body.every(
+          (s: { companyId: string }) => s.companyId === supCompanyId,
+        ),
+      ).toBe(true);
+
+      await api()
+        .post('/api/supplies')
+        .set(auth(partnerToken))
+        .send({
+          companyId: supCompanyId,
+          items: [{ productId: supProductId, qty: 1, unitCost: '100' }],
+        })
+        .expect(403);
+      await api()
+        .post(`/api/supplies/${supplyId}/pay`)
+        .set(auth(partnerToken))
+        .send({ amount: '100' })
+        .expect(403);
+    });
+
+    it('өөр компанийн хүнийг нийлүүлэгч болгож болохгүй → 400', async () => {
+      await api()
+        .post('/api/supplies')
+        .set(auth(tok.manager))
+        .send({
+          companyId: otherCompanyId,
+          supplierId: supPartnerId,
+          items: [{ productId: supProductId, qty: 1, unitCost: '100' }],
+        })
+        .expect(400);
+
+      await api().get('/api/supplies').set(auth(tok.driver)).expect(403);
     });
   });
 

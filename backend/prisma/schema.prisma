@@ -115,6 +115,8 @@ model User {
   paymentsReceived Payment[]     @relation("PaymentsReceived")
   returnsCreated   OrderReturn[] @relation("ReturnsCreated")
   refreshTokens    RefreshToken[]
+  suppliesBrought  Supply[]       @relation("SuppliedBy")
+  suppliesReceived Supply[]       @relation("SuppliesReceived")
   company          Company?       @relation(fields: [companyId], references: [id])
 }
 
@@ -350,6 +352,53 @@ model Company {
 
   users    User[]
   products Product[]
+  supplies Supply[]
+}
+
+/// Харилцагчийн НИЙЛҮҮЛЭЛТ (V5).
+///
+/// Өмнө нь бараа орлогод орох нь ердөө StockMovement(PURCHASE_IN) байсан
+/// тул ХЭН нийлүүлсэн, ЯМАР ӨРТГӨӨР, ХЭД төлөх ёстойг систем мэддэггүй
+/// байв — бүгд Excel дээр л байсан. Энэ модель тэр гурвыг хаана.
+model Supply {
+  id     String @id @default(uuid())
+  number String @unique // НИЙ-YYYYMMDD-NNN
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id])
+  /// Барааг авчирсан харилцагч хүн (OPERATOR) — мэдэгдэж болно
+  supplierId String?
+  supplier   User?   @relation("SuppliedBy", fields: [supplierId], references: [id])
+
+  /// Хүлээж авсан ажилтан (нярав/менежер)
+  receivedById String
+  receivedBy   User   @relation("SuppliesReceived", fields: [receivedById], references: [id])
+
+  totalCost  Decimal @db.Decimal(12, 2)
+  /// Харилцагчид төлсөн дүн — үлдэгдэл нь бидний ӨР
+  paidAmount Decimal @default(0) @db.Decimal(12, 2)
+
+  note      String?
+  createdAt DateTime @default(now())
+
+  items SupplyItem[]
+
+  @@index([companyId, createdAt])
+}
+
+model SupplyItem {
+  id       String @id @default(uuid())
+  supplyId String
+  supply   Supply @relation(fields: [supplyId], references: [id], onDelete: Cascade)
+
+  productId   String
+  product     Product @relation(fields: [productId], references: [id])
+  productName String // snapshot
+  qty         Int
+  unitCost    Decimal @db.Decimal(12, 2)
+  lineTotal   Decimal @db.Decimal(12, 2)
+
+  @@index([supplyId])
 }
 
 model Category {
@@ -378,8 +427,9 @@ model Product {
 
   category   Category?       @relation(fields: [categoryId], references: [id])
   company    Company?        @relation(fields: [companyId], references: [id])
-  orderItems OrderItem[]
-  stockMoves StockMovement[]
+  orderItems  OrderItem[]
+  stockMoves  StockMovement[]
+  supplyItems SupplyItem[]
 
   @@index([name])
   @@index([isActive])

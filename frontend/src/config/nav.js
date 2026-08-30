@@ -92,6 +92,13 @@ export const NAV_ITEMS = [
     perm: 'warehouse.handover',
   },
   {
+    key: 'supplies',
+    label: 'Нийлүүлэлт',
+    icon: PackageSearch,
+    path: '/supplies',
+    perm: 'supplies.view',
+  },
+  {
     key: 'stock',
     label: 'Агуулах',
     icon: Boxes,

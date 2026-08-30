@@ -405,6 +405,32 @@ const DICT = {
     'Хэрэглэгчтэй ярилцаад дахин жолооч хуваарилна':
       'Call the customer, then assign a driver again',
 
+    // — Нийлүүлэлт (V5) —
+    'Нийлүүлэлт': 'Supplies',
+    'Харилцагчаас хүлээж авсан бараа ба тооцоо':
+      'Goods received from partners and their balances',
+    '+ Бараа хүлээж авах': '+ Receive goods',
+    'Бараа хүлээж авах': 'Receive goods',
+    'Нийлүүлэлтүүд': 'Supplies',
+    'Харилцагчийн тооцоо': 'Partner balances',
+    'Нийлүүлэлт алга': 'No supplies yet',
+    'Харилцагчаас бараа хүлээж авахад энд бүртгэгдэнэ':
+      'Goods received from a partner are recorded here',
+    'Харилцагч алга': 'No partners',
+    'Нийт өртөг': 'Total cost',
+    'Өр': 'Owed',
+    'Нийт өр': 'Total owed',
+    'Сүүлд': 'Last',
+    'Төлбөр хийх': 'Make a payment',
+    'Үлдсэн өр': 'Remaining',
+    'Төлөх': 'Pay',
+    'Төлбөр бүртгэгдлээ': 'Payment recorded',
+    'Хүлээж авах': 'Receive',
+    '{no} бүртгэгдлээ': '{no} recorded',
+    'Харилцагч компани алга — Харилцагчид хуудаснаас нэмнэ үү':
+      'No partner companies — add one on the Partners page',
+    'Өртөг': 'Cost',
+
     // — Захиалга засах (V5) —
     'Захиалга зассан': 'Order updated',
     'Бараа нэмэх': 'Add product',

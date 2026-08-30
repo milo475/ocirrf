@@ -28,6 +28,7 @@ import Orders from './pages/Orders'
 import Products from './pages/Products'
 import Settings from './pages/Settings'
 import Stock from './pages/Stock'
+import Supplies from './pages/Supplies'
 import UserPermissions from './pages/UserPermissions'
 import Users from './pages/Users'
 import Warehouse from './pages/Warehouse'
@@ -69,6 +70,9 @@ function App() {
                     </Route>
                     <Route element={<PermRoute perm="warehouse.handover" />}>
                       <Route path="/warehouse" element={<Warehouse />} />
+                    </Route>
+                    <Route element={<PermRoute perm="supplies.view" />}>
+                      <Route path="/supplies" element={<Supplies />} />
                     </Route>
                     <Route element={<PermRoute perm="inventory.view" />}>
                       <Route path="/products" element={<Products />} />
