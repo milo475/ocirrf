@@ -182,61 +182,80 @@ export class DashboardService {
   }
 
   /** OPERATOR самбар: өөрийн шивэлт + бага үлдэгдлийн анхааруулга */
+  /**
+   * Харилцагчийн (нийлүүлэгчийн) самбар — ЗӨВХӨН өөрийн компанийнх.
+   * Өмнө нь энэ метод бүх барааны бага үлдэгдлийг буцаадаг байсан тул
+   * гаднын түнш дотоод нөөцийг хардаг байв.
+   */
   async operator(userId: string): Promise<OperatorDashboard> {
-    const since = weekStart();
-
-    const [myOrdersTotal, myDelivered, my7, lowStockProducts] =
-      await Promise.all([
-        this.prisma.order.count({ where: { createdById: userId } }),
-        this.prisma.order.count({
-          where: {
-            createdById: userId,
-            deliveryStatus: DeliveryStatus.DELIVERED,
-          },
-        }),
-        this.prisma.order.findMany({
-          where: { createdById: userId, createdAt: { gte: since } },
-          select: { createdAt: true },
-        }),
-        this.prisma.product.findMany({
-          where: {
-            isActive: true,
-            stockQty: { lte: this.prisma.product.fields.lowStockLimit },
-          },
-          select: {
-            id: true,
-            name: true,
-            sku: true,
-            stockQty: true,
-            lowStockLimit: true,
-          },
-          orderBy: { stockQty: 'asc' },
-        }),
-      ]);
-
-    const days = new Map<string, { date: string; count: number }>();
-    for (let i = 0; i < 7; i++) {
-      const key = dayKey(new Date(since.getTime() + i * 86_400_000));
-      days.set(key, { date: key, count: 0 });
-    }
-    for (const o of my7) {
-      const row = days.get(dayKey(o.createdAt));
-      if (row) row.count += 1;
+    const me = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { company: { select: { id: true, name: true } } },
+    });
+    const company = me?.company ?? null;
+    if (!company) {
+      return {
+        company: null,
+        supplies: 0,
+        totalCost: new Prisma.Decimal(0),
+        paidAmount: new Prisma.Decimal(0),
+        dueAmount: new Prisma.Decimal(0),
+        lastSupplyAt: null,
+        lowStockProducts: [],
+        recentSupplies: [],
+      };
     }
 
+    const [agg, recent, low] = await Promise.all([
+      this.prisma.supply.aggregate({
+        where: { companyId: company.id },
+        _count: { _all: true },
+        _sum: { totalCost: true, paidAmount: true },
+        _max: { createdAt: true },
+      }),
+      this.prisma.supply.findMany({
+        where: { companyId: company.id },
+        include: { items: true },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+      }),
+      this.prisma.product.findMany({
+        where: {
+          companyId: company.id,
+          isActive: true,
+          stockQty: { lte: this.prisma.product.fields.lowStockLimit },
+        },
+        select: {
+          id: true,
+          name: true,
+          stockQty: true,
+          lowStockLimit: true,
+        },
+        orderBy: { stockQty: 'asc' },
+      }),
+    ]);
+
+    const total = agg._sum.totalCost ?? new Prisma.Decimal(0);
+    const paid = agg._sum.paidAmount ?? new Prisma.Decimal(0);
     return {
-      myOrdersTotal,
-      myDelivered,
-      myDr:
-        myOrdersTotal > 0
-          ? Math.round((myDelivered / myOrdersTotal) * 100) / 100
-          : 0,
-      last7Days: [...days.values()],
-      lowStockProducts,
+      company,
+      supplies: agg._count._all,
+      totalCost: total,
+      paidAmount: paid,
+      dueAmount: total.minus(paid),
+      lastSupplyAt: agg._max.createdAt ?? null,
+      lowStockProducts: low,
+      recentSupplies: recent.map((r) => ({
+        id: r.id,
+        number: r.number,
+        createdAt: r.createdAt,
+        totalCost: r.totalCost,
+        dueAmount: r.totalCost.minus(r.paidAmount),
+        items: r.items.map((i) => `${i.productName} ×${i.qty}`).join(', '),
+      })),
     };
   }
 
-  /** MANAGER самбар: орлого/зарлага, хуваарилалт хүлээж буй, жолоочийн ачаалал */
   /**
    * Борлуулагчийн самбар (V5) — гурван алхмын гацаа:
    * 1) хүлээгдэж буй хүсэлт, 2) өнөөдөр батласан,

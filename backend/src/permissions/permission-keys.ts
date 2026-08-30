@@ -185,14 +185,17 @@ export const ROLE_DEFAULTS: Record<Role, PermKey[]> = {
     PERM.ANALYTICS_VIEW, // V3-16: аналитик ADMIN+MANAGER-т
     PERM.CUSTOMERS_VIEW, // V3-17: харилцагчийн жагсаалт ADMIN+MANAGER-т
   ],
-  [Role.OPERATOR]: [
-    PERM.ORDERS_VIEW,
-    PERM.ORDERS_CREATE,
-    PERM.ORDERS_CHANGE_STATUS,
-    PERM.INVENTORY_VIEW,
-    // Өөрийн компанийн нийлүүлэлт ба тооцоо (service дотор шүүгдэнэ)
-    PERM.SUPPLIES_VIEW,
-  ],
+  /**
+   * Харилцагч = ӨӨР КОМПАНИЙН нийлүүлэгч түнш (V5).
+   *
+   * Анх «захиалга шивдэг ажилтан» гэсэн утгатай байсныг нийлүүлэгч
+   * болгож нэрлэхдээ захиалгын эрхийг нь хэвээр үлдээсэн тул гаднын
+   * хүн БҮХ үйлчлүүлэгчийн нэр, утас, хаяг, төлбөрийг хардаг байв.
+   * Одоо зөвхөн ӨӨРИЙН компанийн нийлүүлэлт, тооцоог л харна
+   * (SuppliesService.scopeFor компаниар нь шүүнэ) — дотоод мэдээлэлд
+   * хүрэхгүй.
+   */
+  [Role.OPERATOR]: [PERM.SUPPLIES_VIEW],
   [Role.DRIVER]: [],
   /**
    * Нярав (V5): агуулахын орлого/зарлага, бэлтгэл, жолоочид хүлээлгэн

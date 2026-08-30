@@ -8,11 +8,15 @@ import { formatDateTime } from '../../lib/format'
 
 /** Мэдэгдэл дарахад очих хуудас — refType/refId + эрхээс хамаарна */
 export function notifTarget(n, role) {
+  // Харилцагч (нийлүүлэгч) дотоод хуудсанд хүрэхгүй — бага үлдэгдлийн
+  // мэдэгдэл нь өөрийнх нь самбар руу очно
+  if (role === 'OPERATOR') return '/'
   if (n.refType === 'order' && n.refId) {
     return role === 'DRIVER' ? '/deliveries' : `/orders/${n.refId}`
   }
   if (n.refType === 'order-request') return '/order-requests'
   if (n.refType === 'product') return '/products'
+  if (n.refType === 'supply') return '/supplies'
   if (n.refType === 'payout') return '/finance/payroll'
   return '/notifications'
 }

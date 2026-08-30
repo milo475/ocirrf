@@ -23,6 +23,12 @@ async function seedUsers() {
       role: 'MANAGER' as const,
     },
     {
+      username: 'seller@ursgal.mn',
+      password: 'seller123',
+      fullName: 'Туршилт Борлуулагч',
+      role: 'SELLER' as const,
+    },
+    {
       username: 'operator@ursgal.mn',
       password: 'operator123',
       fullName: 'Туршилт Харилцагч',
@@ -129,24 +135,11 @@ async function seedProducts(categories: Map<string, string>) {
   }
 }
 
-/** Хүргэлтийн тарифын default-ууд (V4-05) — байхгүй үед л үүсгэнэ */
-async function seedTariffs() {
-  const count = await prisma.deliveryTariff.count();
-  if (count > 0) return;
-  await prisma.deliveryTariff.createMany({
-    data: [
-      { region: 'ULAANBAATAR', district: null, fee: 5000 },
-      { region: 'ORON_NUTAG', district: null, fee: 15000 },
-    ],
-  });
-}
-
 async function main() {
   const users = await seedUsers();
   await seedDriverProfile(users);
   const categories = await seedCategories();
   await seedProducts(categories);
-  await seedTariffs();
 
   const [userCount, driverProfiles, cats, prods] = await Promise.all([
     prisma.user.count(),

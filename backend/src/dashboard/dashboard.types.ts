@@ -22,18 +22,34 @@ export type AdminDashboard = {
   }[];
 };
 
-/** GET /api/dashboard/operator */
+/**
+ * GET /api/dashboard/operator — ХАРИЛЦАГЧИЙН (нийлүүлэгчийн) самбар.
+ *
+ * Гаднын түнш тул зөвхөн ӨӨРИЙН компанийн мэдээлэл: юу нийлүүлсэн,
+ * бид хэд өртэй, аль бараа нь дуусч байна. Захиалга, бусад компанийн
+ * бараа, дотоод тоо энд ОРОХГҮЙ.
+ */
 export type OperatorDashboard = {
-  myOrdersTotal: number;
-  myDelivered: number;
-  myDr: number; // 0–1
-  last7Days: { date: string; count: number }[];
+  company: { id: string; name: string } | null;
+  supplies: number;
+  totalCost: unknown;
+  paidAmount: unknown;
+  dueAmount: unknown;
+  lastSupplyAt: Date | null;
+  /** Өөрийнх нь нийлүүлдэг, лимитээс доош орсон бараа */
   lowStockProducts: {
     id: string;
     name: string;
-    sku: string;
     stockQty: number;
     lowStockLimit: number;
+  }[];
+  recentSupplies: {
+    id: string;
+    number: string;
+    createdAt: Date;
+    totalCost: unknown;
+    dueAmount: unknown;
+    items: string;
   }[];
 };
 

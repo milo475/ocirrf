@@ -420,6 +420,19 @@ const DICT = {
 
     'Цэс': 'Menu',
 
+    // — Нийлүүлэгчийн самбар (V5) —
+    'Нийлүүлэгч': 'Supplier',
+    'Танай компани бүртгэгдээгүй байна': 'Your company is not registered yet',
+    'Админ таныг харилцагч компанид холбосны дараа нийлүүлэлт, тооцоо энд харагдана':
+      'Once an admin links you to a partner company, your supplies and balance appear here',
+    'Таны нийлүүлсэн бараа ба тооцоо': 'Goods you supplied and your balance',
+    'Танд төлөх': 'We owe you',
+    'Төлөгдөөгүй үлдэгдэл байна': 'There is an unpaid balance',
+    'Дуусч буй таны бараа': 'Your goods running low',
+    'Бүх бараа хангалттай': 'All goods are in stock',
+    'Сүүлийн нийлүүлэлт': 'Recent supplies',
+    'Хандах эрх байхгүй': 'No access',
+
     // — Нийлүүлэлт (V5) —
     'Нийлүүлэлт': 'Supplies',
     'Харилцагчаас хүлээж авсан бараа ба тооцоо':

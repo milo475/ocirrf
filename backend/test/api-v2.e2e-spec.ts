@@ -135,7 +135,7 @@ describe('ursGAL v2 API (e2e)', () => {
     http = app.getHttpServer();
     prisma = app.get(PrismaService);
 
-    for (const u of ['admin', 'manager', 'operator', 'driver']) {
+    for (const u of ['admin', 'manager', 'operator', 'driver', 'seller']) {
       const res = await api()
         .post('/api/auth/login')
         .send({ email: `${u}@ursgal.mn`, password: `${u}123` })
@@ -435,7 +435,7 @@ describe('ursGAL v2 API (e2e)', () => {
     it('lowStock=true шүүлтэд орж ирнэ (0 ≤ 3)', async () => {
       const res = await api()
         .get('/api/products?lowStock=true&limit=100')
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .expect(200);
       expect(res.body.items.some((p: { id: string }) => p.id === productId)).toBe(true);
     });
@@ -485,7 +485,7 @@ describe('ursGAL v2 API (e2e)', () => {
     it('movements reason шүүлт + summary 7 хоног', async () => {
       const mv = await api()
         .get(`/api/stock/movements?productId=${productId}&reason=PURCHASE_IN`)
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .expect(200);
       expect(mv.body.total).toBe(1);
 
@@ -506,7 +506,7 @@ describe('ursGAL v2 API (e2e)', () => {
       const { district: _d, ...noDistrict } = UB_ADDR;
       const res = await api()
         .post('/api/orders')
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .send({
           customerPhone: `9${T}`,
           ...noDistrict,
@@ -519,7 +519,7 @@ describe('ursGAL v2 API (e2e)', () => {
     it('Орон нутагт тээвэргүй → 400 «Ачаа явах тээвэр заавал»', async () => {
       const res = await api()
         .post('/api/orders')
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .send({
           customerPhone: `9${T}`,
           region: 'ORON_NUTAG',
@@ -534,7 +534,7 @@ describe('ursGAL v2 API (e2e)', () => {
     it('утас 8 оронтой биш → 400', async () => {
       await api()
         .post('/api/orders')
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .send({
           customerPhone: '123',
           ...UB_ADDR,
@@ -546,7 +546,7 @@ describe('ursGAL v2 API (e2e)', () => {
     it('давхардсан productId → 400', async () => {
       await api()
         .post('/api/orders')
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .send({
           customerName: `Э2Э-${T}`,
           customerPhone: `9${T}`,
@@ -561,7 +561,7 @@ describe('ursGAL v2 API (e2e)', () => {
     it('амжилттай үүсгэлт: дүн, үлдэгдэл, movement', async () => {
       const res = await api()
         .post('/api/orders')
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .send({
           customerName: `Э2Э-${T}`,
           customerPhone: `9${T}`,
@@ -578,14 +578,14 @@ describe('ursGAL v2 API (e2e)', () => {
       // GET /:id — fullAddress зөв угсрагдана
       const detail = await api()
         .get(`/api/orders/${orderId}`)
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .expect(200);
       expect(detail.body.fullAddress).toBe(UB_FULL);
 
       // GET / жагсаалт — shortAddress богино хэлбэр (N4)
       const list = await api()
         .get(`/api/orders?search=${res.body.orderNo}`)
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .expect(200);
       expect(list.body.items[0].shortAddress).toBe('ХУД, 11-р хороо');
       expect(res.body.orderNo).toMatch(/^ORD-\d{8}-\d{4}$/);
@@ -595,13 +595,13 @@ describe('ursGAL v2 API (e2e)', () => {
 
       const p = await api()
         .get(`/api/products/${productId}`)
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .expect(200);
       expect(p.body.stockQty).toBe(6);
 
       const mv = await api()
         .get(`/api/stock/movements?productId=${productId}&reason=ORDER`)
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .expect(200);
       expect(mv.body.items[0].qtyChange).toBe(-4);
       expect(mv.body.items[0].refId).toBe(orderId);
@@ -610,7 +610,7 @@ describe('ursGAL v2 API (e2e)', () => {
     it('хүрэлцэхгүй qty → 400 + ЮУ Ч өөрчлөгдөөгүй', async () => {
       const res = await api()
         .post('/api/orders')
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .send({
           customerName: `Э2Э-их-${T}`,
           customerPhone: `9${T}`,
@@ -621,7 +621,7 @@ describe('ursGAL v2 API (e2e)', () => {
       expect(res.body.message).toContain('хүрэлцэхгүй');
       const p = await api()
         .get(`/api/products/${productId}`)
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .expect(200);
       expect(p.body.stockQty).toBe(6);
     });
@@ -629,7 +629,7 @@ describe('ursGAL v2 API (e2e)', () => {
     it('буруу шилжилт NEW→COMPLETED → 400', async () => {
       await api()
         .patch(`/api/orders/${orderId}/status`)
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .send({ status: 'COMPLETED' })
         .expect(400);
     });
@@ -687,7 +687,7 @@ describe('ursGAL v2 API (e2e)', () => {
     it('operator өөрийнхөө захиалгыг CONFIRMED болгоно', async () => {
       const res = await api()
         .patch(`/api/orders/${orderId}/status`)
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .send({ status: 'CONFIRMED' })
         .expect(200);
       expect(res.body.orderStatus).toBe('CONFIRMED');
@@ -831,7 +831,7 @@ describe('ursGAL v2 API (e2e)', () => {
         .expect(201);
       const ord = await api()
         .post('/api/orders')
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .send({
           customerName: `Э2Э-Зураггүй-${T}`,
           customerPhone: `5${T}`,
@@ -842,7 +842,7 @@ describe('ursGAL v2 API (e2e)', () => {
       noPhotoOrderId = ord.body.id;
       await api()
         .patch(`/api/orders/${noPhotoOrderId}/status`)
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .send({ status: 'CONFIRMED' })
         .expect(200);
       const realDriver = await api().get('/api/auth/me').set(auth(tok.driver));
@@ -918,7 +918,7 @@ describe('ursGAL v2 API (e2e)', () => {
       // 2 дахь захиалга (үлдэгдэл 6-2=4 болно)
       const ord = await api()
         .post('/api/orders')
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .send({
           customerName: `Э2Э-2-${T}`,
           customerPhone: `7${T}`,
@@ -929,7 +929,7 @@ describe('ursGAL v2 API (e2e)', () => {
       order2Id = ord.body.id;
       await api()
         .patch(`/api/orders/${order2Id}/status`)
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .send({ status: 'CONFIRMED' })
         .expect(200);
       await api()
@@ -987,7 +987,7 @@ describe('ursGAL v2 API (e2e)', () => {
         .expect(201);
       const ord = await api()
         .post('/api/orders')
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .send({
           customerName: `Э2Э-Бэлэн-${T}`,
           customerPhone: `7${T}`,
@@ -1124,7 +1124,7 @@ describe('ursGAL v2 API (e2e)', () => {
           email: `e2e-perm-${T}@ursgal.mn`,
           name: `Э2Э Перм ${T}`,
           password: 'e2epass123',
-          role: 'OPERATOR',
+          role: 'SELLER',
         })
         .expect(201);
       permUserId = res.body.id;
@@ -1138,7 +1138,7 @@ describe('ursGAL v2 API (e2e)', () => {
         .get(`/api/users/${permUserId}/permissions`)
         .set(auth(tok.admin))
         .expect(200);
-      expect(panel.body.role).toBe('OPERATOR');
+      expect(panel.body.role).toBe('SELLER');
       expect(panel.body.groups.map((g: { group: string }) => g.group)).toEqual([
         'ORDERS',
         'CUSTOMERS',
@@ -1364,7 +1364,7 @@ describe('ursGAL v2 API (e2e)', () => {
         .expect(403);
       await api()
         .get('/api/dashboard/stock-health')
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .expect(200);
       const res = await api()
         .get('/api/dashboard/stock-health')
@@ -1377,7 +1377,7 @@ describe('ursGAL v2 API (e2e)', () => {
       await api().get('/api/categories').set(auth(tok.driver)).expect(403);
       const res = await api()
         .get('/api/categories')
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .expect(200);
       expect(Array.isArray(res.body)).toBe(true);
     });
@@ -1413,8 +1413,19 @@ describe('ursGAL v2 API (e2e)', () => {
      * алдаа өгдөг байв. Одоо GET /drivers нь drivers.view ЭСВЭЛ
      * orders.assign_driver-ийн аль нэгийг хүлээж авна.
      */
-    it('GET /drivers: assign_driver override-той OPERATOR-т нээгдэнэ', async () => {
-      // Анхны байдал: OPERATOR-т аль нь ч байхгүй → 403
+    it('GET /drivers: assign_driver override-той хүнд нээгдэнэ', async () => {
+      // Тестийн хэрэглэгч БОРЛУУЛАГЧ тул default-аар хоёулаа байдаг —
+      // урьдчилсан нөхцөлийг override-оор хасаж бэлдэнэ
+      await api()
+        .put(`/api/users/${permUserId}/permissions`)
+        .set(auth(tok.admin))
+        .send({
+          changes: [
+            { key: 'drivers.view', allowed: false },
+            { key: 'orders.assign_driver', allowed: false },
+          ],
+        })
+        .expect(200);
       await api().get('/api/drivers').set(auth(permUserToken)).expect(403);
 
       await api()
@@ -1433,13 +1444,18 @@ describe('ursGAL v2 API (e2e)', () => {
       // Аль нь ч байхгүй DRIVER → 403 хэвээр
       await api().get('/api/drivers').set(auth(tok.driver)).expect(403);
 
-      // цэвэрлэгээ
+      // цэвэрлэгээ — хоёуланг нь default руу буцаана
       await api()
         .put(`/api/users/${permUserId}/permissions`)
         .set(auth(tok.admin))
-        .send({ changes: [{ key: 'orders.assign_driver', allowed: null }] })
+        .send({
+          changes: [
+            { key: 'orders.assign_driver', allowed: null },
+            { key: 'drivers.view', allowed: null },
+          ],
+        })
         .expect(200);
-      await api().get('/api/drivers').set(auth(permUserToken)).expect(403);
+      await api().get('/api/drivers').set(auth(permUserToken)).expect(200);
     });
 
     it('нэвтрэлтгүйгээр хоёулаа 401', async () => {
@@ -1453,14 +1469,21 @@ describe('ursGAL v2 API (e2e)', () => {
      * эрх хэвээр үлддэг байв. Одоо шууд үйлчлэх ёстой.
      */
     it('role солиход эрх ШУУД шинэчлэгдэнэ (cache invalidate)', async () => {
-      // 1. Cache-ыг халаана: OPERATOR-т drivers.view байхгүй → 403
+      // 1. Жолоочийн эрхгүй role (ХАРИЛЦАГЧ) болгоод cache-ыг халаана.
+      // Override ашиглахгүй — энэ тест нь ЗӨВХӨН role солилтын
+      // нөлөөг хэмжих ёстой (override нь role-оос дээгүүр тул баруйлна).
+      await api()
+        .patch(`/api/users/${permUserId}`)
+        .set(auth(tok.admin))
+        .send({ role: 'OPERATOR' })
+        .expect(200);
       await api()
         .get('/api/auth/me')
         .set(auth(permUserToken))
         .expect(200);
       await api().get('/api/drivers').set(auth(permUserToken)).expect(403);
 
-      // 2. ADMIN role-ыг MANAGER болгоно (token хэвээр — role нь DB-ээс)
+      // 2. MANAGER болгоно (token хэвээр — role нь DB-ээс уншигдана)
       await api()
         .patch(`/api/users/${permUserId}`)
         .set(auth(tok.admin))
@@ -1685,7 +1708,7 @@ describe('ursGAL v2 API (e2e)', () => {
         .expect(201);
       const ord = await api()
         .post('/api/orders')
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .send({
           customerName: `Э2Э-Раце-${T}`,
           customerPhone: `7${T}`,
@@ -1751,7 +1774,7 @@ describe('ursGAL v2 API (e2e)', () => {
     it('V4: гараар COMPLETED болгоход орлого үүсэхгүй, авлагад орно', async () => {
       const ord = await api()
         .post('/api/orders')
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .send({
           customerName: `Э2Э-Санхүү-${T}`,
           customerPhone: `7${T}`,
@@ -1763,7 +1786,7 @@ describe('ursGAL v2 API (e2e)', () => {
       for (const s of ['CONFIRMED', 'PREPARING', 'READY', 'COMPLETED']) {
         await api()
           .patch(`/api/orders/${financeOrderId}/status`)
-          .set(auth(tok.operator))
+          .set(auth(tok.seller))
           .send({ status: s })
           .expect(200);
       }
@@ -1958,16 +1981,41 @@ describe('ursGAL v2 API (e2e)', () => {
         .send({ productId, qtyChange: -4, reason: 'MANUAL_OUT' })
         .expect(201);
 
+      // Харилцагчийн самбар нь НИЙЛҮҮЛЭГЧИЙНХ (V5): зөвхөн өөрийн
+      // компанийн нийлүүлэлт, тооцоо, өөрийн барааны үлдэгдэл.
+      // Захиалга, бусдын бараа энд гарахгүй.
       const res = await api()
         .get('/api/dashboard/operator')
         .set(auth(tok.operator))
         .expect(200);
-      expect(res.body.myOrdersTotal).toBeGreaterThan(0);
-      const low = res.body.lowStockProducts.find(
-        (p: { id: string }) => p.id === productId,
-      );
-      expect(low).toBeDefined();
-      expect(low.stockQty).toBeLessThanOrEqual(low.lowStockLimit);
+      expect(res.body).not.toHaveProperty('myOrdersTotal');
+      expect(res.body).toHaveProperty('dueAmount');
+      expect(Array.isArray(res.body.recentSupplies)).toBe(true);
+      // Компанид холбогдоогүй харилцагчид хоосон бүтэц ирнэ
+      expect(res.body.company).toBeNull();
+      expect(res.body.lowStockProducts).toEqual([]);
+    });
+
+    it('харилцагч дотоод мэдээлэлд хүрэхгүй ⭐', async () => {
+      // Гаднын нийлүүлэгч тул захиалга/бараа/хэрэглэгч харах эрхгүй.
+      // Өмнө нь orders.view-тэй байсан тул БҮХ үйлчлүүлэгчийн нэр,
+      // утас, хаяг, төлбөрийг хардаг байв.
+      const me = await api()
+        .get('/api/auth/me')
+        .set(auth(tok.operator))
+        .expect(200);
+      expect(me.body.permissions).toEqual(['supplies.view']);
+
+      for (const path of [
+        '/api/orders',
+        `/api/orders/${orderId}`,
+        '/api/products',
+        '/api/customers/by-phone',
+        '/api/drivers',
+        '/api/stock/movements',
+      ]) {
+        await api().get(path).set(auth(tok.operator)).expect(403);
+      }
     });
 
     it('manager: stockLast7Days 7 өдөр + driverLoad', async () => {
@@ -2233,7 +2281,7 @@ describe('ursGAL v2 API (e2e)', () => {
       for (const which of ['A', 'B']) {
         const ord = await api()
           .post('/api/orders')
-          .set(auth(tok.operator))
+          .set(auth(tok.seller))
           .send({
             customerName: `Э2Э-Маршрут-${which}-${T}`,
             customerPhone: `6${T}`,
@@ -2245,7 +2293,7 @@ describe('ursGAL v2 API (e2e)', () => {
         else roB = ord.body.id;
         await api()
           .patch(`/api/orders/${ord.body.id}/status`)
-          .set(auth(tok.operator))
+          .set(auth(tok.seller))
           .send({ status: 'CONFIRMED' })
           .expect(200);
         await api()
@@ -2483,12 +2531,12 @@ describe('ursGAL v2 API (e2e)', () => {
       // operator (inventory.view л эрхтэй) — өртөг нуугдана
       const asOperator = await api()
         .get(`/api/products/${productId}`)
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .expect(200);
       expect(asOperator.body).not.toHaveProperty('costPrice');
       const list = await api()
         .get(`/api/products?search=${T}&limit=50`)
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .expect(200);
       for (const p of list.body.items) {
         expect(p).not.toHaveProperty('costPrice');
@@ -2512,7 +2560,7 @@ describe('ursGAL v2 API (e2e)', () => {
     it('захиалгад costAtOrder snapshot — дараа өртөг өөрчлөгдөхөд хөндөгдөхгүй', async () => {
       const ord = await api()
         .post('/api/orders')
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .send({
           customerName: `Э2Э-Өртөг-${T}`,
           customerPhone: `4${T}`,
@@ -2581,7 +2629,7 @@ describe('ursGAL v2 API (e2e)', () => {
         .expect(201);
       const ord = await api()
         .post('/api/orders')
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .send({
           customerName: `Э2Э-Буцаалт-${T}`,
           customerPhone: `6${T}`,
@@ -2595,7 +2643,7 @@ describe('ursGAL v2 API (e2e)', () => {
 
       await api()
         .patch(`/api/orders/${retOrderId}/status`)
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .send({ status: 'CONFIRMED' })
         .expect(200);
       const realDriver = await api().get('/api/auth/me').set(auth(tok.driver));
@@ -2788,7 +2836,7 @@ describe('ursGAL v2 API (e2e)', () => {
           name: 'Э2Э Нууцүг Тест',
           email: pwEmail,
           password: 'firstpass1',
-          role: 'OPERATOR',
+          role: 'SELLER',
         })
         .expect(201);
       pwUserId = created.body.id;
@@ -3216,7 +3264,7 @@ describe('ursGAL v2 API (e2e)', () => {
       // Энгийн 400 + 403 — лог руу ОРОХГҮЙ
       await api()
         .post('/api/orders')
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .send({ region: 'ULAANBAATAR' })
         .expect(400);
       await api().get('/api/users').set(auth(tok.operator)).expect(403);
@@ -3257,7 +3305,7 @@ describe('ursGAL v2 API (e2e)', () => {
 
       const ig = await api()
         .post('/api/orders')
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .send({
           customerName: `Э2Э-IG-${T}`,
           customerPhone: `3${T}`,
@@ -3272,7 +3320,7 @@ describe('ursGAL v2 API (e2e)', () => {
       // Суваг заагаагүй бол OTHER
       const other = await api()
         .post('/api/orders')
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .send({
           customerName: `Э2Э-Суваггүй-${T}`,
           customerPhone: `3${T}`,
@@ -4767,7 +4815,7 @@ describe('ursGAL v2 API (e2e)', () => {
         .expect(201);
       const ord = await api()
         .post('/api/orders')
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .send({
           customerName: `Э2Э-Төлсөн-${T}`,
           customerPhone: `5${T}`,
