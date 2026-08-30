@@ -9,7 +9,7 @@ import { api } from '../lib/api'
 
 const GROUP_LABELS = {
   ORDERS: 'Захиалга',
-  CUSTOMERS: 'Харилцагч',
+  CUSTOMERS: 'Нийлүүлэгч компани', // түлхүүр нь customers.* хэвээр
   DRIVERS: 'Жолооч',
   SUPPLIES: 'Нийлүүлэлт',
   INVENTORY: 'Агуулах',
@@ -166,7 +166,7 @@ export default function UserPermissions() {
                         className="size-4 accent-current text-accent shrink-0"
                       />
                       <span className="flex-1 min-w-0 text-sm">
-                        {item.label}
+                        {t(item.label)}
                         <span className="block font-mono text-[10px] text-ink-muted">
                           {item.key}
                         </span>

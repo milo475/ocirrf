@@ -427,6 +427,11 @@ const DICT = {
     '{name} аль хэдийн бүртгэлтэй — сонголоо':
       '{name} already exists — selected it',
 
+    // — Эрхийн панелын нэршил: customers.* нь нийлүүлэгч компанийнх —
+    'Нийлүүлэгч компани': 'Supplier company',
+    'Нийлүүлэгч компани харах': 'View supplier companies',
+    'Нийлүүлэгч компани засах': 'Edit supplier companies',
+
     // — Нийлүүлэгчийн самбар (V5) —
     'Нийлүүлэгч': 'Supplier',
     'Танай компани бүртгэгдээгүй байна': 'Your company is not registered yet',

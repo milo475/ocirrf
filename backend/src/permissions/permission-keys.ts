@@ -25,6 +25,18 @@ export const PERM = {
   SUPPLIES_CREATE: 'supplies.create',
   SUPPLIES_PAY: 'supplies.pay',
   // Харилцагч
+  /**
+   * ⚠ Түлхүүрийн нэр нь ТҮҮХЭН шалтгаанаар `customers.*` боловч
+   * бодитоор НИЙЛҮҮЛЭГЧ КОМПАНИЙГ (Company модель) хамгаална:
+   * /companies жагсаалт, /customers/partners, /customers/history,
+   * /companies засварлалт. Энэ системд Company-г зөвхөн нийлүүлэгчид
+   * ашигладаг (User.companyId, Product.companyId, Supply.companyId);
+   * захиалгын хүлээн авагч нь тусдаа модель БИШ, Order дээрх талбарууд.
+   *
+   * Түлхүүрийг ӨӨРЧЛӨХГҮЙ — UserPermission хүснэгтэд override нь
+   * түлхүүрийн мөрөөр хадгалагддаг тул нэр солиход хуучин override-ууд
+   * тасарна. Зөвхөн харагдах текстийг (PERM_LABELS) зассан.
+   */
   CUSTOMERS_VIEW: 'customers.view',
   CUSTOMERS_EDIT: 'customers.edit',
   // Жолооч
@@ -71,8 +83,8 @@ export const PERM_LABELS: Record<PermKey, string> = {
   [PERM.SUPPLIES_VIEW]: 'Нийлүүлэлт харах',
   [PERM.SUPPLIES_CREATE]: 'Нийлүүлэлт хүлээж авах',
   [PERM.SUPPLIES_PAY]: 'Харилцагчид төлбөр хийх',
-  [PERM.CUSTOMERS_VIEW]: 'Харилцагч харах',
-  [PERM.CUSTOMERS_EDIT]: 'Харилцагч засах',
+  [PERM.CUSTOMERS_VIEW]: 'Нийлүүлэгч компани харах',
+  [PERM.CUSTOMERS_EDIT]: 'Нийлүүлэгч компани засах',
   [PERM.DRIVERS_VIEW]: 'Жолооч харах',
   [PERM.DRIVERS_ASSIGN]: 'Жолооч томилох',
   [PERM.DRIVERS_ZONES]: 'Жолоочийн бүс тохируулах',
@@ -110,6 +122,8 @@ export const PERM_GROUPS: { group: string; keys: PermKey[] }[] = [
     ],
   },
   {
+    // Бүлгийн түлхүүр 'CUSTOMERS' хэвээр (API гэрээ) — frontend-ийн
+    // GROUP_LABELS «Нийлүүлэгч компани» гэж харуулна
     group: 'CUSTOMERS',
     keys: [PERM.CUSTOMERS_VIEW, PERM.CUSTOMERS_EDIT],
   },
