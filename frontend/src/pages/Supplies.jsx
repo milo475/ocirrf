@@ -24,7 +24,7 @@ import { formatDateTime, formatMoney } from '../lib/format'
  */
 export default function Supplies() {
   const { t } = useLang()
-  const { hasPerm } = useAuth()
+  const { user, hasPerm } = useAuth()
   const toast = useToast()
   const [tab, setTab] = useState('list')
   const [rows, setRows] = useState(null)
@@ -32,16 +32,22 @@ export default function Supplies() {
   const [error, setError] = useState(null)
   const [newOpen, setNewOpen] = useState(false)
   const [paying, setPaying] = useState(null)
+  /** Дотоод ажилтан бүх компанийг хардаг тул шүүлтүүр хэрэгтэй */
+  const isInternal = !user?.companyId
+  const [filterCo, setFilterCo] = useState('')
 
   const load = useCallback(() => {
     setError(null)
-    Promise.all([api('/supplies'), api('/supplies/balances')])
+    Promise.all([
+      api(`/supplies${filterCo ? `?companyId=${filterCo}` : ''}`),
+      api('/supplies/balances'),
+    ])
       .then(([s, b]) => {
         setRows(s)
         setBalances(b)
       })
       .catch((e) => setError(e))
-  }, [])
+  }, [filterCo])
 
   useEffect(() => {
     load()
@@ -74,7 +80,7 @@ export default function Supplies() {
         )}
       </div>
 
-      <div className="mt-8 flex gap-1 border-b border-rule pb-3">
+      <div className="mt-8 flex gap-1 items-center border-b border-rule pb-3 flex-wrap">
         {[
           ['list', 'Нийлүүлэлтүүд'],
           ['balances', 'Харилцагчийн тооцоо'],
@@ -90,6 +96,23 @@ export default function Supplies() {
             {t(label)}
           </button>
         ))}
+        {isInternal && tab === 'list' && balances && balances.length > 1 && (
+          <select
+            aria-label={t('Харилцагчаар шүүх')}
+            value={filterCo}
+            onChange={(e) => setFilterCo(e.target.value)}
+            className="ml-auto bg-bg border border-rule rounded px-2 py-1.5 text-sm focus:outline-none focus:border-ink-muted"
+          >
+            <option value="">
+              {t('Харилцагч')}: {t('Бүгд')}
+            </option>
+            {balances.map((b) => (
+              <option key={b.companyId} value={b.companyId}>
+                {b.name}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       {rows === null ? (

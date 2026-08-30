@@ -11,6 +11,12 @@ export type AuthUser = {
   mustChangePassword: boolean;
   /** Сүүлд нэвтэрсэн огноо (V4-07) */
   lastLoginAt: Date | null;
+  /**
+   * Аль харилцагч компанийн хүн бэ (V5). Гаднын нийлүүлэгчид л
+   * утгатай; дотоод ажилтанд null. Хандалтын НӨХЦӨЛ биш —
+   * ШҮҮЛТИЙН нөхцөл (доод талын тайлбарыг supplies.service-ээс үз).
+   */
+  companyId: string | null;
 };
 
 /** JwtStrategy.validate-ийн буцаасан хэрэглэгчийг controller-т öгнө */

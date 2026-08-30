@@ -230,6 +230,7 @@ export class AuthService {
         role: user.role,
         mustChangePassword: user.mustChangePassword,
         lastLoginAt: user.lastLoginAt,
+        companyId: user.companyId,
         permissions: [...permissions],
       },
     };

@@ -432,6 +432,8 @@ const DICT = {
     'Нийлүүлэгч компани харах': 'View supplier companies',
     'Нийлүүлэгч компани засах': 'Edit supplier companies',
 
+    'Харилцагчаар шүүх': 'Filter by partner',
+
     // — Нийлүүлэгчийн самбар (V5) —
     'Нийлүүлэгч': 'Supplier',
     'Танай компани бүртгэгдээгүй байна': 'Your company is not registered yet',

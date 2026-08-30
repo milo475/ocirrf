@@ -25,6 +25,10 @@ import {
  * perm — effective permission; anyPerm — аль нэг нь байхад хангалттай;
  * roles — permission-гүй тухайлсан эрхийн цэс. Аль нь ч байхгүй бол
  * нэвтэрсэн бүгдэд. Дараалал = харагдах дараалал.
+ *
+ * requires — эрхээс ГАДНА хуудасны урьдчилсан нөхцөл (V5). Цэс
+ * харагдана гэдэг нь орж болно гэсэн амлалт; эрх байгаа ч тухайн
+ * хуудас утга учиртай ажиллах нөхцөл бүрдээгүй бол харуулахгүй.
  */
 export const NAV_ITEMS = [
   // ── DRIVER ──
@@ -97,6 +101,9 @@ export const NAV_ITEMS = [
     icon: PackageSearch,
     path: '/supplies',
     perm: 'supplies.view',
+    // Компанид холбогдоогүй харилцагчид харуулах зүйл байхгүй
+    // (дотоод ажилтан companyId-гүй ч бүгдийг хардаг)
+    requires: (user) => user.role !== 'OPERATOR' || Boolean(user.companyId),
   },
   {
     key: 'stock',
@@ -209,6 +216,7 @@ export function mobileTabsFor(user, items, max = 4) {
 export function navFor(user, hasPerm) {
   if (!user) return []
   return NAV_ITEMS.filter((item) => {
+    if (item.requires && !item.requires(user)) return false
     if (item.roles) return item.roles.includes(user.role)
     if (item.anyPerm) return item.anyPerm.some(hasPerm)
     if (item.perm) return hasPerm(item.perm)

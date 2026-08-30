@@ -37,6 +37,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       role: user.role,
       mustChangePassword: user.mustChangePassword,
       lastLoginAt: user.lastLoginAt,
+      companyId: user.companyId,
     };
   }
 }

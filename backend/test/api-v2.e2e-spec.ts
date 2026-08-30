@@ -4681,6 +4681,68 @@ describe('ursGAL v2 API (e2e)', () => {
         .expect(403);
     });
 
+    it('компанигүй харилцагч 403 БИШ, хоосон жагсаалт авна ⭐', async () => {
+      // «Цэс харагдана гэдэг нь орж болно гэсэн амлалт» — өмнө нь
+      // компанид холбогдоогүй харилцагчид цэс нь харагдаад дарахад
+      // 403 өгдөг байв. companyId нь ХАНДАЛТЫН биш ШҮҮЛТИЙН нөхцөл.
+      const seed = await api()
+        .post('/api/auth/login')
+        .send({ email: 'operator@ursgal.mn', password: 'operator123' })
+        .expect(200);
+      const lone = seed.body.accessToken;
+      expect(seed.body.user.companyId).toBeNull();
+
+      const list = await api()
+        .get('/api/supplies')
+        .set(auth(lone))
+        .expect(200);
+      expect(list.body).toEqual([]);
+
+      const bal = await api()
+        .get('/api/supplies/balances')
+        .set(auth(lone))
+        .expect(200);
+      expect(bal.body).toEqual([]);
+
+      // Бусдын нийлүүлэлтийг id-гаар ч нээхгүй
+      await api().get(`/api/supplies/${supplyId}`).set(auth(lone)).expect(404);
+    });
+
+    it('дотоод ажилтан бүгдийг, харилцагч ЗӨВХӨН өөрийнхөө хардаг ⭐', async () => {
+      // Дотоод ажилтан (companyId=null) — хязгааргүй
+      const staff = await api()
+        .get('/api/supplies')
+        .set(auth(tok.manager))
+        .expect(200);
+      const companies = new Set(
+        staff.body.map((x: { companyId: string }) => x.companyId),
+      );
+      expect(companies.has(supCompanyId)).toBe(true);
+
+      // companyId шүүлтүүр дотоод ажилтанд ажиллана
+      const filtered = await api()
+        .get(`/api/supplies?companyId=${supCompanyId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(
+        filtered.body.every(
+          (x: { companyId: string }) => x.companyId === supCompanyId,
+        ),
+      ).toBe(true);
+
+      // Компанитай харилцагч — зөвхөн өөрийнх, шүүлтүүр ч түүнийг
+      // тойрч гарахгүй (өмнөх тестүүд үүнийг мөн шалгадаг)
+      const mine = await api()
+        .get(`/api/supplies?companyId=${otherCompanyId}`)
+        .set(auth(partnerToken))
+        .expect(200);
+      expect(
+        mine.body.every(
+          (x: { companyId: string }) => x.companyId === supCompanyId,
+        ),
+      ).toBe(true);
+    });
+
     it('өөр компанийн хүнийг нийлүүлэгч болгож болохгүй → 400', async () => {
       await api()
         .post('/api/supplies')

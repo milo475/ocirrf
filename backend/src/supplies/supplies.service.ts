@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -30,21 +29,21 @@ export class SuppliesService {
   ) {}
 
   /**
-   * Харилцагч нь ЗӨВХӨН өөрийн компанийн нийлүүлэлтийг харна.
-   * (Хоёр харилцагч бие биеийнхээ өртөг, өрийг харах ёсгүй.)
+   * Хэн юуг харах вэ — companyId нь ХАНДАЛТЫН биш ШҮҮЛТИЙН нөхцөл.
+   *
+   * - Дотоод ажилтан (MANAGER/WAREHOUSE/ADMIN): бүх нийлүүлэлт
+   * - Харилцагч (OPERATOR): ЗӨВХӨН өөрийн компанийнх. Хоёр харилцагч
+   *   бие биеийнхээ өртөг, өрийг харах ёсгүй.
+   * - Компанид хараахан ХОЛБОГДООГҮЙ харилцагч: хоосон үр дүн.
+   *   Өмнө нь энд 403 шиддэг байсан тул цэс нь харагдаад дарахад
+   *   алдаа өгдөг байв — «цэс харагдана гэдэг нь орж болно гэсэн
+   *   амлалт». Одоо амлалт зөрчигдөхгүй.
+   *
+   * `undefined` = хязгааргүй, `null` = хоосон үр дүн.
    */
-  private async scopeFor(user: AuthUser): Promise<string | undefined> {
+  private scopeFor(user: AuthUser): string | null | undefined {
     if (user.role !== Role.OPERATOR) return undefined;
-    const me = await this.prisma.user.findUnique({
-      where: { id: user.id },
-      select: { companyId: true },
-    });
-    if (!me?.companyId) {
-      throw new ForbiddenException(
-        'Та ямар ч харилцагч компанид бүртгэгдээгүй байна',
-      );
-    }
-    return me.companyId;
+    return user.companyId ?? null;
   }
 
   /**
@@ -177,7 +176,8 @@ export class SuppliesService {
   }
 
   async findAll(user: AuthUser, companyId?: string, unpaidOnly?: boolean) {
-    const scope = await this.scopeFor(user);
+    const scope = this.scopeFor(user);
+    if (scope === null) return []; // компанид холбогдоогүй харилцагч
     const rows = await this.prisma.supply.findMany({
       where: {
         ...(scope ? { companyId: scope } : companyId ? { companyId } : {}),
@@ -194,12 +194,18 @@ export class SuppliesService {
   }
 
   async findOne(id: string, user: AuthUser) {
-    const scope = await this.scopeFor(user);
+    const scope = this.scopeFor(user);
     const supply = await this.prisma.supply.findUnique({
       where: { id },
       include: SUPPLY_INCLUDE,
     });
-    if (!supply || (scope && supply.companyId !== scope)) {
+    // Компанигүй харилцагчид юу ч нээгдэхгүй; компанитай нь ӨӨРИЙНХӨӨ
+    // хүрээнд — бусдын нийлүүлэлтийг шууд id-гаар нээх боломжгүй
+    if (
+      !supply ||
+      scope === null ||
+      (scope !== undefined && supply.companyId !== scope)
+    ) {
       throw new NotFoundException('Нийлүүлэлт олдсонгүй');
     }
     return { ...supply, dueAmount: supply.totalCost.minus(supply.paidAmount) };
@@ -210,7 +216,8 @@ export class SuppliesService {
    * «Хэдийг төлөх ёстой вэ» гэдэг асуултын хариу энд байна.
    */
   async balances(user: AuthUser) {
-    const scope = await this.scopeFor(user);
+    const scope = this.scopeFor(user);
+    if (scope === null) return []; // компанид холбогдоогүй харилцагч
     const companies = await this.prisma.company.findMany({
       where: { ...(scope ? { id: scope } : {}) },
       select: { id: true, name: true, phone: true, isActive: true },
