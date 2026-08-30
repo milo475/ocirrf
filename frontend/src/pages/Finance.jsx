@@ -236,7 +236,7 @@ export default function Finance() {
       {canViewBoth && summary && (
         <section className="mt-8 border-t border-rule pt-6">
           <div className="grid md:grid-cols-[auto_1fr] gap-8 items-start">
-            <div className="flex [&>*]:basis-44 [&>*]:shrink-0 [&>*]:min-w-0 md:divide-x divide-rule">
+            <div className="grid grid-cols-2 gap-y-6 md:flex md:gap-y-0 [&>*]:min-w-0 md:[&>*]:basis-44 md:[&>*]:shrink-0 md:divide-x divide-rule">
               <MetricCard
                 label={t('Нийт орлого')}
                 value={formatMoneyRound(summary.income)}
@@ -393,7 +393,7 @@ function Receivables({ data, t }) {
   ]
   return (
     <div>
-      <div className="mb-5 flex [&>*]:basis-44 [&>*]:shrink-0 [&>*]:min-w-0 md:divide-x divide-rule">
+      <div className="mb-5 grid grid-cols-2 gap-y-6 md:flex md:gap-y-0 [&>*]:min-w-0 md:[&>*]:basis-44 md:[&>*]:shrink-0 md:divide-x divide-rule">
         <MetricCard
           label={t('Нийт авлага')}
           value={formatMoneyRound(data.totalRemaining)}

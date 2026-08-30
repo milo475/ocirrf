@@ -34,7 +34,7 @@ export default function AdminDashboard() {
       {/* MetricCard ×4 */}
       <Rise delay={60}>
         <section className="mt-16 border-t border-rule pt-8">
-          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 md:divide-x divide-rule">
+          <div className="grid gap-x-4 gap-y-6 md:gap-y-0 grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 md:divide-x divide-rule">
             {/* FinanceEntry-ийн INCOME нийлбэр (төлбөр + гар бүртгэл) */}
             <MetricCard
               label={t('Нийт орлого')}

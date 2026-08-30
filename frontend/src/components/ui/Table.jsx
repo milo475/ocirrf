@@ -35,7 +35,7 @@ export default function Table({
               {columns.map((c) => (
                 <th
                   key={c.key}
-                  className={`font-normal py-2 px-3 first:pl-0 last:pr-0 ${
+                  className={`font-normal py-2 px-3 first:pl-0 last:pr-0 whitespace-nowrap ${
                     c.align === 'right' ? 'text-right' : 'text-left'
                   }`}
                 >
@@ -56,7 +56,10 @@ export default function Table({
                 {columns.map((c) => (
                   <td
                     key={c.key}
-                    className={`py-2.5 px-3 first:pl-0 last:pr-0 ${
+                    /* Утсан дээр багана нарийсахад «ORD-/20260829-/0005»
+                       гэж 3 мөр болж эвдэрдэг байсан — хүснэгт өөрөө
+                       хэвтээгээр гүйдэг тул мөр таслахгүй нь дээр */
+                    className={`py-2.5 px-3 first:pl-0 last:pr-0 whitespace-nowrap ${
                       c.align === 'right' ? 'text-right' : 'text-left'
                     }`}
                   >

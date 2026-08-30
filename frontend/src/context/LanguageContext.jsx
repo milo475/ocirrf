@@ -418,6 +418,8 @@ const DICT = {
     'Бүсгүй жолооч автомат хуваарилалтад орохгүй — гараар л өгнө':
       'Drivers with no zone are skipped by auto-assign — assign them by hand',
 
+    'Цэс': 'Menu',
+
     // — Нийлүүлэлт (V5) —
     'Нийлүүлэлт': 'Supplies',
     'Харилцагчаас хүлээж авсан бараа ба тооцоо':

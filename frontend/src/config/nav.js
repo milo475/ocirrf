@@ -167,6 +167,44 @@ export const NAV_ITEMS = [
   // Тохиргоо sidebar-ын доод хэсэгт тогтмол байдаг (AppShell)
 ]
 
+/**
+ * Утасны доод tab bar-т эрх бүрийн ХАМГИЙН ЧУХАЛ цэсүүд (V5).
+ *
+ * Sidebar-ын дараалал нь бүх эрхэд нэг ижил тул няравын доод барт
+ * «Нүүр, Захиалга, Хүсэлтүүд, Харилцагчид» гарч, өөрийнх нь ажлын
+ * хуудас цэсний ард нуугддаг байв. Эрх бүрт өөрийнх нь өдөр тутмын
+ * зүйлийг эхэнд тавина; жагсаалтад байхгүй бол ердийн дараалал.
+ */
+const MOBILE_TABS = {
+  ADMIN: ['home', 'orders', 'order-requests', 'finance'],
+  MANAGER: ['home', 'orders', 'delivery-ops', 'finance'],
+  SELLER: ['home', 'order-requests', 'orders', 'customers'],
+  WAREHOUSE: ['warehouse', 'orders', 'supplies', 'stock'],
+  OPERATOR: ['home', 'orders', 'supplies', 'products'],
+  DRIVER: ['deliveries', 'home'],
+}
+
+/**
+ * Доод bar-т орох цэсүүд — MOBILE_TABS-ын дарааллаар, зөвхөн тухайн
+ * хэрэглэгчид ХАРАГДДАГ нь. Дутвал ердийн дарааллаас нөхнө.
+ */
+export function mobileTabsFor(user, items, max = 4) {
+  const wanted = MOBILE_TABS[user?.role] ?? []
+  // ⚠ Энэ файл lucide-ээс `Map` icon-ыг импортолдог тул `new Map()`
+  // бичвэл түүнийг дуудаж «not a constructor» гэж унана
+  const picked = []
+  for (const key of wanted) {
+    const item = items.find((i) => i.key === key)
+    if (item && !picked.includes(item)) picked.push(item)
+    if (picked.length === max) break
+  }
+  for (const item of items) {
+    if (picked.length === max) break
+    if (!picked.includes(item)) picked.push(item)
+  }
+  return picked
+}
+
 /** Хэрэглэгчид харагдах цэсүүд — permission эсвэл role-оор шүүнэ */
 export function navFor(user, hasPerm) {
   if (!user) return []

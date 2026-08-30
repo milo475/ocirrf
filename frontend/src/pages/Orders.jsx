@@ -408,7 +408,7 @@ export default function Orders() {
             {s ? t(STATUS_LABELS[s]) : t('Бүгд')}
           </button>
         ))}
-        <div className="ml-auto flex items-end gap-2">
+        <div className="w-full sm:w-auto sm:ml-auto grid grid-cols-2 gap-2 sm:flex sm:items-end">
           <select
             value={district}
             onChange={(e) => {
@@ -472,7 +472,7 @@ export default function Orders() {
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder={t('№, нэр, утас…')}
-            className="w-56"
+            className="col-span-2 sm:col-span-1 w-full sm:w-56"
           />
         </div>
       </div>

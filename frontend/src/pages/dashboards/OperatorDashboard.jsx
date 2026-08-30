@@ -47,7 +47,7 @@ export default function OperatorDashboard() {
       {/* MetricCard ×3 */}
       <Rise delay={60}>
         <section className="mt-16 border-t border-rule pt-8">
-          <div className="grid grid-cols-3 md:divide-x divide-rule">
+          <div className="grid gap-x-4 gap-y-6 md:gap-y-0 grid-cols-3 md:divide-x divide-rule">
             <MetricCard
               label={t('Миний шивсэн захиалга')}
               value={String(data.myOrdersTotal)}
