@@ -117,14 +117,9 @@ export class PublicOrderRequestDto {
   @IsString()
   note?: string;
 
-  /**
-   * Шилжүүлгээ хийсэн эсэх. multipart-аар "true"/"false" ТЕКСТ ирдэг тул
-   * Boolean() ашиглаж болохгүй — "false" нь true болно.
-   */
-  @IsOptional()
-  @Transform(({ value }) => value === true || value === 'true')
-  @IsBoolean()
-  paid?: boolean;
+  // `paid` талбар ХАСАГДСАН (V5): линкээр захиалахын тулд төлбөрөө
+  // хийж, баримтаа хавсаргах ёстой тул «төлөөгүй» гэсэн сонголт
+  // байхгүй. Баримт нь өөрөө төлсний нотолгоо.
 
   /**
    * multipart дээр массив шууд явдаггүй тул JSON ТЕКСТЭЭР ирнэ.

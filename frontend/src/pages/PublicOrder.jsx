@@ -65,7 +65,6 @@ export default function PublicOrder() {
     transport: '',
     addressDetail: '',
     note: '',
-    paid: false,
   })
   const [proof, setProof] = useState(null)
   /** Аль талбарыг хөндсөн бэ — алдааг ярьж эхлээгүй талбар дээр гаргахгүй */
@@ -541,41 +540,25 @@ export default function PublicOrder() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 border border-rule rounded overflow-hidden">
-            {[
-              [true, 'Төлбөрөө хийсэн'],
-              [false, 'Хараахан төлөөгүй'],
-            ].map(([v, label]) => (
-              <button
-                key={String(v)}
-                type="button"
-                onClick={() => setForm((f) => ({ ...f, paid: v }))}
-                className={`py-3 text-sm font-medium ${
-                  form.paid === v
-                    ? v
-                      ? 'bg-safe/15 text-safe'
-                      : 'bg-alarm/15 text-alarm'
-                    : 'text-ink-muted'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
-          {form.paid && (
-            <label className="block">
-              <span className="block text-xs uppercase tracking-wide text-ink-muted mb-1.5">
-                Гүйлгээний баримтын зураг
-              </span>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => setProof(e.target.files?.[0] ?? null)}
-                className="block w-full text-sm text-ink-muted file:mr-3 file:border file:border-rule file:rounded file:bg-bg file:px-3 file:py-1.5 file:text-ink file:text-sm"
-              />
-            </label>
-          )}
+          {/* «Хараахан төлөөгүй» сонголт ХАСАГДСАН (V5): компани бэлэн
+              мөнгөөр үйлчлэхгүй тул линкээр захиалахын тулд эхлээд
+              шилжүүлж, баримтаа хавсаргах ёстой. Баримт нь өөрөө
+              төлсний нотолгоо — тусад нь «төлсөн» гэж дарах шаардлагагүй. */}
+          <label className="block">
+            <span className="block text-xs uppercase tracking-wide text-ink-muted mb-1.5">
+              Гүйлгээний баримтын зураг <span className="text-alarm">*</span>
+            </span>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setProof(e.target.files?.[0] ?? null)}
+              className="block w-full text-sm text-ink-muted file:mr-3 file:border file:border-rule file:rounded file:bg-bg file:px-3 file:py-1.5 file:text-ink file:text-sm"
+            />
+            <span className="block mt-2 text-xs text-ink-muted">
+              Дээрх данс руу шилжүүлээд баримтын зургаа хавсаргана уу.
+              Баримтгүй захиалга хүлээж авахгүй.
+            </span>
+          </label>
 
           {error && (
             <p className="text-sm text-alarm border border-alarm rounded px-3 py-2">
@@ -587,8 +570,16 @@ export default function PublicOrder() {
             <Btn ghost onClick={() => setStep(2)} className="flex-1">
               ← Буцах
             </Btn>
-            <Btn onClick={submit} disabled={busy} className="flex-1">
-              {busy ? 'Илгээж байна…' : 'Захиалга илгээх'}
+            <Btn
+              onClick={submit}
+              disabled={busy || !proof}
+              className="flex-1"
+            >
+              {busy
+                ? 'Илгээж байна…'
+                : proof
+                  ? 'Захиалга илгээх'
+                  : 'Баримтаа хавсаргана уу'}
             </Btn>
           </div>
         </div>

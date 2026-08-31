@@ -3528,7 +3528,7 @@ describe('ursGAL v2 API (e2e)', () => {
         .field('district', 'ХУД')
         .field('khoroo', '11')
         .field('building', 'Э2Э байр')
-        .field('paid', 'true')
+        .attach('proof', PNG, { filename: 'proof.png', contentType: 'image/png' })
         .field('items', JSON.stringify([{ productId, qty: 1 }]))
         .expect(201);
       requestId = res.body.id;
@@ -4080,7 +4080,7 @@ describe('ursGAL v2 API (e2e)', () => {
         .field('district', 'ХУД')
         .field('khoroo', '11')
         .field('building', 'Э2Э байр')
-        .field('paid', 'true')
+        .attach('proof', PNG, { filename: 'proof.png', contentType: 'image/png' })
         .field('items', JSON.stringify([{ productId, qty: 1 }]))
         .expect(201);
       reqId = res.body.id;
@@ -6154,7 +6154,7 @@ describe('ursGAL v2 API (e2e)', () => {
       }
     });
 
-    const submit = async (paidClaim: string) => {
+    const submit = async () => {
       const res = await api()
         .post(`/api/public/order-requests?token=${publicTok}`)
         .field('customerName', `Э2Э Залилан ${T}`)
@@ -6164,7 +6164,7 @@ describe('ursGAL v2 API (e2e)', () => {
         .field('district', 'ХУД')
         .field('khoroo', '1')
         .field('building', '1')
-        .field('paid', paidClaim)
+        .attach('proof', PNG, { filename: 'proof.png', contentType: 'image/png' })
         .field('items', JSON.stringify([{ productId: fraudProductId, qty: 1 }]))
         .expect(201);
       requestIds.push(res.body.id);
@@ -6196,7 +6196,7 @@ describe('ursGAL v2 API (e2e)', () => {
      * Ажилтан данс дээрээ мөнгийг хараагүй бол захиалга үүсэхгүй.
      */
     it('«төлсөн» гэж мэдүүлсэн ч баталгаажуулаагүй бол захиалга үүсэхгүй', async () => {
-      fraudRequestId = await submit('true');
+      fraudRequestId = await submit();
 
       const res = await api()
         .post(`/api/order-requests/${fraudRequestId}/convert`)
@@ -6211,6 +6211,40 @@ describe('ursGAL v2 API (e2e)', () => {
       });
       expect(req.status).toBe('NEW');
       expect(req.orderId).toBeNull();
+    });
+
+    /**
+     * Линкээр захиалахын тулд ЭХЛЭЭД шилжүүлж, баримтаа хавсаргана.
+     * «Дараа төлнө» гэсэн зам байхгүй — компани бэлэн мөнгөөр
+     * үйлчлэхгүй тул баримтгүй хүсэлт нь ажилтанд шалгах юмгүй,
+     * зөвхөн дарааллыг дүүргэдэг.
+     */
+    it('баримтгүй бол нийтийн хүсэлт хүлээж авахгүй', async () => {
+      const res = await api()
+        .post(`/api/public/order-requests?token=${publicTok}`)
+        .field('customerName', `Э2Э Баримтгүй ${T}`)
+        .field('phone', FRAUD_PHONE)
+        .field('channel', 'INSTAGRAM')
+        .field('region', 'ULAANBAATAR')
+        .field('district', 'ХУД')
+        .field('khoroo', '1')
+        .field('building', '1')
+        .field('items', JSON.stringify([{ productId: fraudProductId, qty: 1 }]))
+        .expect(400);
+      expect(res.body.message).toContain('баримт');
+    });
+
+    it('баримттай хүсэлт «төлсөн гэсэн» тэмдэгтэй үүснэ', async () => {
+      const id = await submit();
+      const req = await prisma.orderRequest.findUniqueOrThrow({
+        where: { id },
+      });
+      expect(req.paid).toBe(true);
+      expect(req.paymentProofUrl).toBeTruthy();
+      // Цэвэрлэгээнд орохын тулд
+      await prisma.orderRequestItem.deleteMany({ where: { requestId: id } });
+      await prisma.notification.deleteMany({ where: { refId: id } });
+      await prisma.orderRequest.deleteMany({ where: { id } });
     });
 
     it('баталгаажуулалтын талбаргүй бол хүлээж авахгүй', async () => {
@@ -6232,7 +6266,7 @@ describe('ursGAL v2 API (e2e)', () => {
     });
 
     it('баталгаажуулсан бол захиалга ТӨЛСӨН төлөвтэй үүснэ', async () => {
-      honestRequestId = await submit('true');
+      honestRequestId = await submit();
       const order = await api()
         .post(`/api/order-requests/${honestRequestId}/convert`)
         .set(auth(tok.admin))

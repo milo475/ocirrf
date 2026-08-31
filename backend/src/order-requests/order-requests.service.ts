@@ -113,6 +113,21 @@ export class OrderRequestsService {
   ) {
     await this.assertToken(token);
 
+    /**
+     * ГҮЙЛГЭЭНИЙ БАРИМТ ЗААВАЛ (V5).
+     *
+     * Компани бэлэн мөнгөөр үйлчлэхгүй тул «дараа төлнө» гэсэн зам
+     * байхгүй: линкээр захиалахын тулд эхлээд шилжүүлж, баримтаа
+     * хавсаргана. Баримтгүй хүсэлт нь ажилтанд шалгах юмгүй, зөвхөн
+     * дарааллыг дүүргэдэг.
+     */
+    if (!proofFilename) {
+      throw new BadRequestException(
+        'Гүйлгээний баримтын зураг заавал. Төлбөрөө шилжүүлээд ' +
+          'баримтаа хавсаргана уу.',
+      );
+    }
+
     const ids = dto.items.map((i) => i.productId);
     if (new Set(ids).size !== ids.length) {
       throw new BadRequestException('Нэг бараа давхардаж орсон байна');
@@ -144,7 +159,10 @@ export class OrderRequestsService {
         transport: isUB ? null : (dto.transport ?? null),
         addressDetail: dto.addressDetail ?? null,
         note: dto.note ?? null,
-        paid: dto.paid === true,
+        // Баримтгүйгээр энд хүрэхгүй тул үргэлж true (V5).
+        // Энэ нь «үйлчлүүлэгч төлсөн гэж мэдүүлсэн» гэсэн утгатай —
+        // ажилтан дансаа шалгаж баталгаажуулах хүртэл захиалга болохгүй.
+        paid: true,
         paymentProofUrl: proofFilename ? `/api/uploads/${proofFilename}` : null,
         items: {
           create: dto.items.map((i) => ({
