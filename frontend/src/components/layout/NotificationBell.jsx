@@ -45,11 +45,28 @@ export default function NotificationBell({ unread }) {
     return () => document.removeEventListener('mousedown', onDown)
   }, [])
 
+  /**
+   * Хонх дарж НЭЭХЭД мэдэгдлүүд уншсан болно (V5).
+   *
+   * Өмнө нь мэдэгдлээ хараад ч хонхны улаан тоо хэвээр үлдэж,
+   * шинэ зүйл ирсэн эсэхийг ялгах боломжгүй болдог байв.
+   *
+   * Жагсаалт нь ЭНЭ УДААД шинэ тэмдэглэгээгээ хадгална (дахин
+   * ачаалахгүй) — хэрэглэгч юу шинэ болохыг харсаар байна, зөвхөн
+   * тоо нь тэглэгдэнэ.
+   */
   function toggle() {
     if (!open) {
       setItems(null)
       api('/notifications?limit=10')
-        .then((d) => setItems(d.items))
+        .then((d) => {
+          setItems(d.items)
+          if (d.items.some((n) => !n.isRead)) {
+            api('/notifications/read-all', { method: 'POST' })
+              .then(() => window.dispatchEvent(new Event('notif:refresh')))
+              .catch(() => {})
+          }
+        })
         .catch(() => setItems([]))
     }
     setOpen((o) => !o)
