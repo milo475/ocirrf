@@ -129,11 +129,6 @@ export class CreateOrderDto {
   @IsBoolean()
   paid?: boolean;
 
-  /** Төлсөн үеийн хэлбэр (default CASH) */
-  @IsOptional()
-  @IsEnum(PaymentMethod, { message: 'Төлбөрийн хэлбэр буруу' })
-  paymentMethod?: PaymentMethod;
-
   @IsArray()
   @ArrayMinSize(1, { message: 'Дор хаяж 1 бараа сонгоно' })
   @ValidateNested({ each: true })

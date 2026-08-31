@@ -24,6 +24,10 @@ import { UPLOADS_DIR } from '../uploads.config';
 import { RequirePermission } from '../permissions/require-permission.decorator';
 import { PublicOrderRequestDto } from './dto/public-order-request.dto';
 import { OrderRequestsService } from './order-requests.service';
+import {
+  ConvertRequestDto,
+  RejectRequestDto,
+} from './dto/handle-request.dto';
 
 const IMAGE_MIME: Record<string, string> = {
   'image/jpeg': '.jpg',
@@ -93,18 +97,27 @@ export class OrderRequestsController {
     return { token: await this.service.rotateToken() };
   }
 
+  /**
+   * Захиалга болгох. `paymentConfirmed` нь ажилтан ДАНС ДЭЭРЭЭ мөнгийг
+   * харсан гэдгийн баталгаа — үйлчлүүлэгчийн мэдүүлэг биш (V5).
+   */
   @Post(':id/convert')
   @RequirePermission(PERM.ORDERS_CREATE)
   convert(
     @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ConvertRequestDto,
     @CurrentUser() user: AuthUser,
   ) {
-    return this.service.convert(id, user);
+    return this.service.convert(id, user, dto.paymentConfirmed === true);
   }
 
   @Post(':id/reject')
   @RequirePermission(PERM.ORDERS_CREATE)
-  reject(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser) {
-    return this.service.reject(id, user);
+  reject(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RejectRequestDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.service.reject(id, user, dto.reason);
   }
 }

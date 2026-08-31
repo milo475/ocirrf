@@ -4,6 +4,7 @@ import CustomerHistoryModal from '../components/customers/CustomerHistoryModal'
 import Button from '../components/ui/Button'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import EmptyState from '../components/ui/EmptyState'
+import Input from '../components/ui/Input'
 import Modal from '../components/ui/Modal'
 import Spinner from '../components/ui/Spinner'
 import { useToast } from '../components/ui/Toast'
@@ -29,6 +30,8 @@ export default function OrderRequests() {
   const [error, setError] = useState(null)
   const [busyId, setBusyId] = useState(null)
   const [rejecting, setRejecting] = useState(null)
+  const [rejectReason, setRejectReason] = useState('')
+  const [confirming, setConfirming] = useState(null)
   const [proof, setProof] = useState(null)
   const [link, setLink] = useState(null)
   const [history, setHistory] = useState(null)
@@ -54,10 +57,20 @@ export default function OrderRequests() {
       .catch(() => {})
   }, [])
 
+  /**
+   * Захиалга болгох — ЗӨВХӨН данс дээр мөнгийг харсны дараа.
+   *
+   * Үйлчлүүлэгчийн «Төлбөрөө хийсэн» товч нь мэдүүлэг, баримт биш.
+   * Тиймээс ажилтнаас тусгайлан баталгаажуулалт асууна: дарсан
+   * тохиолдолд захиалга ТӨЛСӨН төлөвтэй үүсч, орлого бичигдэнэ.
+   */
   async function convert(r) {
     setBusyId(r.id)
     try {
-      const order = await api(`/order-requests/${r.id}/convert`, { method: 'POST' })
+      const order = await api(`/order-requests/${r.id}/convert`, {
+        method: 'POST',
+        body: { paymentConfirmed: true },
+      })
       toast.show(t('Захиалга {no} үүслээ', { no: order.orderNo }))
       // Батласан даруйд дараагийн ажил нь ЖОЛООЧ ХУВААРИЛАХ — цонхыг
       // нь шууд нээж өгнө, ажилтан нэмэлт товч хайхгүй
@@ -71,8 +84,12 @@ export default function OrderRequests() {
   async function reject() {
     setBusyId(rejecting.id)
     try {
-      await api(`/order-requests/${rejecting.id}/reject`, { method: 'POST' })
+      await api(`/order-requests/${rejecting.id}/reject`, {
+        method: 'POST',
+        body: { reason: rejectReason.trim() || undefined },
+      })
       toast.show(t('Хүсэлт хаагдлаа'))
+      setRejectReason('')
       setRejecting(null)
       load()
     } catch (e) {
@@ -226,7 +243,7 @@ export default function OrderRequests() {
                       <>
                         <Button
                           loading={busyId === r.id}
-                          onClick={() => convert(r)}
+                          onClick={() => setConfirming(r)}
                         >
                           {t('Захиалга болгох')}
                         </Button>
@@ -263,16 +280,76 @@ export default function OrderRequests() {
         {proof && <img src={proof} alt={t('Гүйлгээний баримт')} className="w-full rounded" />}
       </Modal>
 
+      {/* Захиалга болгох нь САНХҮҮГИЙН шийдвэр — дансаа шалгасныг
+          тусгайлан асууна. Дарсан даруйд орлого бичигдэнэ. */}
       <ConfirmDialog
-        open={!!rejecting}
-        title={t('Хүсэлт хаах')}
-        message={t('Энэ хүсэлтийг хаах уу? Захиалга үүсэхгүй.')}
-        confirmLabel={t('Хаах')}
-        danger
-        loading={busyId === rejecting?.id}
-        onConfirm={reject}
-        onCancel={() => setRejecting(null)}
+        open={!!confirming}
+        title={t('Дансанд мөнгө орсон уу?')}
+        message={`${confirming?.customerName ?? ''} · ${
+          confirming ? formatMoney(confirming.total) : ''
+        }\n\n${t(
+          'Дансаа шалгаж, энэ дүн орсныг баталсан үед л «Тийм» дарна уу. Дарсан даруйд захиалга ТӨЛСӨН болж, орлогод бичигдэнэ. Мөнгө ороогүй бол «Үгүй» дараад хүсэлтийг хаана.',
+        )}`}
+        confirmLabel={t('Тийм, мөнгө орсон')}
+        cancelLabel={t('Үгүй')}
+        loading={busyId === confirming?.id}
+        onConfirm={() => {
+          const r = confirming
+          setConfirming(null)
+          convert(r)
+        }}
+        onCancel={() => setConfirming(null)}
       />
+
+      <Modal
+        open={!!rejecting}
+        onClose={() => setRejecting(null)}
+        title={t('Хүсэлт хаах')}
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-ink-muted">
+            {t('Захиалга үүсэхгүй. Шалтгааныг бичвэл хожим дахин ийм оролдлого гарвал таних боломжтой.')}
+          </p>
+          <div className="flex gap-2 flex-wrap">
+            {[
+              'Дансанд мөнгө ороогүй',
+              'Баримт хуурамч',
+              'Хаяг/утас буруу',
+            ].map((rr) => (
+              <button
+                key={rr}
+                type="button"
+                onClick={() => setRejectReason(rr)}
+                className={`px-2.5 py-1.5 text-xs rounded border transition-colors ${
+                  rejectReason === rr
+                    ? 'border-ink bg-surface text-ink'
+                    : 'border-rule text-ink-muted hover:text-ink'
+                }`}
+              >
+                {t(rr)}
+              </button>
+            ))}
+          </div>
+          <Input
+            id="rej-reason"
+            label={t('Шалтгаан')}
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+          />
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="ghost" onClick={() => setRejecting(null)}>
+              {t('Болих')}
+            </Button>
+            <Button
+              variant="danger"
+              loading={busyId === rejecting?.id}
+              onClick={reject}
+            >
+              {t('Хаах')}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

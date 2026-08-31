@@ -14,9 +14,7 @@ const DICT = {
     'table.range': '{from}–{to} / нийт {total}',
     'finance.income': 'Орлого',
     'finance.expense': 'Зарлага',
-    'pay.cash': 'Бэлэн',
     'pay.transfer': 'Шилжүүлэг',
-    'pay.card': 'Карт',
     'pay.remaining': 'Үлдэгдэл',
     'ret.partial': 'Хэсэгчлэн буцаасан',
     'ret.full': 'Буцаасан',
@@ -314,9 +312,7 @@ const DICT = {
     'Ашиг': 'Profit',
     'Нийт ашиг': 'Total profit',
     'Нэгжийн өртөг (₮)': 'Unit cost (₮)',
-    'pay.cash': 'Cash',
     'pay.transfer': 'Transfer',
-    'pay.card': 'Card',
     'pay.remaining': 'Remaining',
 
     // — Буцаалт (V4-04) —

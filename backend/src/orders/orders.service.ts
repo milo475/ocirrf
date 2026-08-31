@@ -274,12 +274,8 @@ export class OrdersService {
       // ОРЛОГО = ТӨЛБӨР зарчмаар Payment + INCOME entry нэг transaction-д.
       // (customer-ийн илгээсэн paid флагийг create() дээр хаясан байдаг.)
       if (markPaid && totalAmount.gt(0)) {
-        const METHOD_MN: Record<string, string> = {
-          CASH: 'Бэлэн',
-          TRANSFER: 'Шилжүүлэг',
-          CARD: 'Карт',
-        };
-        const method = dto.paymentMethod ?? PaymentMethod.CASH;
+        // Бэлэн мөнгө системд байхгүй (V5) — бүх төлбөр шилжүүлэг
+        const method = PaymentMethod.TRANSFER;
         const payment = await tx.payment.create({
           data: {
             orderId: order.id,
@@ -294,7 +290,7 @@ export class OrdersService {
             type: FinanceType.INCOME,
             category: 'PAYMENT',
             amount: totalAmount,
-            note: `Төлбөр ${orderNo} (${METHOD_MN[method]})`,
+            note: `Төлбөр ${orderNo} (Шилжүүлэг)`,
             refOrderId: order.id,
             refPaymentId: payment.id,
             createdById: userId,

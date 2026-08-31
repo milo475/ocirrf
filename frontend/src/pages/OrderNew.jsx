@@ -106,7 +106,6 @@ export default function OrderNew() {
   // Төлбөр төлсөн эсэх — "Төлсөн" бол бүтэн төлбөр захиалгатай хамт бүртгэгдэнэ
   const [channel, setChannel] = useState('INSTAGRAM')
   const [paid, setPaid] = useState(false)
-  const [payMethod, setPayMethod] = useState('CASH')
 
   const isUB = form.region === 'ULAANBAATAR'
   const set = (key) => (e) => {
@@ -208,7 +207,7 @@ export default function OrderNew() {
           ...addr,
           // "Төлсөн" сонгосон бол бүтэн төлбөр хамт бүртгэгдэнэ (staff л)
           channel,
-          ...(paid ? { paid: true, paymentMethod: payMethod } : {}),
+          ...(paid ? { paid: true } : {}),
           items: items.map((i) => ({
             productId: i.product.id,
             qty: Number(i.qty),
@@ -566,16 +565,9 @@ export default function OrderNew() {
                   </button>
                 </div>
                 {paid && (
-                  <select
-                    value={payMethod}
-                    onChange={(e) => setPayMethod(e.target.value)}
-                    aria-label={t('Хэлбэр')}
-                    className="bg-bg border border-rule rounded px-2 py-2 text-sm focus:outline-none focus:border-ink-muted"
-                  >
-                    <option value="CASH">{t('pay.cash')}</option>
-                    <option value="TRANSFER">{t('pay.transfer')}</option>
-                    <option value="CARD">{t('pay.card')}</option>
-                  </select>
+                  <span className="text-sm text-ink-muted self-center">
+                    {t('pay.transfer')}
+                  </span>
                 )}
               </div>
             )}

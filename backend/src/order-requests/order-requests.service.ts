@@ -202,7 +202,22 @@ export class OrderRequestsService {
    * Захиалга үүсгэх бүх дүрэм (үлдэгдэл шалгах, orderNo, төлбөр)
    * OrdersService-ийнхээрээ явна.
    */
-  async convert(id: string, user: AuthUser) {
+  /**
+   * Хүсэлтийг ЗАХИАЛГА болгоно.
+   *
+   * ═══ ТӨЛБӨР УРЬДЧИЛЖ ОРСОН БАЙХ ЁСТОЙ (V5) ═══
+   * Компанийн дүрэм: бэлэн мөнгөөр үйлчлэхгүй, мөнгө дансанд орсны
+   * ДАРАА л бараа хөдөлнө. Тиймээс захиалга үүсэх нөхцөл нь
+   * «ажилтан данс дээрээ мөнгийг ХАРСАН» явдал.
+   *
+   * Үйлчлүүлэгчийн дарсан «Төлбөрөө хийсэн» товч нь ЗӨВХӨН МЭДҮҮЛЭГ —
+   * баримт биш. Өмнө нь систем түүнд шууд итгэж, захиалгыг ТӨЛСӨН
+   * гэж үүсгээд орлого бичдэг байв. Мөнгө ороогүй байсан ч.
+   *
+   * Одоо ажилтан `paymentConfirmed: true` гэж ТУСГАЙЛАН баталгаажуулна.
+   * Мөнгө ороогүй бол энэ биш, `reject`-ийг ашиглана.
+   */
+  async convert(id: string, user: AuthUser, paymentConfirmed: boolean) {
     const request = await this.prisma.orderRequest.findUnique({
       where: { id },
       include: { items: true },
@@ -212,6 +227,12 @@ export class OrderRequestsService {
     }
     if (request.status !== OrderRequestStatus.NEW) {
       throw new BadRequestException('Энэ хүсэлт аль хэдийн боловсруулагдсан');
+    }
+    if (!paymentConfirmed) {
+      throw new BadRequestException(
+        'Дансанд мөнгө орсныг баталгаажуулаагүй байна. Мөнгө ороогүй бол ' +
+          'хүсэлтийг «Төлбөр ороогүй» гэж татгалзана уу.',
+      );
     }
 
     const order = await this.orders.create(
@@ -232,7 +253,8 @@ export class OrderRequestsService {
         addressDetail: request.addressDetail ?? undefined,
         note: request.note ?? undefined,
         channel: request.channel,
-        paid: request.paid,
+        // Үйлчлүүлэгчийн мэдүүлэг биш — АЖИЛТНЫ баталгаажуулалт
+        paid: true,
         items: request.items.map((i) => ({
           productId: i.productId,
           qty: i.qty,
@@ -266,7 +288,14 @@ export class OrderRequestsService {
   }
 
   /** Хогийн/буруу хүсэлт — устгахгүй, зөвхөн тэмдэглэнэ */
-  async reject(id: string, user: AuthUser) {
+  /**
+   * Хүсэлтээс татгалзана.
+   *
+   * Гол хэрэглээ нь «мөнгө ороогүй»: үйлчлүүлэгч төлсөн гэж
+   * тэмдэглэсэн ч данс дээр байхгүй. Шалтгааныг бичиж үлдээвэл
+   * давтан оролдлого хийдэг дугаарыг хожим таних боломжтой.
+   */
+  async reject(id: string, user: AuthUser, reason?: string) {
     const request = await this.prisma.orderRequest.findUnique({
       where: { id },
     });
@@ -277,6 +306,7 @@ export class OrderRequestsService {
       where: { id },
       data: {
         status: OrderRequestStatus.REJECTED,
+        rejectReason: reason?.trim() || null,
         handledById: user.id,
         handledAt: new Date(),
       },

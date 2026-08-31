@@ -507,19 +507,16 @@ export default function OrderDetail() {
   )
 }
 
-const PAY_METHODS = [
-  ['CASH', 'pay.cash'],
-  ['TRANSFER', 'pay.transfer'],
-  ['CARD', 'pay.card'],
-]
-const methodLabel = (m) =>
-  PAY_METHODS.find(([k]) => k === m)?.[1] ?? m
+/**
+ * Төлбөр зөвхөн ШИЛЖҮҮЛЭГ (V5) — компани бэлэн мөнгөөр үйлчлэхгүй.
+ * Сонголт байхгүй тул алдаа гарах, зөрчих ч боломжгүй.
+ */
+const methodLabel = (m) => (m === 'TRANSFER' ? 'pay.transfer' : m)
 
 /** Төлбөрийн хэсэг: статус, дүнгүүд, түүх, бүртгэх/устгах */
 function PaymentSection({ order, onChanged, t, toast, hasPerm }) {
   const [formOpen, setFormOpen] = useState(false)
   const [amount, setAmount] = useState('')
-  const [method, setMethod] = useState('CASH')
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
@@ -531,7 +528,6 @@ function PaymentSection({ order, onChanged, t, toast, hasPerm }) {
 
   function openForm() {
     setAmount(String(remaining))
-    setMethod('CASH')
     setNote('')
     setError(null)
     setFormOpen(true)
@@ -546,7 +542,7 @@ function PaymentSection({ order, onChanged, t, toast, hasPerm }) {
         method: 'POST',
         body: {
           amount: amount.trim(),
-          method,
+          method: 'TRANSFER', // бэлэн мөнгө системд байхгүй (V5)
           ...(note.trim() ? { note: note.trim() } : {}),
         },
       })
@@ -666,18 +662,9 @@ function PaymentSection({ order, onChanged, t, toast, hasPerm }) {
             onChange={(e) => setAmount(e.target.value)}
             className="font-mono"
           />
-          <Select
-            id="pay-method"
-            label={t('Хэлбэр')}
-            value={method}
-            onChange={(e) => setMethod(e.target.value)}
-          >
-            {PAY_METHODS.map(([value, label]) => (
-              <option key={value} value={value}>
-                {t(label)}
-              </option>
-            ))}
-          </Select>
+          <p className="text-sm text-ink-muted">
+            {t('Хэлбэр')}: {t('pay.transfer')}
+          </p>
           <Input
             id="pay-note"
             label={t('Тэмдэглэл')}

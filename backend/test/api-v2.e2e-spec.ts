@@ -1642,7 +1642,7 @@ describe('ursGAL v2 API (e2e)', () => {
       const p1 = await api()
         .post(`/api/orders/${orderId}/payments`)
         .set(auth(tok.manager))
-        .send({ amount: '1500.00', method: 'CASH' })
+        .send({ amount: '1500.00', method: 'TRANSFER' })
         .expect(201);
       expect(p1.body.order.paymentStatus).toBe('PARTIAL');
       expect(p1.body.order.paidAmount).toBe('1500');
@@ -1661,7 +1661,7 @@ describe('ursGAL v2 API (e2e)', () => {
       await api()
         .post(`/api/orders/${orderId}/payments`)
         .set(auth(tok.manager))
-        .send({ amount: '3000.00', method: 'CASH' })
+        .send({ amount: '3000.00', method: 'TRANSFER' })
         .expect(400);
 
       // Бүрэн төлөлт → PAID, авлагаас алга болно
@@ -1683,7 +1683,7 @@ describe('ursGAL v2 API (e2e)', () => {
       await api()
         .post(`/api/orders/${orderId}/payments`)
         .set(auth(tok.manager))
-        .send({ amount: '1.00', method: 'CASH' })
+        .send({ amount: '1.00', method: 'TRANSFER' })
         .expect(400);
 
       // Устгахад буцаж PARTIAL + INCOME нь устна
@@ -1720,7 +1720,7 @@ describe('ursGAL v2 API (e2e)', () => {
       await api()
         .post(`/api/orders/${orderId}/payments`)
         .set(auth(tok.operator))
-        .send({ amount: '1.00', method: 'CASH' })
+        .send({ amount: '1.00', method: 'TRANSFER' })
         .expect(403);
     });
 
@@ -1775,7 +1775,7 @@ describe('ursGAL v2 API (e2e)', () => {
         [0, 1, 2, 3].map(() =>
           payments.addPayment(
             raceOrderId,
-            { amount: total, method: 'CASH' },
+            { amount: total, method: 'TRANSFER' },
             mgr.body,
           ),
         ),
@@ -2771,7 +2771,7 @@ describe('ursGAL v2 API (e2e)', () => {
       const pay = await api()
         .post(`/api/orders/${retOrderId}/payments`)
         .set(auth(tok.manager))
-        .send({ amount: ord.body.totalAmount, method: 'CASH' })
+        .send({ amount: ord.body.totalAmount, method: 'TRANSFER' })
         .expect(201);
       expect(pay.body.order.paymentStatus).toBe('PAID');
     });
@@ -3577,6 +3577,7 @@ describe('ursGAL v2 API (e2e)', () => {
       const order = await api()
         .post(`/api/order-requests/${requestId}/convert`)
         .set(auth(tok.manager))
+        .send({ paymentConfirmed: true }) // ажилтан данс дээрээ харсан (V5)
         .expect(201);
       convertedOrderId = order.body.id;
       feeOrderIds.push(convertedOrderId);
@@ -3597,6 +3598,7 @@ describe('ursGAL v2 API (e2e)', () => {
       await api()
         .post(`/api/order-requests/${requestId}/convert`)
         .set(auth(tok.manager))
+        .send({ paymentConfirmed: true })
         .expect(400);
     });
   });
@@ -4113,6 +4115,7 @@ describe('ursGAL v2 API (e2e)', () => {
       const order = await api()
         .post(`/api/order-requests/${reqId}/convert`)
         .set(auth(sellerToken))
+        .send({ paymentConfirmed: true }) // борлуулагч данс дээрээ харсан (V5)
         .expect(201);
       sellerOrderId = order.body.id;
       feeOrderIds.push(sellerOrderId);
@@ -5310,7 +5313,6 @@ describe('ursGAL v2 API (e2e)', () => {
           customerPhone: `5${T}`,
           ...UB_ADDR,
           paid: true,
-          paymentMethod: 'TRANSFER',
           items: [{ productId, qty: 1 }],
         })
         .expect(201);
@@ -6050,7 +6052,6 @@ describe('ursGAL v2 API (e2e)', () => {
           ...UB_ADDR,
           items: [{ productId: payProductId, qty: 2 }],
           paid: true,
-          paymentMethod: 'CASH',
         })
         .expect(201);
       paidOrderId = order.body.id;
@@ -6115,6 +6116,146 @@ describe('ursGAL v2 API (e2e)', () => {
         select: { id: true, category: true, amount: true, note: true },
       });
       expect(orphans).toEqual([]);
+    });
+  });
+
+
+  describe('V5: Зөвхөн шилжүүлэг — залилангаас хамгаалах ⭐', () => {
+    let fraudProductId: string;
+    let fraudRequestId: string;
+    let honestRequestId: string;
+    let honestOrderId: string;
+    let publicTok: string;
+    const FRAUD_PHONE = `2${T.slice(0, 6)}7`;
+
+    afterAll(async () => {
+      for (const id of [fraudRequestId, honestRequestId].filter(Boolean)) {
+        await prisma.notification.deleteMany({ where: { refId: id } });
+        // Мөрүүд нь cascade-аар устдаг ч тодорхой байлгахын тулд
+        await prisma.orderRequestItem.deleteMany({ where: { requestId: id } });
+        await prisma.orderRequest.deleteMany({ where: { id } });
+      }
+      if (honestOrderId) {
+        await prisma.financeEntry.deleteMany({
+          where: { refOrderId: honestOrderId },
+        });
+        await prisma.payment.deleteMany({ where: { orderId: honestOrderId } });
+        await prisma.notification.deleteMany({ where: { refId: honestOrderId } });
+        await prisma.orderItem.deleteMany({
+          where: { orderId: honestOrderId },
+        });
+        await prisma.order.deleteMany({ where: { id: honestOrderId } });
+      }
+      if (fraudProductId) {
+        await prisma.stockMovement.deleteMany({
+          where: { productId: fraudProductId },
+        });
+        await prisma.product.deleteMany({ where: { id: fraudProductId } });
+      }
+    });
+
+    const submit = async (paidClaim: string) => {
+      const res = await api()
+        .post(`/api/public/order-requests?token=${publicTok}`)
+        .field('customerName', `Э2Э Залилан ${T}`)
+        .field('phone', FRAUD_PHONE)
+        .field('channel', 'INSTAGRAM')
+        .field('region', 'ULAANBAATAR')
+        .field('district', 'ХУД')
+        .field('khoroo', '1')
+        .field('building', '1')
+        .field('paid', paidClaim)
+        .field('items', JSON.stringify([{ productId: fraudProductId, qty: 1 }]))
+        .expect(201);
+      requestIds.push(res.body.id);
+      return res.body.id as string;
+    };
+
+    it('бэлтгэл', async () => {
+      const prod = await api()
+        .post('/api/products')
+        .set(auth(tok.admin))
+        .send({ sku: `${SKU}-FRAUD`, name: `Э2Э Залилан ${T}`, price: '50000' })
+        .expect(201);
+      fraudProductId = prod.body.id;
+      await api()
+        .post('/api/stock/adjust')
+        .set(auth(tok.admin))
+        .send({ productId: fraudProductId, qtyChange: 10, reason: 'PURCHASE_IN' })
+        .expect(201);
+
+      const link = await api()
+        .get('/api/order-requests/link')
+        .set(auth(tok.admin))
+        .expect(200);
+      publicTok = link.body.token;
+    });
+
+    /**
+     * ⭐ ГОЛ ДҮРЭМ: үйлчлүүлэгчийн «Төлбөрөө хийсэн» товч нь МЭДҮҮЛЭГ.
+     * Ажилтан данс дээрээ мөнгийг хараагүй бол захиалга үүсэхгүй.
+     */
+    it('«төлсөн» гэж мэдүүлсэн ч баталгаажуулаагүй бол захиалга үүсэхгүй', async () => {
+      fraudRequestId = await submit('true');
+
+      const res = await api()
+        .post(`/api/order-requests/${fraudRequestId}/convert`)
+        .set(auth(tok.admin))
+        .send({ paymentConfirmed: false })
+        .expect(400);
+      expect(res.body.message).toContain('баталгаажуулаагүй');
+
+      // Хүсэлт хөндөгдөөгүй, үлдэгдэл хөдлөөгүй
+      const req = await prisma.orderRequest.findUniqueOrThrow({
+        where: { id: fraudRequestId },
+      });
+      expect(req.status).toBe('NEW');
+      expect(req.orderId).toBeNull();
+    });
+
+    it('баталгаажуулалтын талбаргүй бол хүлээж авахгүй', async () => {
+      await api()
+        .post(`/api/order-requests/${fraudRequestId}/convert`)
+        .set(auth(tok.admin))
+        .send({})
+        .expect(400);
+    });
+
+    it('мөнгө ороогүй хүсэлтийг шалтгаантай татгалзана', async () => {
+      const res = await api()
+        .post(`/api/order-requests/${fraudRequestId}/reject`)
+        .set(auth(tok.admin))
+        .send({ reason: 'Дансанд мөнгө ороогүй' })
+        .expect(201);
+      expect(res.body.status).toBe('REJECTED');
+      expect(res.body.rejectReason).toBe('Дансанд мөнгө ороогүй');
+    });
+
+    it('баталгаажуулсан бол захиалга ТӨЛСӨН төлөвтэй үүснэ', async () => {
+      honestRequestId = await submit('true');
+      const order = await api()
+        .post(`/api/order-requests/${honestRequestId}/convert`)
+        .set(auth(tok.admin))
+        .send({ paymentConfirmed: true })
+        .expect(201);
+      honestOrderId = order.body.id;
+      expect(order.body.paymentStatus).toBe('PAID');
+
+      // Төлбөр нь ЗӨВХӨН ШИЛЖҮҮЛЭГ байна — бэлэн мөнгө системд байхгүй
+      const payments = await prisma.payment.findMany({
+        where: { orderId: honestOrderId },
+      });
+      expect(payments).toHaveLength(1);
+      expect(payments[0].method).toBe('TRANSFER');
+    });
+
+    it('бэлэн мөнгөөр төлбөр бүртгэх боломжгүй', async () => {
+      const res = await api()
+        .post(`/api/orders/${honestOrderId}/payments`)
+        .set(auth(tok.admin))
+        .send({ amount: '1000', method: 'CASH' })
+        .expect(400);
+      expect(JSON.stringify(res.body.message)).toContain('Хэлбэр буруу');
     });
   });
 
