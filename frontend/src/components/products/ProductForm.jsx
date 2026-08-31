@@ -23,6 +23,9 @@ export default function ProductForm({
     price: initial?.price ?? '',
     costPrice: initial?.costPrice ?? '',
     lowStockLimit: initial?.lowStockLimit ?? 5,
+    // Хоосон = тохиргооны ерөнхий утга. `?? ''` нь 0-г хадгална
+    // (0 нь «давтан захиалгад орохгүй» гэсэн утгатай).
+    daysSupply: initial?.daysSupply ?? '',
   })
 
   const set = (key) => (e) =>
@@ -38,6 +41,11 @@ export default function ProductForm({
         ? { costPrice: String(values.costPrice).trim() }
         : {}),
       lowStockLimit: Number(values.lowStockLimit),
+      // Хоосон бол null — «ерөнхий утгыг хэрэглэ» гэсэн үг
+      daysSupply:
+        String(values.daysSupply).trim() === ''
+          ? null
+          : Number(values.daysSupply),
       ...(values.categoryId ? { categoryId: values.categoryId } : {}),
       ...(values.companyId ? { companyId: values.companyId } : {}),
     })
@@ -101,6 +109,22 @@ export default function ProductForm({
         onChange={set('lowStockLimit')}
         className="font-mono"
       />
+      <Input
+        id="p-days"
+        label={t('Нэг ширхэг хэдэн хоног хүрэх вэ')}
+        type="number"
+        min="0"
+        step="1"
+        placeholder={t('хоосон = ерөнхий утга')}
+        value={values.daysSupply}
+        onChange={set('daysSupply')}
+        className="font-mono"
+      />
+      <p className="-mt-2 text-xs text-ink-muted">
+        {t(
+          'Давтан захиалгын сануулгад ашиглана. 0 бол энэ бараа сануулгад орохгүй.',
+        )}
+      </p>
       <Input
         id="p-price"
         label={t('Үнэ (₮)')}

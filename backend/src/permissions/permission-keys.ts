@@ -98,7 +98,12 @@ export const PERM_LABELS: Record<PermKey, string> = {
   [PERM.SUPPLIES_VIEW]: 'Нийлүүлэлт харах',
   [PERM.SUPPLIES_CREATE]: 'Нийлүүлэлт хүлээж авах',
   [PERM.SUPPLIES_PAY]: 'Харилцагчид төлбөр хийх',
-  [PERM.CUSTOMERS_VIEW]: 'Нийлүүлэгч компани харах',
+  // ⚠ Энэ түлхүүр ХОЁР зүйлийг нээдэг: нийлүүлэгч компанийн жагсаалт
+  // БА худалдан авагчийн утас/худалдан авалтын түүх (/customers/history,
+  // /customers/by-phone, /reorders). Нэрийг нь «Нийлүүлэгч компани»
+  // гэж бичвэл админ зөвхөн нийлүүлэгч гэж ойлгоод үйлчлүүлэгчийн
+  // мэдээллийг санамсаргүй нээж өгнө.
+  [PERM.CUSTOMERS_VIEW]: 'Нийлүүлэгч ба худалдан авагч харах',
   [PERM.CUSTOMERS_EDIT]: 'Нийлүүлэгч компани засах',
   [PERM.DRIVERS_VIEW]: 'Жолооч харах',
   [PERM.DRIVERS_ASSIGN]: 'Маршрутын дараалал тавих',

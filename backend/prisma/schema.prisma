@@ -453,6 +453,13 @@ model Product {
   costPrice     Decimal  @default(0) @db.Decimal(12, 2) // өртөг (v4) — сүүлийн орлогын үнэ
   stockQty      Int      @default(0)
   lowStockLimit Int      @default(5) // үүнээс доош орвол анхааруулга
+  /// Нэг ширхэг нь хэрэглэгчид ХЭДЭН ХОНОГ хүрэх вэ (V5).
+  /// Давтан захиалгын таамаглалд ашиглана — нэмэлт бүтээгдэхүүн
+  /// дуусах дөхөхөд үйлчлүүлэгчид сануулна.
+  ///   null → тохиргооны ерөнхий утгыг хэрэглэнэ
+  ///   0    → энэ бараа давтан захиалгад ОРОХГҮЙ (сав, багаж гэх мэт)
+  ///   N    → N хоног
+  daysSupply    Int?
   unit          String   @default("ш")
   imageUrl      String?
   isActive      Boolean  @default(true)

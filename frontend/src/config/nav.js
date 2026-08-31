@@ -11,6 +11,7 @@ import {
   Package,
   PackageSearch,
   PlusCircle,
+  Repeat,
   ScrollText,
   Truck,
   UserRound,
@@ -107,6 +108,13 @@ export const NAV_ITEMS = [
     requires: (user) => user.role !== 'OPERATOR' || Boolean(user.companyId),
   },
   {
+    key: 'reorders',
+    label: 'Дахин захиалга',
+    icon: Repeat,
+    path: '/reorders',
+    perm: 'customers.view',
+  },
+  {
     key: 'stock',
     label: 'Агуулах',
     icon: Boxes,
@@ -193,7 +201,7 @@ export const NAV_ITEMS = [
 const MOBILE_TABS = {
   ADMIN: ['home', 'orders', 'order-requests', 'finance'],
   MANAGER: ['home', 'orders', 'delivery-ops', 'finance'],
-  SELLER: ['home', 'order-requests', 'orders', 'customers'],
+  SELLER: ['home', 'order-requests', 'orders', 'reorders'],
   WAREHOUSE: ['warehouse', 'orders', 'expiry', 'stock'],
   OPERATOR: ['home', 'orders', 'supplies', 'products'],
   DRIVER: ['deliveries', 'home'],

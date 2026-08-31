@@ -5652,4 +5652,199 @@ describe('ursGAL v2 API (e2e)', () => {
     });
   });
 
+
+  describe('V5: Давтан захиалгын сануулга ⭐', () => {
+    let roProductId: string; // 10 хоног хүрдэг бараа
+    let skipProductId: string; // daysSupply = 0 — сануулгад ОРОХГҮЙ
+    const roOrderIds: string[] = [];
+    /**
+     * ⚠ УТАСНЫ ОРОН ЗАЙ: сануулгын логик нь хүний ХАМГИЙН СҮҮЛИЙН
+     * захиалгыг хардаг. Өөр тест ижил утсаар шинэ захиалга үүсгэвэл
+     * миний хойш татсан захиалга дарагдаж, тест «шалтгаангүй» унана.
+     * `9/7/6/8/5/4/3/1` угтварууд бусад тестүүдэд ашиглагдсан тул
+     * энэ блок бүхэлдээ ЧӨЛӨӨТ «2» угтварыг эзэмшинэ.
+     */
+    const RO_PHONE = `2${T.slice(0, 6)}1`;
+    const SKIP_PHONE = `2${T.slice(0, 6)}2`;
+    const CANCEL_PHONE = `2${T.slice(0, 6)}3`;
+
+    afterAll(async () => {
+      if (roOrderIds.length) {
+        await prisma.notification.deleteMany({
+          where: { refId: { in: roOrderIds } },
+        });
+        await prisma.orderItem.deleteMany({
+          where: { orderId: { in: roOrderIds } },
+        });
+        await prisma.order.deleteMany({ where: { id: { in: roOrderIds } } });
+      }
+      const ids = [roProductId, skipProductId].filter(Boolean);
+      if (ids.length) {
+        await prisma.stockMovement.deleteMany({
+          where: { productId: { in: ids } },
+        });
+        await prisma.product.deleteMany({ where: { id: { in: ids } } });
+      }
+    });
+
+    /** Захиалгыг N хоногийн өмнө өгсөн болгож хойш нь татна */
+    const backdate = async (orderId: string, days: number) => {
+      await prisma.order.update({
+        where: { id: orderId },
+        data: { createdAt: new Date(Date.now() - days * 86_400_000) },
+      });
+    };
+
+    const rowFor = async (phone: string) => {
+      const res = await api()
+        .get('/api/reorders')
+        .set(auth(tok.seller))
+        .expect(200);
+      return (res.body.rows as Array<{ phone: string }>).find(
+        (r) => r.phone === phone,
+      );
+    };
+
+    it('бэлтгэл — хэрэглээний хугацаатай бараанууд', async () => {
+      const a = await api()
+        .post('/api/products')
+        .set(auth(tok.admin))
+        .send({
+          sku: `${SKU}-RO`,
+          name: `Э2Э Сануулга ${T}`,
+          price: '10000',
+          daysSupply: 10,
+        })
+        .expect(201);
+      roProductId = a.body.id;
+      expect(a.body.daysSupply).toBe(10);
+
+      const b = await api()
+        .post('/api/products')
+        .set(auth(tok.admin))
+        .send({
+          sku: `${SKU}-RO0`,
+          name: `Э2Э Сануулгагүй ${T}`,
+          price: '5000',
+          daysSupply: 0, // хэрэглээний бус — сав, багаж гэх мэт
+        })
+        .expect(201);
+      skipProductId = b.body.id;
+
+      for (const id of [roProductId, skipProductId]) {
+        await api()
+          .post('/api/stock/adjust')
+          .set(auth(tok.admin))
+          .send({ productId: id, qtyChange: 50, reason: 'PURCHASE_IN' })
+          .expect(201);
+      }
+    });
+
+    it('дуусаагүй бол жагсаалтад ГАРАХГҮЙ', async () => {
+      const o = await api()
+        .post('/api/orders')
+        .set(auth(tok.admin))
+        .send({
+          customerName: `Э2Э Давтан ${T}`,
+          customerPhone: RO_PHONE,
+          ...UB_ADDR,
+          items: [{ productId: roProductId, qty: 1 }],
+        })
+        .expect(201);
+      roOrderIds.push(o.body.id);
+
+      // Дөнгөж авсан — 10 хоног хүрнэ, 7 хоногийн хязгаараас хол
+      expect(await rowFor(RO_PHONE)).toBeUndefined();
+    });
+
+    it('дуусах дөхөхөд гарч ирнэ', async () => {
+      // 5 хоногийн өмнө авсан → 5 хоног үлдсэн → 7-гийн хязгаарт багтана
+      await backdate(roOrderIds[0], 5);
+      const row = await rowFor(RO_PHONE);
+      expect(row).toBeDefined();
+      expect(row).toMatchObject({ state: 'SOON', daysLeft: 5, qty: 1 });
+    });
+
+    it('хугацаа хэтэрсэн бол ХОЦОРСОН болно', async () => {
+      await backdate(roOrderIds[0], 18); // 10 хоног хүрэх байсан → 8 хоцорсон
+      const row = await rowFor(RO_PHONE);
+      expect(row!.state).toBe('OVERDUE');
+      expect(row!.daysLeft).toBe(-8);
+    });
+
+    it('тоо ширхэг хугацааг уртасгана', async () => {
+      // 3 ширхэг × 10 хоног = 30 хоног хүрнэ
+      const o = await api()
+        .post('/api/orders')
+        .set(auth(tok.admin))
+        .send({
+          customerName: `Э2Э Олон ${T}`,
+          customerPhone: RO_PHONE,
+          ...UB_ADDR,
+          items: [{ productId: roProductId, qty: 3 }],
+        })
+        .expect(201);
+      roOrderIds.push(o.body.id);
+      await backdate(o.body.id, 18);
+
+      // Хамгийн СҮҮЛИЙН захиалгыг л хардаг тул хуучин нь орлогдоно.
+      // 18 хоногийн өмнө 3ш авсан → 30 хоног хүрнэ → 12 хоног үлдсэн
+      const row = await rowFor(RO_PHONE);
+      expect(row).toBeUndefined(); // 12 > 7 хязгаар
+    });
+
+    it('daysSupply = 0 бараа сануулгад орохгүй', async () => {
+      const o = await api()
+        .post('/api/orders')
+        .set(auth(tok.admin))
+        .send({
+          customerName: `Э2Э Сав ${T}`,
+          customerPhone: SKIP_PHONE,
+          ...UB_ADDR,
+          items: [{ productId: skipProductId, qty: 1 }],
+        })
+        .expect(201);
+      roOrderIds.push(o.body.id);
+      await backdate(o.body.id, 90); // ямар ч тохиолдолд «дууссан» байх ёстой
+
+      expect(await rowFor(SKIP_PHONE)).toBeUndefined();
+    });
+
+    it('цуцлагдсан захиалга сануулга үүсгэхгүй', async () => {
+      const o = await api()
+        .post('/api/orders')
+        .set(auth(tok.admin))
+        .send({
+          customerName: `Э2Э Цуцлагдсан ${T}`,
+          customerPhone: CANCEL_PHONE,
+          ...UB_ADDR,
+          items: [{ productId: roProductId, qty: 1 }],
+        })
+        .expect(201);
+      roOrderIds.push(o.body.id);
+      await backdate(o.body.id, 20);
+      expect(await rowFor(CANCEL_PHONE)).toBeDefined();
+
+      await api()
+        .patch(`/api/orders/${o.body.id}/status`)
+        .set(auth(tok.admin))
+        .send({ status: 'CANCELLED' })
+        .expect(200);
+
+      expect(await rowFor(CANCEL_PHONE)).toBeUndefined();
+    });
+
+    it('хэт хоцорсныг хаясан гэж үзэж хасна', async () => {
+      // reorderMaxOverdue = 60. 10 хоног хүрэх бараа 200 хоногийн өмнө
+      // авсан → 190 хоног хоцорсон → жагсаалтаас гарна
+      await backdate(roOrderIds[1], 200);
+      await backdate(roOrderIds[0], 200);
+      expect(await rowFor(RO_PHONE)).toBeUndefined();
+    });
+
+    it('жолоочид үйлчлүүлэгчийн жагсаалт харах эрх байхгүй', async () => {
+      await api().get('/api/reorders').set(auth(tok.driver)).expect(403);
+    });
+  });
+
 });

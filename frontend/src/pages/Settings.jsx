@@ -185,6 +185,74 @@ function SystemSettings({ t }) {
         className="font-mono"
       />
 
+      {/* Давтан захиалгын сануулга (V5) */}
+      <p className="mt-10 text-xs uppercase tracking-wide text-ink-muted mb-4">
+        {t('Давтан захиалгын сануулга')}
+      </p>
+      <div className="space-y-4">
+        <Input
+          id="st-days"
+          label={t('Барааны ердийн хэрэглээ (хоног)')}
+          type="number"
+          min="1"
+          value={values.defaultDaysSupply}
+          onChange={(e) =>
+            setValues((v) => ({ ...v, defaultDaysSupply: e.target.value }))
+          }
+          className="font-mono"
+        />
+        <p className="-mt-2 text-xs text-ink-muted">
+          {t(
+            'Бараанд тусад нь заагаагүй бол нэг ширхэг нь хэдэн хоног хүрэх вэ.',
+          )}
+        </p>
+        <Input
+          id="st-lead"
+          label={t('Дуусахаас хэдэн хоногийн өмнө сануулах')}
+          type="number"
+          min="0"
+          value={values.reorderLeadDays}
+          onChange={(e) =>
+            setValues((v) => ({ ...v, reorderLeadDays: e.target.value }))
+          }
+          className="font-mono"
+        />
+        <Input
+          id="st-overdue"
+          label={t('Хэдэн хоног хоцорсныг жагсаалтаас хасах')}
+          type="number"
+          min="1"
+          value={values.reorderMaxOverdue}
+          onChange={(e) =>
+            setValues((v) => ({ ...v, reorderMaxOverdue: e.target.value }))
+          }
+          className="font-mono"
+        />
+        <p className="-mt-2 text-xs text-ink-muted">
+          {t('Үүнээс их хоцорсон хүнийг эргэж ирэхгүй гэж үзнэ.')}
+        </p>
+      </div>
+      <label
+        htmlFor="st-remind"
+        className="block mt-4 text-xs uppercase tracking-wide text-ink-muted mb-1.5"
+      >
+        {t('Сануулгын загвар')}
+      </label>
+      <textarea
+        id="st-remind"
+        rows={9}
+        value={values.reorderTemplate}
+        onChange={(e) =>
+          setValues((v) => ({ ...v, reorderTemplate: e.target.value }))
+        }
+        className="w-full bg-bg border border-rule rounded px-3 py-2 text-sm leading-relaxed resize-y focus:outline-none focus:border-ink-muted"
+      />
+      <p className="mt-2 text-xs text-ink-muted">
+        <span className="font-mono text-accent">
+          {'{нэр} {бараа} {хоног} {утас} {компани}'}
+        </span>
+      </p>
+
       {/* DM-ийн хариу загвар (V5) */}
       <p className="mt-10 text-xs uppercase tracking-wide text-ink-muted mb-4">
         {t('Үйлчлүүлэгч рүү илгээх хариу')}

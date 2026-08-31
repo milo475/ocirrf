@@ -28,6 +28,7 @@ import Orders from './pages/Orders'
 import Products from './pages/Products'
 import Settings from './pages/Settings'
 import Expiry from './pages/Expiry'
+import Reorders from './pages/Reorders'
 import Stock from './pages/Stock'
 import Supplies from './pages/Supplies'
 import UserPermissions from './pages/UserPermissions'
@@ -120,6 +121,7 @@ function App() {
                     </Route>
                     <Route element={<PermRoute perm="customers.view" />}>
                       <Route path="/customers" element={<Customers />} />
+                      <Route path="/reorders" element={<Reorders />} />
                     </Route>
                     <Route element={<PermRoute perm="users.manage" />}>
                       <Route path="/users" element={<Users />} />

@@ -64,6 +64,15 @@ export class CreateProductDto {
   @Min(0)
   lowStockLimit?: number;
 
+  /**
+   * Нэг ширхэг нь хэрэглэгчид хэдэн хоног хүрэх вэ (V5).
+   * Хоосон → тохиргооны ерөнхий утга; 0 → давтан захиалгад орохгүй.
+   */
+  @IsOptional()
+  @IsInt({ message: 'daysSupply бүхэл тоо байна' })
+  @Min(0)
+  daysSupply?: number;
+
   // stockQty энд СНААТАЙГААР байхгүй: үлдэгдэл зөвхөн StockModule/OrderModule-ээр
   // StockMovement бичлэгтэй хамт өөрчлөгдөнө.
 }

@@ -112,6 +112,7 @@ export class ProductsService {
           price: dto.price, // string → Decimal, float-гүй
           costPrice: dto.costPrice ?? '0',
           lowStockLimit: dto.lowStockLimit,
+          daysSupply: dto.daysSupply,
           categoryId: dto.categoryId,
           companyId: dto.companyId,
           unit: dto.unit,
