@@ -2,6 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { parseDateRange } from '../date-range.util';
 import { formatShortAddress } from '../orders/address.util';
 import { PrismaService } from '../prisma/prisma.service';
+import { categoryLabel } from '../finance/finance-categories';
+import { FinanceService } from '../finance/finance.service';
+import type { AuthUser } from '../auth/decorators/current-user.decorator';
 
 const range = (from?: string, to?: string) => parseDateRange(from, to, 30);
 
@@ -51,7 +54,10 @@ const REASON_MN: Record<string, string> = {
 
 @Injectable()
 export class ReportsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly finance: FinanceService,
+  ) {}
 
   async deliveryCsv(from?: string, to?: string) {
     const { start, end } = range(from, to);
@@ -129,11 +135,44 @@ export class ReportsService {
       entries.map((e) => [
         fmtDate(e.entryDate),
         e.type === 'INCOME' ? 'Орлого' : 'Зарлага',
-        e.category,
+        categoryLabel(e.type, e.category),
         String(e.amount),
         e.note ?? '',
         e.createdBy?.fullName ?? '',
       ]),
+    );
+  }
+
+  /**
+   * ОРЛОГО ТАЙЛАН CSV — нягтлан руу өгөх файл.
+   *
+   * Мөрөөр нь Excel-д буулгахад бэлэн бүтэцтэй: борлуулалт, ЗБӨ,
+   * нийт ашиг, зардал ангиллаар, цэвэр ашиг. Төгсгөлд нь тайланд
+   * ОРООГҮЙ мөнгөн гүйлгээг тусад нь жагсаана — нягтлан яагаад
+   * хасагдсаныг харж, өөрийн бүртгэлдээ зөв тусгана.
+   */
+  async pnlCsv(from: string | undefined, to: string | undefined, user: AuthUser) {
+    const { start, end } = range(from, to);
+    const d = await this.finance.pnl(start, end, user);
+
+    const rows: unknown[][] = [
+      ['Борлуулалт', d.revenue],
+      ['Зарсан барааны өртөг', `-${d.cogs}`],
+      ['НИЙТ АШИГ', d.grossProfit],
+    ];
+    if (Number(d.otherIncome) !== 0) rows.push(['Бусад орлого', d.otherIncome]);
+    for (const e of d.expenses) rows.push([e.label, `-${e.amount}`]);
+    rows.push(['Зардлын дүн', `-${d.expenseTotal}`]);
+    rows.push(['ЦЭВЭР АШИГ', d.netProfit]);
+
+    if (d.excluded.length) {
+      rows.push([], ['Тайланд ороогүй мөнгөн гүйлгээ', '']);
+      for (const e of d.excluded) rows.push([e.label, e.amount]);
+    }
+
+    return toCsv(
+      [`Орлого тайлан ${fmtDate(start).slice(0, 10)} — ${fmtDate(end).slice(0, 10)}`, '₮'],
+      rows,
     );
   }
 }

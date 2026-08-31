@@ -1527,7 +1527,7 @@ describe('ursGAL v2 API (e2e)', () => {
       await api()
         .post('/api/finance/entries')
         .set(auth(tok.operator))
-        .send({ type: 'INCOME', category: 'Бусад', amount: '100.00' })
+        .send({ type: 'INCOME', category: 'OTHER_INCOME', amount: '100.00' })
         .expect(403);
     });
 
@@ -1535,7 +1535,7 @@ describe('ursGAL v2 API (e2e)', () => {
       const inc = await api()
         .post('/api/finance/entries')
         .set(auth(tok.manager))
-        .send({ type: 'INCOME', category: 'Бусад орлого', amount: '5000.00' })
+        .send({ type: 'INCOME', category: 'OTHER_INCOME', amount: '5000.00' })
         .expect(201);
       financeEntryIds.push(inc.body.id);
       expect(inc.body.amount).toBe('5000');
@@ -1545,7 +1545,7 @@ describe('ursGAL v2 API (e2e)', () => {
         .set(auth(tok.manager))
         .send({
           type: 'EXPENSE',
-          category: 'Түрээс',
+          category: 'RENT',
           amount: '3000.50',
           note: 'Э2Э зарлага',
         })
@@ -1553,6 +1553,43 @@ describe('ursGAL v2 API (e2e)', () => {
       financeEntryIds.push(exp.body.id);
       expect(exp.body.type).toBe('EXPENSE');
       expect(exp.body.createdBy.fullName).toBeTruthy();
+    });
+
+    /**
+     * Ангилал нь каталогийн код байх ёстой (V5) — эс тэгвэл нэг зардал
+     * олон нэрээр хуваагдаж тайлан бүлэглэгдэхгүй болно.
+     */
+    it('чөлөөт текст ба автомат ангилал хоригдоно', async () => {
+      const bad = await api()
+        .post('/api/finance/entries')
+        .set(auth(tok.manager))
+        .send({ type: 'EXPENSE', category: 'Түрээс', amount: '100' })
+        .expect(400);
+      expect(bad.body.message).toContain('Ангилал буруу');
+
+      // Автомат ангилал — гараар бичвэл тайлангийн тоо давхардана
+      await api()
+        .post('/api/finance/entries')
+        .set(auth(tok.manager))
+        .send({ type: 'INCOME', category: 'PAYMENT', amount: '100' })
+        .expect(400);
+      await api()
+        .post('/api/finance/entries')
+        .set(auth(tok.manager))
+        .send({ type: 'EXPENSE', category: 'SUPPLY', amount: '100' })
+        .expect(400);
+
+      const cats = await api()
+        .get('/api/finance/categories')
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(cats.body.EXPENSE.map((c: { code: string }) => c.code)).toContain(
+        'RENT',
+      );
+      // Автомат ангиллууд сонголтод ГАРАХГҮЙ
+      expect(cats.body.EXPENSE.map((c: { code: string }) => c.code)).not.toContain(
+        'SUPPLY',
+      );
     });
 
     it('жагсаалт type шүүлтүүртэй', async () => {
@@ -5658,15 +5695,23 @@ describe('ursGAL v2 API (e2e)', () => {
     let skipProductId: string; // daysSupply = 0 — сануулгад ОРОХГҮЙ
     const roOrderIds: string[] = [];
     /**
-     * ⚠ УТАСНЫ ОРОН ЗАЙ: сануулгын логик нь хүний ХАМГИЙН СҮҮЛИЙН
-     * захиалгыг хардаг. Өөр тест ижил утсаар шинэ захиалга үүсгэвэл
-     * миний хойш татсан захиалга дарагдаж, тест «шалтгаангүй» унана.
-     * `9/7/6/8/5/4/3/1` угтварууд бусад тестүүдэд ашиглагдсан тул
-     * энэ блок бүхэлдээ ЧӨЛӨӨТ «2» угтварыг эзэмшинэ.
+     * ⚠ УТАСНЫ ОРОН ЗАЙ — САНАМЖ.
+     *
+     * Сануулгын логик нь хүний ХАМГИЙН СҮҮЛИЙН захиалгыг хардаг тул
+     * өөр тест ижил утсаар шинэ захиалга үүсгэвэл миний хойш татсан
+     * захиалга дарагдаж, тест «шалтгаангүй» унана.
+     *
+     * Бусад тестүүд `<орон>${T}` хэлбэрээр 1..9 бүх угтварыг эзэлсэн.
+     * Тиймээс энд T-ийн СҮҮЛИЙН ОРНЫГ өөрчилж, аль ч `D${T}`-тэй
+     * тэнцэхээргүй дугаар үүсгэнэ: угтвар нь `2` тул D≠2 үед эхний
+     * орноороо, D=2 үед сүүлийн орноороо заавал ялгаатай.
+     * (Өмнө нь `2${T.slice(0,6)}1` гэж байсан нь T «1»-ээр төгсөх
+     * бүрд `2${T}`-тэй давхцаж, 10 ажиллагааны 1-д унадаг байв.)
      */
-    const RO_PHONE = `2${T.slice(0, 6)}1`;
-    const SKIP_PHONE = `2${T.slice(0, 6)}2`;
-    const CANCEL_PHONE = `2${T.slice(0, 6)}3`;
+    const alt = (n: number) => `2${T.slice(0, 6)}${(Number(T[6]) + n) % 10}`;
+    const RO_PHONE = alt(1);
+    const SKIP_PHONE = alt(2);
+    const CANCEL_PHONE = alt(3);
 
     afterAll(async () => {
       if (roOrderIds.length) {
@@ -5700,9 +5745,14 @@ describe('ursGAL v2 API (e2e)', () => {
         .get('/api/reorders')
         .set(auth(tok.seller))
         .expect(200);
-      return (res.body.rows as Array<{ phone: string }>).find(
-        (r) => r.phone === phone,
-      );
+      return (
+        res.body.rows as Array<{
+          phone: string;
+          state: string;
+          daysLeft: number;
+          qty: number;
+        }>
+      ).find((r) => r.phone === phone);
     };
 
     it('бэлтгэл — хэрэглээний хугацаатай бараанууд', async () => {
@@ -5844,6 +5894,104 @@ describe('ursGAL v2 API (e2e)', () => {
 
     it('жолоочид үйлчлүүлэгчийн жагсаалт харах эрх байхгүй', async () => {
       await api().get('/api/reorders').set(auth(tok.driver)).expect(403);
+    });
+  });
+
+
+  describe('V5: Нягтлангийн тайлан ⭐', () => {
+    /**
+     * Хамгийн чухал нь ДАВХАРДАХГҮЙ байх: бараа худалдан авалт нь
+     * зарагдахдаа ЗБӨ болдог тул зардалд орвол өртөг хоёр дахин
+     * тоологдоно. Буцаалт нь борлуулалтаас аль хэдийн хасагдсан.
+     */
+    it('санхүүгийн байрлал — авлага, өглөг, бараа материал', async () => {
+      const res = await api()
+        .get('/api/finance/position')
+        .set(auth(tok.admin))
+        .expect(200);
+      for (const k of ['cash', 'receivable', 'payable', 'inventory', 'net']) {
+        expect(res.body).toHaveProperty(k);
+      }
+      // Цэвэр = мөнгө + авлага + бараа − өглөг
+      const n = (v: string) => Number(v);
+      expect(n(res.body.net)).toBeCloseTo(
+        n(res.body.cash) + n(res.body.receivable) + n(res.body.inventory) -
+          n(res.body.payable),
+        2,
+      );
+      expect(typeof res.body.productsWithoutCost).toBe('number');
+    });
+
+    it('байрлал нь орлогын эрхгүй хүнд хаалттай', async () => {
+      await api().get('/api/finance/position').set(auth(tok.driver)).expect(403);
+      await api().get('/api/finance/pnl').set(auth(tok.driver)).expect(403);
+    });
+
+    it('орлого тайлан — нийт ашиг ба цэвэр ашиг зөв бодогдоно', async () => {
+      const res = await api()
+        .get('/api/finance/pnl?from=2020-01-01&to=2099-12-31')
+        .set(auth(tok.admin))
+        .expect(200);
+      const n = (v: string) => Number(v);
+      expect(n(res.body.grossProfit)).toBeCloseTo(
+        n(res.body.revenue) - n(res.body.cogs),
+        2,
+      );
+      expect(n(res.body.netProfit)).toBeCloseTo(
+        n(res.body.grossProfit) + n(res.body.otherIncome) -
+          n(res.body.expenseTotal),
+        2,
+      );
+      // Зардлын мөрүүдийн нийлбэр нь дүнтэй тэнцэнэ
+      const sum = (res.body.expenses as Array<{ amount: string }>).reduce(
+        (a, e) => a + Number(e.amount),
+        0,
+      );
+      expect(sum).toBeCloseTo(n(res.body.expenseTotal), 2);
+    });
+
+    it('бараа худалдан авалт ба төлбөр тайланд ОРОХГҮЙ', async () => {
+      const res = await api()
+        .get('/api/finance/pnl?from=2020-01-01&to=2099-12-31')
+        .set(auth(tok.admin))
+        .expect(200);
+      const labels = (res.body.expenses as Array<{ label: string }>).map(
+        (e) => e.label,
+      );
+      // Эдгээр нь ЗБӨ/борлуулалттай давхардах тул зардалд гарч болохгүй
+      expect(labels).not.toContain('Бараа худалдан авалт');
+      expect(labels).not.toContain('Үйлчлүүлэгчид буцаалт');
+      // Харин ил тод байлгахын тулд «ороогүй» жагсаалтад гарна
+      const ex = (res.body.excluded as Array<{ label: string }>).map(
+        (e) => e.label,
+      );
+      expect(ex).toContain('Захиалгын төлбөр');
+      // Нэг нэрээр НЭГТГЭГДСЭН байх — 'PAYMENT' ба хуучин 'ORDER' хоёр
+      // мөр болж нягтланг төөрөгдүүлдэг байв
+      expect(ex.filter((l) => l === 'Захиалгын төлбөр')).toHaveLength(1);
+    });
+
+    it('орлого тайлан CSV татагдана', async () => {
+      const res = await api()
+        .get('/api/reports/pnl.csv?from=2020-01-01&to=2099-12-31')
+        .set(auth(tok.admin))
+        .expect(200);
+      expect(res.headers['content-type']).toContain('csv');
+      // Excel-д кирилл зөв гарах BOM
+      expect(res.text.charCodeAt(0)).toBe(0xfeff);
+      expect(res.text).toContain('Борлуулалт');
+      expect(res.text).toContain('ЦЭВЭР АШИГ');
+      // Ангилал КОД-оор биш МОНГОЛ нэрээр гарна
+      expect(res.text).not.toContain('DRIVER_PAYROLL');
+    });
+
+    it('санхүүгийн CSV ангиллыг монголоор гаргана', async () => {
+      const res = await api()
+        .get('/api/reports/finance.csv')
+        .set(auth(tok.admin))
+        .expect(200);
+      expect(res.text).not.toContain('DRIVER_PAYROLL');
+      expect(res.text).not.toContain('OTHER_INCOME');
     });
   });
 

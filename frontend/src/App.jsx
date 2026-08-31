@@ -16,6 +16,7 @@ import Reports from './pages/Reports'
 import DeliveryOps from './pages/DeliveryOps'
 import Drivers from './pages/Drivers'
 import Finance from './pages/Finance'
+import FinanceReport from './pages/FinanceReport'
 import Login from './pages/Login'
 import PublicOrder from './pages/PublicOrder'
 import Notifications from './pages/Notifications'
@@ -93,6 +94,10 @@ function App() {
                       }
                     >
                       <Route path="/finance" element={<Finance />} />
+                      <Route
+                        path="/finance/report"
+                        element={<FinanceReport />}
+                      />
                     </Route>
                     <Route
                       element={<PermRoute perm="finance.driver_payroll" />}

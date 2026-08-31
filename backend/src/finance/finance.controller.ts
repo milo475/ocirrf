@@ -12,6 +12,8 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../auth/decorators/current-user.decorator';
 import { PERM } from '../permissions/permission-keys';
 import { RequirePermission } from '../permissions/require-permission.decorator';
+import { manualCategories } from './finance-categories';
+import { PnlRangeDto } from './dto/pnl-range.dto';
 import { CreateFinanceEntryDto } from './dto/create-finance-entry.dto';
 import { ClosePayrollDto, QueryPayrollDto } from './dto/payroll.dto';
 import {
@@ -47,6 +49,35 @@ export class FinanceController {
     @CurrentUser() user: AuthUser,
   ) {
     return this.financeService.summary(query.days ?? 30, user);
+  }
+
+  /**
+   * Санхүүгийн байрлал — авлага, өглөг, бараа материал.
+   * Permission нь service дотор шалгагдана (summary-тэй ижил).
+   */
+  @Get('position')
+  position(@CurrentUser() user: AuthUser) {
+    return this.financeService.position(user);
+  }
+
+  /** Орлого тайлан (P&L) — нягтланд өгөх үндсэн тайлан */
+  @Get('pnl')
+  pnl(@Query() q: PnlRangeDto, @CurrentUser() user: AuthUser) {
+    const to = q.to ? new Date(q.to) : new Date();
+    to.setHours(23, 59, 59, 999);
+    const from = q.from ? new Date(q.from) : new Date(to);
+    if (!q.from) from.setDate(from.getDate() - 29);
+    from.setHours(0, 0, 0, 0);
+    return this.financeService.pnl(from, to, user);
+  }
+
+  /** Гараар бүртгэхэд сонгож болох ангиллууд */
+  @Get('categories')
+  categories() {
+    return {
+      INCOME: manualCategories('INCOME'),
+      EXPENSE: manualCategories('EXPENSE'),
+    };
   }
 
   // ── Payroll — finance.driver_payroll permission ──
