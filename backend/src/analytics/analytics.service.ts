@@ -40,10 +40,34 @@ export class AnalyticsService {
       },
       select: {
         createdAt: true,
-        totalAmount: true,
-        items: { select: { qty: true, costAtOrder: true } },
+        // Мөр бүрээр тооцно: буцаагдсан тоог хасахын тулд.
+        // totalAmount нь буцаалтаар өөрчлөгддөггүй (returns.service).
+        items: {
+          select: {
+            id: true,
+            qty: true,
+            priceAtOrder: true,
+            costAtOrder: true,
+          },
+        },
       },
     });
+
+    // Буцаагдсан тоо ширхэг — OrderReturnItem нь OrderItem руу relation-гүй
+    // (зөвхөн orderItemId талбартай) тул тусад нь уншиж санах ойд нийлүүлнэ
+    const returned = new Map<string, number>();
+    const itemIds = orders.flatMap((o) => o.items.map((i) => i.id));
+    if (itemIds.length > 0) {
+      const rows = await this.prisma.orderReturnItem.groupBy({
+        by: ['orderItemId'],
+        where: { orderItemId: { in: itemIds } },
+        _sum: { qty: true },
+      });
+      for (const r of rows) returned.set(r.orderItemId, r._sum.qty ?? 0);
+    }
+    /** Тухайн мөрөөс БОДИТООР зарагдсан тоо (буцаалтыг хассан) */
+    const net = (i: { id: string; qty: number }) =>
+      Math.max(0, i.qty - (returned.get(i.id) ?? 0));
 
     const keyOf = groupBy === 'week' ? weekKey : dayKey;
     const zero = new Prisma.Decimal(0);
@@ -60,9 +84,15 @@ export class AnalyticsService {
     let totalAmount = zero;
     let totalCost = zero;
     for (const o of orders) {
+      // V5: агуулахад буцаж ирсэн бараа борлуулалт БИШ. Өмнө нь бүтэн
+      // буцаалттай захиалга ч дүнгээрээ бүтнээр тоологдсоор байв.
+      const orderAmount = o.items.reduce(
+        (acc, i) => acc.add(i.priceAtOrder.mul(net(i))),
+        zero,
+      );
       // Захиалгын өртөг = мөр бүрийн snapshot өртөг × тоо (v4)
       const orderCost = o.items.reduce(
-        (acc, i) => acc.add(i.costAtOrder.mul(i.qty)),
+        (acc, i) => acc.add(i.costAtOrder.mul(net(i))),
         zero,
       );
       const key = keyOf(o.createdAt);
@@ -75,11 +105,11 @@ export class AnalyticsService {
           profit: zero,
         };
       row.count += 1;
-      row.amount = row.amount.add(o.totalAmount);
+      row.amount = row.amount.add(orderAmount);
       row.cost = row.cost.add(orderCost);
       row.profit = row.amount.sub(row.cost);
       buckets.set(key, row);
-      totalAmount = totalAmount.add(o.totalAmount);
+      totalAmount = totalAmount.add(orderAmount);
       totalCost = totalCost.add(orderCost);
     }
 

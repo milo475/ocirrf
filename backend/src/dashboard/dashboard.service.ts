@@ -123,10 +123,15 @@ export class DashboardService {
       // snapshot өртөг (costAtOrder × qty)
       this.prisma.$queryRaw<
         { revenue: unknown; cost: unknown }[]
-      >`SELECT COALESCE(SUM(oi."lineTotal"), 0) AS revenue,
-               COALESCE(SUM(oi."costAtOrder" * oi.qty), 0) AS cost
+      >`SELECT COALESCE(SUM(oi."priceAtOrder" * (oi.qty - COALESCE(r.qty, 0))), 0) AS revenue,
+               COALESCE(SUM(oi."costAtOrder" * (oi.qty - COALESCE(r.qty, 0))), 0) AS cost
         FROM "OrderItem" oi
         JOIN "Order" o ON o.id = oi."orderId"
+        LEFT JOIN (
+          SELECT ri."orderItemId", SUM(ri.qty) AS qty
+          FROM "OrderReturnItem" ri
+          GROUP BY ri."orderItemId"
+        ) r ON r."orderItemId" = oi.id
         WHERE o."orderStatus" != 'CANCELLED'`,
     ]);
 

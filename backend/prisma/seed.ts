@@ -90,7 +90,10 @@ async function seedCategories() {
   return byName;
 }
 
-async function seedProducts(categories: Map<string, string>) {
+async function seedProducts(
+  categories: Map<string, string>,
+  users: Map<string, string>,
+) {
   // stockQty санаатайгаар янз бүр: 0 (дууссан), лимитээс доош, хэвийн —
   // dashboard-ийн бага үлдэгдлийн анхааруулгыг турших өгөгдөл.
   // lowStockLimit нь зарим нь 5, зарим нь 10.
@@ -107,8 +110,13 @@ async function seedProducts(categories: Map<string, string>) {
     { sku: 'UG-0010', name: 'Хог уут 20ш', category: 'Гэр ахуй', price: '5500.00', stockQty: 3, lowStockLimit: 10, unit: 'ш' }, // лимитээс доош
   ];
 
+  // Эхний үлдэгдлийг үүсгэхдээ INITIAL хөдөлгөөн БИЧНЭ — эс тэгвэл
+  // StockMovement-ийн нийлбэр бодит үлдэгдэлтэй хэзээ ч таарахгүй
+  // (CSV импорт нь ингэж бичдэг тул түүнтэй нийцүүлэв).
+  const admin = users.get('admin@ursgal.mn');
   for (const p of products) {
     const categoryId = categories.get(p.category) ?? null;
+    const existed = await prisma.product.findUnique({ where: { sku: p.sku } });
     await prisma.product.upsert({
       where: { sku: p.sku },
       // stockQty-г update-д ОРУУЛДАГГҮЙ: амьд үлдэгдлийг StockMovement
@@ -132,6 +140,20 @@ async function seedProducts(categories: Map<string, string>) {
         isActive: true,
       },
     });
+    if (!existed && p.stockQty > 0 && admin) {
+      const created = await prisma.product.findUniqueOrThrow({
+        where: { sku: p.sku },
+      });
+      await prisma.stockMovement.create({
+        data: {
+          productId: created.id,
+          qtyChange: p.stockQty,
+          reason: 'INITIAL',
+          note: 'Seed — эхний үлдэгдэл',
+          userId: admin,
+        },
+      });
+    }
   }
 }
 
@@ -139,7 +161,7 @@ async function main() {
   const users = await seedUsers();
   await seedDriverProfile(users);
   const categories = await seedCategories();
-  await seedProducts(categories);
+  await seedProducts(categories, users);
 
   const [userCount, driverProfiles, cats, prods] = await Promise.all([
     prisma.user.count(),

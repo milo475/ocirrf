@@ -4,11 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { AuthUser } from '../auth/decorators/current-user.decorator';
-import {
-  FinanceType,
-  Prisma,
-  Role,
-} from '../generated/prisma/client';
+import { FinanceType, Prisma, Role } from '../generated/prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSupplyDto } from './dto/create-supply.dto';
@@ -20,6 +16,33 @@ const SUPPLY_INCLUDE = {
   supplier: { select: { id: true, fullName: true } },
   receivedBy: { select: { id: true, fullName: true } },
 } as const;
+
+/** Дугаарын unique constraint зөрчил (P2002) — давхардсан дугаар */
+function isUniqueViolation(e: unknown): boolean {
+  return (
+    typeof e === 'object' &&
+    e !== null &&
+    (e as { code?: string }).code === 'P2002'
+  );
+}
+
+/**
+ * Өдрийн дугаарлалт (ХҮЛ-/НИЙ-) нь tx дотор max+1 гэж тооцдог тул зэрэг
+ * үүсгэлт мөргөлдвөл P2002 өгнө. OrdersService.create-тэй ижил байдлаар
+ * 3 хүртэл дахин оролдоно — тусдаа counter хүснэгт шаардахгүй, зөв
+ * байдлыг DB-ийн constraint өөрөө баталгаажуулна.
+ */
+async function withNumberRetry<T>(run: () => Promise<T>): Promise<T> {
+  const MAX_ATTEMPTS = 3;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await run();
+    } catch (e) {
+      if (isUniqueViolation(e) && attempt < MAX_ATTEMPTS) continue;
+      throw e;
+    }
+  }
+}
 
 @Injectable()
 export class SuppliesService {
@@ -64,7 +87,9 @@ export class SuppliesService {
       where: { id: dto.companyId },
     });
     if (!company || !company.isActive) {
-      throw new BadRequestException('Харилцагч компани олдсонгүй эсвэл идэвхгүй');
+      throw new BadRequestException(
+        'Харилцагч компани олдсонгүй эсвэл идэвхгүй',
+      );
     }
     if (dto.supplierId) {
       const supplier = await this.prisma.user.findUnique({
@@ -77,87 +102,91 @@ export class SuppliesService {
       }
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const products = await tx.product.findMany({ where: { id: { in: ids } } });
-      const byId = new Map(products.map((p) => [p.id, p]));
-      for (const id of ids) {
-        if (!byId.has(id)) {
-          throw new BadRequestException(`Бараа олдсонгүй (id: ${id})`);
+    return withNumberRetry(() =>
+      this.prisma.$transaction(async (tx) => {
+        const products = await tx.product.findMany({
+          where: { id: { in: ids } },
+        });
+        const byId = new Map(products.map((p) => [p.id, p]));
+        for (const id of ids) {
+          if (!byId.has(id)) {
+            throw new BadRequestException(`Бараа олдсонгүй (id: ${id})`);
+          }
         }
-      }
 
-      // Дугаар: НИЙ-YYYYMMDD-NNN
-      const now = new Date();
-      const ymd = [
-        now.getFullYear(),
-        String(now.getMonth() + 1).padStart(2, '0'),
-        String(now.getDate()).padStart(2, '0'),
-      ].join('');
-      const prefix = `НИЙ-${ymd}-`;
-      const todays = await tx.supply.findMany({
-        where: { number: { startsWith: prefix } },
-        select: { number: true },
-      });
-      const next =
-        todays.reduce((max, r) => {
-          const n = parseInt(r.number.slice(prefix.length), 10);
-          return Number.isFinite(n) && n > max ? n : max;
-        }, 0) + 1;
-
-      let totalCost = new Prisma.Decimal(0);
-      const itemsData = dto.items.map((i) => {
-        const product = byId.get(i.productId)!;
-        const unitCost = new Prisma.Decimal(i.unitCost);
-        const lineTotal = unitCost.mul(i.qty);
-        totalCost = totalCost.add(lineTotal);
-        return {
-          productId: i.productId,
-          productName: product.name,
-          qty: i.qty,
-          unitCost,
-          lineTotal,
-        };
-      });
-
-      const supply = await tx.supply.create({
-        data: {
-          number: prefix + String(next).padStart(3, '0'),
-          companyId: dto.companyId,
-          supplierId: dto.supplierId ?? null,
-          receivedById: user.id,
-          totalCost,
-          note: dto.note?.trim() || null,
-          items: { create: itemsData },
-        },
-        include: SUPPLY_INCLUDE,
-      });
-
-      for (const i of itemsData) {
-        await tx.product.update({
-          where: { id: i.productId },
-          data: {
-            stockQty: { increment: i.qty },
-            costPrice: i.unitCost,
-            // Барааг аль харилцагчийнх болохыг тэмдэглээгүй бол энд холбоно
-            ...(byId.get(i.productId)!.companyId
-              ? {}
-              : { companyId: dto.companyId }),
-          },
+        // Дугаар: НИЙ-YYYYMMDD-NNN
+        const now = new Date();
+        const ymd = [
+          now.getFullYear(),
+          String(now.getMonth() + 1).padStart(2, '0'),
+          String(now.getDate()).padStart(2, '0'),
+        ].join('');
+        const prefix = `НИЙ-${ymd}-`;
+        const todays = await tx.supply.findMany({
+          where: { number: { startsWith: prefix } },
+          select: { number: true },
         });
-        await tx.stockMovement.create({
-          data: {
+        const next =
+          todays.reduce((max, r) => {
+            const n = parseInt(r.number.slice(prefix.length), 10);
+            return Number.isFinite(n) && n > max ? n : max;
+          }, 0) + 1;
+
+        let totalCost = new Prisma.Decimal(0);
+        const itemsData = dto.items.map((i) => {
+          const product = byId.get(i.productId)!;
+          const unitCost = new Prisma.Decimal(i.unitCost);
+          const lineTotal = unitCost.mul(i.qty);
+          totalCost = totalCost.add(lineTotal);
+          return {
             productId: i.productId,
-            qtyChange: i.qty,
-            reason: 'SUPPLY',
-            note: `${supply.number} · ${company.name}`,
-            refId: supply.id,
-            userId: user.id,
-          },
+            productName: product.name,
+            qty: i.qty,
+            unitCost,
+            lineTotal,
+          };
         });
-      }
 
-      return supply;
-    });
+        const supply = await tx.supply.create({
+          data: {
+            number: prefix + String(next).padStart(3, '0'),
+            companyId: dto.companyId,
+            supplierId: dto.supplierId ?? null,
+            receivedById: user.id,
+            totalCost,
+            note: dto.note?.trim() || null,
+            items: { create: itemsData },
+          },
+          include: SUPPLY_INCLUDE,
+        });
+
+        for (const i of itemsData) {
+          await tx.product.update({
+            where: { id: i.productId },
+            data: {
+              stockQty: { increment: i.qty },
+              costPrice: i.unitCost,
+              // Барааг аль харилцагчийнх болохыг тэмдэглээгүй бол энд холбоно
+              ...(byId.get(i.productId)!.companyId
+                ? {}
+                : { companyId: dto.companyId }),
+            },
+          });
+          await tx.stockMovement.create({
+            data: {
+              productId: i.productId,
+              qtyChange: i.qty,
+              reason: 'SUPPLY',
+              note: `${supply.number} · ${company.name}`,
+              refId: supply.id,
+              userId: user.id,
+            },
+          });
+        }
+
+        return supply;
+      }),
+    );
   }
 
   async createAndNotify(dto: CreateSupplyDto, user: AuthUser) {
@@ -166,9 +195,7 @@ export class SuppliesService {
       supplyId: supply.id,
       number: supply.number,
       companyName: supply.company.name,
-      items: supply.items
-        .map((i) => `${i.productName} ×${i.qty}`)
-        .join(', '),
+      items: supply.items.map((i) => `${i.productName} ×${i.qty}`).join(', '),
       totalCost: `${Number(supply.totalCost).toLocaleString('en-US')}₮`,
       receivedBy: supply.receivedBy.fullName,
     });

@@ -4832,6 +4832,128 @@ describe('ursGAL v2 API (e2e)', () => {
     });
   });
 
+  // ──────────────── V5: МӨНГӨ vs БАРАА — тооллын зөв байдал
+  describe('V5: Цуцлалт ба буцаалтын тооцоо ⭐', () => {
+    it('төлбөртэй захиалгыг ШУУД цуцлахыг хориглоно ⭐', async () => {
+      // Өмнө нь цуцлалт үлдэгдлийг буцаадаг ч мөнгийг хөнддөггүй тул
+      // бараа агуулахад ирчихээд төлбөр нь ОРЛОГО болж номд үлддэг байв
+      const res = await api()
+        .post('/api/orders')
+        .set(auth(tok.seller))
+        .send({
+          customerName: `Э2Э-Цуцлалт-${T}`,
+          customerPhone: `9${T}`,
+          ...UB_ADDR,
+          paid: true,
+          items: [{ productId, qty: 1 }],
+        })
+        .expect(201);
+      const id = res.body.id;
+      feeOrderIds.push(id);
+      expect(Number(res.body.paidAmount)).toBeGreaterThan(0);
+
+      const denied = await api()
+        .patch(`/api/orders/${id}/status`)
+        .set(auth(tok.manager))
+        .send({ status: 'CANCELLED' })
+        .expect(400);
+      expect(denied.body.message).toContain('Төлбөртэй захиалгыг цуцлах');
+
+      // Захиалга хөндөгдөөгүй
+      const still = await api()
+        .get(`/api/orders/${id}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(still.body.orderStatus).not.toBe('CANCELLED');
+
+      // Зөв зам: төлбөрийг нь буцаагаад дараа нь цуцална
+      await api()
+        .delete(`/api/payments/${still.body.payments[0].id}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      const done = await api()
+        .patch(`/api/orders/${id}/status`)
+        .set(auth(tok.manager))
+        .send({ status: 'CANCELLED' })
+        .expect(200);
+      expect(done.body.orderStatus).toBe('CANCELLED');
+      expect(Number(done.body.paidAmount)).toBe(0);
+    });
+
+    it('буцаагдсан бараа БОРЛУУЛАЛТААС хасагдана ⭐', async () => {
+      const before = await api()
+        .get('/api/finance/summary')
+        .set(auth(tok.manager))
+        .expect(200);
+
+      // Захиалга → хүргэлт → бүтэн буцаалт
+      const res = await api()
+        .post('/api/orders')
+        .set(auth(tok.seller))
+        .send({
+          customerName: `Э2Э-Буцаалт-${T}`,
+          customerPhone: `9${T}`,
+          ...UB_ADDR,
+          items: [{ productId, qty: 1 }],
+        })
+        .expect(201);
+      const id = res.body.id;
+      feeOrderIds.push(id);
+      const line = Number(res.body.items[0].lineTotal);
+
+      const mid = await api()
+        .get('/api/finance/summary')
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(Number(mid.body.salesRevenue)).toBe(
+        Number(before.body.salesRevenue) + line,
+      );
+
+      await api()
+        .patch(`/api/orders/${id}/status`)
+        .set(auth(tok.manager))
+        .send({ status: 'CONFIRMED' })
+        .expect(200);
+      await api()
+        .patch(`/api/orders/${id}/assign-driver`)
+        .set(auth(tok.manager))
+        .send({ driverId: e2eDriverId })
+        .expect(200);
+      await api()
+        .post(`/api/deliveries/${id}/complete`)
+        .set(auth(e2eDriverToken))
+        .field('success', 'true')
+        .field('note', 'хүргэсэн')
+        .expect(201);
+
+      await api()
+        .post(`/api/orders/${id}/return`)
+        .set(auth(tok.manager))
+        .send({
+          reason: 'Э2Э буцаалт',
+          restock: true,
+          items: [{ orderItemId: res.body.items[0].id, qty: 1 }],
+        })
+        .expect(201);
+
+      // ⭐ Бараа агуулахад буцаж ирсэн тул борлуулалт анхны түвшинд
+      const after = await api()
+        .get('/api/finance/summary')
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(Number(after.body.salesRevenue)).toBe(
+        Number(before.body.salesRevenue),
+      );
+
+      // Аналитик мөн адил
+      const an = await api()
+        .get('/api/analytics/sales')
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(Number(an.body.totals.amount)).toBeGreaterThanOrEqual(0);
+    });
+  });
+
   // ───────────────────── V5: ҮҮРГИЙН ХИЛ (эрхийн аудитын 5–8)
   describe('V5: Үүргийн хил — цуцлалт, төлбөр, хүлээлгэлт ⭐', () => {
     let boundaryOrderId: string;
@@ -4933,6 +5055,19 @@ describe('ursGAL v2 API (e2e)', () => {
         .set(auth(tok.operator))
         .send({ status: 'CANCELLED' })
         .expect(403);
+
+      // Өмнөх тест 1000₮ төлбөр бүртгэсэн — төлбөртэй захиалга шууд
+      // цуцлагдахгүй тул эхлээд мөнгийг нь буцаана (V5-ийн шинэ дүрэм)
+      const cur = await api()
+        .get(`/api/orders/${boundaryOrderId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      for (const pay of cur.body.payments) {
+        await api()
+          .delete(`/api/payments/${pay.id}`)
+          .set(auth(tok.manager))
+          .expect(200);
+      }
 
       const done = await api()
         .patch(`/api/orders/${boundaryOrderId}/status`)

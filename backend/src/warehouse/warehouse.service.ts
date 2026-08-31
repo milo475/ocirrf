@@ -19,6 +19,33 @@ const HANDOVER_READY: OrderStatus[] = [
   OrderStatus.READY,
 ];
 
+/** Дугаарын unique constraint зөрчил (P2002) — давхардсан дугаар */
+function isUniqueViolation(e: unknown): boolean {
+  return (
+    typeof e === 'object' &&
+    e !== null &&
+    (e as { code?: string }).code === 'P2002'
+  );
+}
+
+/**
+ * Өдрийн дугаарлалт (ХҮЛ-/НИЙ-) нь tx дотор max+1 гэж тооцдог тул зэрэг
+ * үүсгэлт мөргөлдвөл P2002 өгнө. OrdersService.create-тэй ижил байдлаар
+ * 3 хүртэл дахин оролдоно — тусдаа counter хүснэгт шаардахгүй, зөв
+ * байдлыг DB-ийн constraint өөрөө баталгаажуулна.
+ */
+async function withNumberRetry<T>(run: () => Promise<T>): Promise<T> {
+  const MAX_ATTEMPTS = 3;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await run();
+    } catch (e) {
+      if (isUniqueViolation(e) && attempt < MAX_ATTEMPTS) continue;
+      throw e;
+    }
+  }
+}
+
 @Injectable()
 export class WarehouseService {
   constructor(
@@ -187,48 +214,50 @@ export class WarehouseService {
       );
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      // Дугаар: ХҮЛ-YYYYMMDD-NNN (өдрийн дараалал)
-      const now = new Date();
-      const ymd = [
-        now.getFullYear(),
-        String(now.getMonth() + 1).padStart(2, '0'),
-        String(now.getDate()).padStart(2, '0'),
-      ].join('');
-      const prefix = `ХҮЛ-${ymd}-`;
-      const todays = await tx.driverHandover.findMany({
-        where: { number: { startsWith: prefix } },
-        select: { number: true },
-      });
-      const next =
-        todays.reduce((max, h) => {
-          const n = parseInt(h.number.slice(prefix.length), 10);
-          return Number.isFinite(n) && n > max ? n : max;
-        }, 0) + 1;
+    return withNumberRetry(() =>
+      this.prisma.$transaction(async (tx) => {
+        // Дугаар: ХҮЛ-YYYYMMDD-NNN (өдрийн дараалал)
+        const now = new Date();
+        const ymd = [
+          now.getFullYear(),
+          String(now.getMonth() + 1).padStart(2, '0'),
+          String(now.getDate()).padStart(2, '0'),
+        ].join('');
+        const prefix = `ХҮЛ-${ymd}-`;
+        const todays = await tx.driverHandover.findMany({
+          where: { number: { startsWith: prefix } },
+          select: { number: true },
+        });
+        const next =
+          todays.reduce((max, h) => {
+            const n = parseInt(h.number.slice(prefix.length), 10);
+            return Number.isFinite(n) && n > max ? n : max;
+          }, 0) + 1;
 
-      const handover = await tx.driverHandover.create({
-        data: {
-          number: prefix + String(next).padStart(3, '0'),
-          driverId: dto.driverId,
-          keeperId: user.id,
-          note: dto.note?.trim() || null,
-          handedAt: new Date(),
-        },
-      });
+        const handover = await tx.driverHandover.create({
+          data: {
+            number: prefix + String(next).padStart(3, '0'),
+            driverId: dto.driverId,
+            keeperId: user.id,
+            note: dto.note?.trim() || null,
+            handedAt: new Date(),
+          },
+        });
 
-      // Захиалгууд хуудсанд холбогдож, гарахад бэлэн (READY) болно
-      await tx.order.updateMany({
-        where: { id: { in: dto.orderIds } },
-        data: {
-          handoverId: handover.id,
-          orderStatus: OrderStatus.READY,
-          assignedDriverId: dto.driverId,
-          deliveryStatus: DeliveryStatus.ASSIGNED,
-        },
-      });
+        // Захиалгууд хуудсанд холбогдож, гарахад бэлэн (READY) болно
+        await tx.order.updateMany({
+          where: { id: { in: dto.orderIds } },
+          data: {
+            handoverId: handover.id,
+            orderStatus: OrderStatus.READY,
+            assignedDriverId: dto.driverId,
+            deliveryStatus: DeliveryStatus.ASSIGNED,
+          },
+        });
 
-      return this.findHandover(handover.id, tx);
-    });
+        return this.findHandover(handover.id, tx);
+      }),
+    );
   }
 
   /** Нэг хуудас — хэвлэхэд шаардлагатай бүх мэдээлэлтэй */

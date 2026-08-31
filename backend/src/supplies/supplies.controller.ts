@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../auth/decorators/current-user.decorator';
 import { PERM } from '../permissions/permission-keys';
@@ -30,7 +38,10 @@ export class SuppliesController {
 
   @Get(':id')
   @RequirePermission(PERM.SUPPLIES_VIEW)
-  findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser) {
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+  ) {
     return this.supplies.findOne(id, user);
   }
 

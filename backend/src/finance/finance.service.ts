@@ -154,13 +154,24 @@ export class FinanceService {
 
     // Борлуулалтын ашиг (v4) — төлбөр төвтэй биш БОРЛУУЛАЛТ төвтэй:
     // тухайн хугацаанд ҮҮССЭН (цуцлагдаагүй) захиалгуудын
-    // орлого − борлуулсан барааны snapshot өртөг
+    // орлого − борлуулсан барааны snapshot өртөг.
+    // V5: буцаагдсан тоо ширхэг хасагдана — өмнө нь бүтэн буцаалттай
+    // захиалга бараа нь агуулахад ирчихсэн атлаа борлуулалтад
+    // тоологдсоор байв.
     const salesRows = await this.prisma.$queryRaw<
       { revenue: Prisma.Decimal; cost: Prisma.Decimal }[]
-    >`SELECT COALESCE(SUM(oi."lineTotal"), 0) AS revenue,
-             COALESCE(SUM(oi."costAtOrder" * oi.qty), 0) AS cost
+    >`SELECT COALESCE(SUM(oi."priceAtOrder" * (oi.qty - COALESCE(r.qty, 0))), 0) AS revenue,
+             COALESCE(SUM(oi."costAtOrder" * (oi.qty - COALESCE(r.qty, 0))), 0) AS cost
       FROM "OrderItem" oi
       JOIN "Order" o ON o.id = oi."orderId"
+      -- Буцаагдсан бараа борлуулалт БИШ: агуулахад буцаж ирсэн тул
+      -- орлого/өртгөөс нь хасна (мөнгө буцаасан эсэхээс үл хамааран —
+      -- буцаалтын мөнгө нь тусад нь REFUND зарлагаар бүртгэгддэг).
+      LEFT JOIN (
+        SELECT ri."orderItemId", SUM(ri.qty) AS qty
+        FROM "OrderReturnItem" ri
+        GROUP BY ri."orderItemId"
+      ) r ON r."orderItemId" = oi.id
       WHERE o."createdAt" >= ${start} AND o."orderStatus" != 'CANCELLED'`;
     const salesRevenue = salesRows[0]?.revenue ?? zero;
     const salesCost = salesRows[0]?.cost ?? zero;
