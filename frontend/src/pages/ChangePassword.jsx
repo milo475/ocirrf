@@ -4,6 +4,7 @@ import { homeFor } from '../components/auth/RoleRoute'
 import { useAuth } from '../context/AuthContext'
 import { useLang } from '../context/LanguageContext'
 import { api } from '../lib/api'
+import AuthShell from '../components/auth/AuthShell'
 
 /**
  * Түр нууц үгээр нэвтэрсэн хэрэглэгчийн заавал солих дэлгэц (V4-06).
@@ -73,8 +74,8 @@ export default function ChangePassword() {
   )
 
   return (
-    <main className="min-h-screen bg-bg text-ink flex items-center justify-center px-6">
-      <div className="w-full max-w-sm">
+    <AuthShell>
+      <div>
         <div className="bg-surface border border-rule rounded-lg p-8">
           <h1 className="font-serif text-3xl font-medium text-center">
             {t('Шинэ нууц үг зохиох')}
@@ -122,6 +123,6 @@ export default function ChangePassword() {
           </form>
         </div>
       </div>
-    </main>
+    </AuthShell>
   )
 }

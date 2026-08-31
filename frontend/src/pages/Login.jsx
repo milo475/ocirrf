@@ -5,6 +5,7 @@ import Modal from '../components/ui/Modal'
 import { useAuth } from '../context/AuthContext'
 import { useLang } from '../context/LanguageContext'
 import { api } from '../lib/api'
+import AuthShell from '../components/auth/AuthShell'
 
 export default function Login() {
   const { user, loading, login } = useAuth()
@@ -66,8 +67,8 @@ export default function Login() {
   }
 
   return (
-    <main className="min-h-screen bg-bg text-ink flex items-center justify-center px-6">
-      <div className="w-full max-w-sm">
+    <AuthShell>
+      <div>
         <div className="bg-surface border border-rule rounded-lg p-8">
           <h1 className="font-serif text-4xl font-medium text-center">ursGAL</h1>
           <p className="mt-2 text-center text-sm text-ink-muted">
@@ -159,6 +160,6 @@ export default function Login() {
           </p>
         )}
       </Modal>
-    </main>
+    </AuthShell>
   )
 }
