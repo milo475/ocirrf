@@ -7,6 +7,7 @@ import { useLang } from '../context/LanguageContext'
 import { useTheme } from '../context/ThemeContext'
 import { api } from '../lib/api'
 import { formatDateTime } from '../lib/format'
+import { DM_TOKENS } from '../lib/dmMessage'
 
 function OptionGroup({ label, options, value, onChange, note }) {
   return (
@@ -111,7 +112,7 @@ function SystemSettings({ t }) {
   }
 
   return (
-    <section className="mt-12 border-t border-rule pt-8 max-w-md">
+    <section className="mt-12 border-t border-rule pt-8 max-w-xl">
       <p className="text-xs uppercase tracking-wide text-ink-muted mb-4">
         {t('Системийн тохиргоо')}
       </p>
@@ -133,10 +134,93 @@ function SystemSettings({ t }) {
           }
           className="font-mono"
         />
-        <Button onClick={save} loading={saving} className="w-full">
-          {t('Хадгалах')}
-        </Button>
       </div>
+
+      {/* Банкны данс (V5) — нийтийн захиалгын хуудас ба DM-ийн хариунд
+          орно. Хоосон бол мессежид «удахгүй илгээнэ» гэж гарна. */}
+      <p className="mt-10 text-xs uppercase tracking-wide text-ink-muted mb-4">
+        {t('Төлбөр хүлээн авах данс')}
+      </p>
+      <div className="space-y-4">
+        <Input
+          id="st-bank"
+          label={t('Банк')}
+          value={values.bankName}
+          onChange={(e) =>
+            setValues((v) => ({ ...v, bankName: e.target.value }))
+          }
+        />
+        <Input
+          id="st-acct"
+          label={t('Дансны дугаар')}
+          value={values.bankAccount}
+          onChange={(e) =>
+            setValues((v) => ({ ...v, bankAccount: e.target.value }))
+          }
+          className="font-mono"
+        />
+        <Input
+          id="st-holder"
+          label={t('Данс эзэмшигч')}
+          value={values.bankHolder}
+          onChange={(e) =>
+            setValues((v) => ({ ...v, bankHolder: e.target.value }))
+          }
+        />
+      </div>
+
+      {/* Хугацааны анхааруулга (V5) */}
+      <p className="mt-10 text-xs uppercase tracking-wide text-ink-muted mb-4">
+        {t('Хугацааны хяналт')}
+      </p>
+      <Input
+        id="st-expiry"
+        label={t('Дуусахаас хэдэн хоногийн өмнө анхааруулах')}
+        type="number"
+        min="1"
+        value={values.expiryWarnDays}
+        onChange={(e) =>
+          setValues((v) => ({ ...v, expiryWarnDays: e.target.value }))
+        }
+        className="font-mono"
+      />
+
+      {/* DM-ийн хариу загвар (V5) */}
+      <p className="mt-10 text-xs uppercase tracking-wide text-ink-muted mb-4">
+        {t('Үйлчлүүлэгч рүү илгээх хариу')}
+      </p>
+      <label
+        htmlFor="st-dm"
+        className="block text-xs uppercase tracking-wide text-ink-muted mb-1.5"
+      >
+        {t('Мессежийн загвар')}
+      </label>
+      <textarea
+        id="st-dm"
+        rows={14}
+        value={values.dmTemplate}
+        onChange={(e) =>
+          setValues((v) => ({ ...v, dmTemplate: e.target.value }))
+        }
+        className="w-full bg-bg border border-rule rounded px-3 py-2 text-sm leading-relaxed resize-y focus:outline-none focus:border-ink-muted"
+      />
+      <div className="mt-3 border border-rule rounded p-3">
+        <p className="text-xs text-ink-muted mb-2">
+          {t('Дараах түлхүүрүүд бодит утгаар солигдоно')}:
+        </p>
+        <dl className="space-y-1">
+          {DM_TOKENS.map(([token, note]) => (
+            <div key={token} className="flex gap-2 text-xs">
+              <dt className="font-mono text-accent shrink-0">{token}</dt>
+              <dd className="text-ink-muted">{t(note)}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+
+      <Button onClick={save} loading={saving} className="w-full mt-8">
+        {t('Хадгалах')}
+      </Button>
     </section>
   )
 }

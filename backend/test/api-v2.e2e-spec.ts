@@ -2411,6 +2411,71 @@ describe('ursGAL v2 API (e2e)', () => {
         .expect(400);
     });
 
+    /**
+     * DM-ийн хариу, банкны данс, хугацааны анхааруулга (V5).
+     * Frontend эдгээр түлхүүрүүд байхыг НАЙДДАГ — устгавал мессеж
+     * үүсэхгүй болно. Тиймээс гэрээг тестээр барина.
+     */
+    it('settings: V5-ийн шинэ түлхүүрүүд байх ба хадгалагдана', async () => {
+      const pub = await api()
+        .get('/api/settings')
+        .set(auth(tok.seller))
+        .expect(200);
+      for (const k of [
+        'dmTemplate',
+        'bankName',
+        'bankAccount',
+        'bankHolder',
+        'expiryWarnDays',
+      ]) {
+        expect(pub.body).toHaveProperty(k);
+      }
+      // Анхны загварт орлуулгууд байх ёстой — эс тэгвэл мессеж хоосон
+      for (const token of ['{нэр}', '{дугаар}', '{бараа}', '{нийт}', '{данс}']) {
+        expect(pub.body.dmTemplate).toContain(token);
+      }
+      expect(pub.body.expiryWarnDays).toBe('30');
+      /** Тестийн дараа ЯГ буцаах анхны загвар (кодод давхардуулахгүй) */
+      const originalTemplate: string = pub.body.dmTemplate;
+
+      const upd = await api()
+        .put('/api/settings')
+        .set(auth(tok.admin))
+        .send({
+          dmTemplate: 'Сайн уу {нэр}, {дугаар} бэлэн.',
+          bankName: 'Э2Э банк',
+          bankAccount: '5000000001',
+          bankHolder: 'Э2Э ХХК',
+          expiryWarnDays: '45',
+        })
+        .expect(200);
+      expect(upd.body.dmTemplate).toContain('{нэр}');
+      expect(upd.body.bankAccount).toBe('5000000001');
+      expect(upd.body.expiryWarnDays).toBe('45');
+
+      // Хугацааны хураангуй тохиргоог дагана
+      const sum = await api()
+        .get('/api/batches/summary')
+        .set(auth(tok.admin))
+        .expect(200);
+      expect(sum.body.warnDays).toBe(45);
+
+      // Анхны утгуудад нь бүрэн буцаана — эс тэгвэл dev DB-д тестийн
+      // загвар үлдэж, бодит үйлчлүүлэгч рүү эвдэрсэн мессеж явна
+      const back = await api()
+        .put('/api/settings')
+        .set(auth(tok.admin))
+        .send({
+          dmTemplate: originalTemplate,
+          bankName: '',
+          bankAccount: '',
+          bankHolder: '',
+          expiryWarnDays: '30',
+        })
+        .expect(200);
+      expect(back.body.dmTemplate).toBe(originalTemplate);
+    });
+
     it('analytics: manager нэвтэрнэ, operator 403, тоонууд зөв', async () => {
       await api()
         .get('/api/analytics/sales')

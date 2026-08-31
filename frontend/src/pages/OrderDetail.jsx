@@ -7,6 +7,7 @@ import ReturnBadge from '../components/orders/ReturnBadge'
 import Input from '../components/ui/Input'
 import Select from '../components/ui/Select'
 import Badge from '../components/ui/Badge'
+import DmReplyModal from '../components/orders/DmReplyModal'
 import Button from '../components/ui/Button'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import EmptyState from '../components/ui/EmptyState'
@@ -48,6 +49,7 @@ export default function OrderDetail() {
   const [proofOpen, setProofOpen] = useState(false)
   const [history, setHistory] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
+  const [dmOpen, setDmOpen] = useState(false)
 
   const load = useCallback(() => {
     setError(null)
@@ -187,6 +189,14 @@ export default function OrderDetail() {
           >
             {t(channelLabel(order.channel))}
           </span>
+          {/* Үйлчлүүлэгч рүү илгээх хариу (V5).
+              NEW дээр харагдахгүй — хараахан баталгаажаагүй захиалгыг
+              «баталгаажлаа» гэж бичих нь худал болно. */}
+          {!['NEW', 'CANCELLED'].includes(order.orderStatus) && (
+            <Button variant="ghost" onClick={() => setDmOpen(true)}>
+              💬 {t('Хариу хуулах')}
+            </Button>
+          )}
           {/* Бэлтгэх хуудас (V4-11) — нэг захиалгаар */}
           {['CONFIRMED', 'PREPARING'].includes(order.orderStatus) && (
             <Button
@@ -434,6 +444,10 @@ export default function OrderDetail() {
             </Button>
           )}
         </section>
+      )}
+
+      {dmOpen && (
+        <DmReplyModal order={order} onClose={() => setDmOpen(false)} />
       )}
 
       {assignOpen && (
