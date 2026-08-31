@@ -24,6 +24,22 @@ export class SupplyItemInput {
     message: 'Өртөг буруу форматтай (жишээ: 3500 эсвэл 3500.50)',
   })
   unitCost: string;
+
+  /**
+   * Дуусах хугацаа (YYYY-MM-DD) — СОНГОЛТТОЙ.
+   * Өгвөл цуврал үүсч хугацааны хяналтад орно. Хугацаагүй бараанд
+   * (сав, баглаа гэх мэт) хоосон орхино.
+   */
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'Дуусах хугацаа YYYY-MM-DD хэлбэртэй байна',
+  })
+  expiryDate?: string;
+
+  /** Үйлдвэрийн цувралын дугаар — заавал биш */
+  @IsOptional()
+  @IsString()
+  batchNo?: string;
 }
 
 export class CreateSupplyDto {

@@ -21,6 +21,7 @@ const REASONS = {
   MANUAL_OUT: { label: 'Зарлага', cls: 'text-status-preparing border-status-preparing/40 bg-status-preparing/12' },
   CORRECTION: { label: 'Залруулга', cls: 'text-status-confirmed border-status-confirmed/40 bg-status-confirmed/12' },
   INITIAL: { label: 'Эхний орлого', cls: 'text-status-ready border-status-ready/40 bg-status-ready/12' },
+  EXPIRED: { label: 'Хугацаа дууссан', cls: 'text-alarm border-alarm/40 bg-alarm/12' },
   MANUAL: { label: 'Гар тохируулга', cls: 'text-ink-muted border-rule bg-surface' },
 }
 

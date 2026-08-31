@@ -160,7 +160,7 @@ export class SuppliesService {
           include: SUPPLY_INCLUDE,
         });
 
-        for (const i of itemsData) {
+        for (const [idx, i] of itemsData.entries()) {
           await tx.product.update({
             where: { id: i.productId },
             data: {
@@ -182,6 +182,23 @@ export class SuppliesService {
               userId: user.id,
             },
           });
+
+          // Хугацаа өгсөн бол ЦУВРАЛ үүсгэнэ — эндээс хойш энэ багц
+          // бараа хугацааны хяналтад орж, FEFO дарааллаар гарна.
+          const src = dto.items[idx];
+          if (src.expiryDate) {
+            await tx.productBatch.create({
+              data: {
+                productId: i.productId,
+                batchNo: src.batchNo || null,
+                expiryDate: new Date(src.expiryDate + 'T00:00:00.000Z'),
+                qty: i.qty,
+                remaining: i.qty,
+                supplyId: supply.id,
+                createdById: user.id,
+              },
+            });
+          }
         }
 
         return supply;

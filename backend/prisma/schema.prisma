@@ -115,6 +115,7 @@ model User {
   paymentsReceived Payment[]     @relation("PaymentsReceived")
   returnsCreated   OrderReturn[] @relation("ReturnsCreated")
   refreshTokens    RefreshToken[]
+  batchesCreated   ProductBatch[] @relation("BatchesCreated")
   suppliesBrought  Supply[]       @relation("SuppliedBy")
   suppliesReceived Supply[]       @relation("SuppliesReceived")
   company          Company?       @relation(fields: [companyId], references: [id])
@@ -378,9 +379,48 @@ model Supply {
   note      String?
   createdAt DateTime @default(now())
 
-  items SupplyItem[]
+  items   SupplyItem[]
+  batches ProductBatch[]
 
   @@index([companyId, createdAt])
+}
+
+/// Барааны ЦУВРАЛ — хугацаа хянах нэгж (V5).
+///
+/// Хүнсний нэмэлт бүтээгдэхүүн хугацаатай тул «хэдэн ширхэг байна»
+/// гэдэг хангалтгүй: аль нь хэзээ дуусахыг мэдэх ёстой. Цуврал нь
+/// нийлүүлэлт хүлээж авахад үүснэ (эсвэл хуучин үлдэгдэлд гараар).
+///
+/// ЧУХАЛ: Product.stockQty нь үлдэгдлийн ЦОРЫН ГАНЦ эх сурвалж хэвээр.
+/// Цуврал нь түүнийг ХУГАЦААГААР задалж харуулна — бараа цувралгүй ч
+/// бүрэн ажиллана (хугацаагүй бараанд цуврал шаардлагагүй).
+model ProductBatch {
+  id        String  @id @default(uuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  /// Үйлдвэрийн цувралын дугаар — заавал биш
+  batchNo    String?
+  expiryDate DateTime
+
+  /// Хүлээж авсан тоо ба ҮЛДСЭН тоо (0 бол дууссан/хаагдсан)
+  qty       Int
+  remaining Int
+
+  /// Аль нийлүүлэлтээр орж ирсэн (гараар нэмсэн бол хоосон)
+  supplyId String?
+  supply   Supply? @relation(fields: [supplyId], references: [id])
+
+  /// Устгалд гарсан эсэх — хугацаа дуусч хассан цуврал
+  writtenOffAt DateTime?
+
+  note        String?
+  createdById String
+  createdBy   User     @relation("BatchesCreated", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@index([productId, expiryDate])
+  @@index([expiryDate])
 }
 
 model SupplyItem {
@@ -427,6 +467,7 @@ model Product {
   orderItems  OrderItem[]
   stockMoves  StockMovement[]
   supplyItems SupplyItem[]
+  batches     ProductBatch[]
 
   @@index([name])
   @@index([isActive])

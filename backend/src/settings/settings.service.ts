@@ -9,6 +9,11 @@ export const PUBLIC_SETTINGS: Record<string, string> = {
   bankName: '',
   bankAccount: '',
   bankHolder: '',
+  /**
+   * Хугацаа дуусахаас хэдэн хоногийн ӨМНӨ анхааруулах вэ (V5).
+   * Компанийн дүрэм: «дуусахаас 30 хоногийн өмнө устгалд оруулна».
+   */
+  expiryWarnDays: '30',
 };
 
 @Injectable()

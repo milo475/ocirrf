@@ -22,6 +22,7 @@ import { formatFullAddress, formatShortAddress } from './address.util';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { QueryOrdersDto } from './dto/query-orders.dto';
+import { applyBatchDelta } from '../stock/batch.util';
 
 /**
  * Зөвшөөрөгдсөн статус шилжилтүүд.
@@ -266,6 +267,7 @@ export class OrdersService {
             userId,
           },
         });
+        await applyBatchDelta(tx, item.productId, -item.qty);
       }
 
       // 8. "Төлсөн" гэж бүртгэсэн бол бүтэн төлбөрийг ЭНД шууд бүртгэнэ —
@@ -459,6 +461,7 @@ export class OrdersService {
                 userId: user.id,
               },
             });
+            await applyBatchDelta(tx, productId, -delta);
           }
         }
       }
@@ -611,6 +614,7 @@ export class OrdersService {
               userId: user.id,
             },
           });
+          await applyBatchDelta(tx, item.productId, item.qty);
         }
 
         return cancelled;

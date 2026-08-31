@@ -65,6 +65,7 @@ for P in orders products drivers dashboard/manager; do
 done
 curl -sf "$API/warehouse/board" -H "Authorization: Bearer ${TOK[manager]}" > /dev/null && ok "GET /warehouse/board"
 curl -sf "$API/supplies/balances" -H "Authorization: Bearer ${TOK[manager]}" > /dev/null && ok "GET /supplies/balances"
+curl -sf "$API/batches/summary" -H "Authorization: Bearer ${TOK[manager]}" > /dev/null && ok "GET /batches/summary"
 
 echo ""
 echo "✓ Smoke test бүрэн амжилттай"

@@ -11,6 +11,7 @@ import { useLang } from '../context/LanguageContext'
 import { api } from '../lib/api'
 import { formatDateTime } from '../lib/format'
 import { openHandoverSheet } from '../lib/handoverSheet'
+import ExpiryAlert from '../components/ExpiryAlert'
 
 /**
  * Няравын ажлын байр (V5).
@@ -35,6 +36,8 @@ export default function Warehouse() {
       <p className="mt-2 text-sm text-ink-muted">
         {t('Бэлтгэл, жолоочид хүлээлгэн өгөх, хуудасны түүх')}
       </p>
+
+      <ExpiryAlert />
 
       <div className="mt-8 flex gap-1 border-b border-rule pb-3">
         {[

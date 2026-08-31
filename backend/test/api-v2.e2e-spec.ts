@@ -109,6 +109,8 @@ describe('ursGAL v2 API (e2e)', () => {
   const requestIds: string[] = [];
   /** Засварын тестийн нэмэлт бараанууд */
   const editProductIds: string[] = [];
+  /** Хугацаа/цувралын тестийн бараа */
+  let batchProductId: string;
   /** Нийлүүлэлтийн тест — компани/нийлүүлэлт/харилцагч */
   let supCompanyId: string;
   let supPartnerId: string;
@@ -197,6 +199,10 @@ describe('ursGAL v2 API (e2e)', () => {
       readyProductId,
       ...editProductIds,
     ].filter(Boolean);
+    // Цуврал нь бараа руу RESTRICT-ээр заадаг тул бараанаас ӨМНӨ устна
+    await prisma.productBatch.deleteMany({
+      where: { productId: { in: productIds } },
+    });
     await prisma.stockMovement.deleteMany({
       where: {
         OR: [{ productId: { in: productIds } }, { refId: { in: orderIds } }],
@@ -5275,4 +5281,310 @@ describe('ursGAL v2 API (e2e)', () => {
       expect(refundEntry).toBeNull();
     });
   });
+
+  describe('V5: Хугацаа ба цуврал — FEFO ⭐', () => {
+    let nearId: string; // ойрхон дуусах цуврал
+    let farId: string; // хол дуусах цуврал
+    let batchOrderId: string;
+    let batchCompanyId: string;
+    const batchSupplyIds: string[] = [];
+
+    /** YYYY-MM-DD — өнөөдрөөс N хоногийн дараа/өмнө */
+    const day = (n: number) =>
+      new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
+
+    const batchesOf = async (token: string) =>
+      (
+        await api()
+          .get(`/api/batches?productId=${batchProductId}`)
+          .set(auth(token))
+          .expect(200)
+      ).body as Array<{
+        id: string;
+        batchNo: string | null;
+        remaining: number;
+        qty: number;
+        daysLeft: number;
+        state: string;
+      }>;
+
+    /**
+     * Цувралын тест нь бараа/нийлүүлэлт/захиалгаа өөрөө үүсгэдэг тул
+     * өөрөө БҮРЭН цэвэрлэнэ. Дараалал нь FK-гаар тогтоно:
+     * цуврал → захиалга(+мөр) → хөдөлгөөн/мэдэгдэл → нийлүүлэлт →
+     * бараа → компани. Буруу дараалалд afterAll унаж бүх тестийн
+     * ул мөр DB-д үлддэг.
+     */
+    afterAll(async () => {
+      if (batchProductId) {
+        await prisma.productBatch.deleteMany({
+          where: { productId: batchProductId },
+        });
+      }
+      if (batchOrderId) {
+        await prisma.notification.deleteMany({
+          where: { refId: batchOrderId },
+        });
+        // OrderItem нь захиалгатайгаа cascade-аар устана
+        await prisma.order.deleteMany({ where: { id: batchOrderId } });
+      }
+      if (batchProductId) {
+        await prisma.stockMovement.deleteMany({
+          where: { productId: batchProductId },
+        });
+      }
+      if (batchSupplyIds.length) {
+        await prisma.notification.deleteMany({
+          where: { refId: { in: batchSupplyIds } },
+        });
+        await prisma.supply.deleteMany({
+          where: { id: { in: batchSupplyIds } },
+        });
+      }
+      if (batchProductId) {
+        await prisma.product.deleteMany({ where: { id: batchProductId } });
+      }
+      if (batchCompanyId) {
+        await prisma.company.deleteMany({ where: { id: batchCompanyId } });
+      }
+    });
+
+    it('бэлтгэл — бараа ба нийлүүлэгч компани', async () => {
+      const prod = await api()
+        .post('/api/products')
+        .set(auth(tok.admin))
+        .send({
+          sku: `${SKU}-BATCH`,
+          name: `Э2Э Хугацаатай ${T}`,
+          price: '10000',
+          costPrice: '4000',
+          stockQty: 0,
+        })
+        .expect(201);
+      batchProductId = prod.body.id;
+
+      const co = await api()
+        .post('/api/companies')
+        .set(auth(tok.admin))
+        .send({ name: `Э2Э Хугацаа компани ${T}` })
+        .expect(201);
+      batchCompanyId = co.body.id;
+    });
+
+    it('хугацаатай нийлүүлэлт → цуврал автоматаар үүснэ', async () => {
+      for (const [days, no] of [
+        [20, 'ОЙРХОН'],
+        [300, 'ХОЛ'],
+      ] as Array<[number, string]>) {
+        const sup = await api()
+          .post('/api/supplies')
+          .set(auth(tok.admin))
+          .send({
+            companyId: batchCompanyId,
+            items: [
+              {
+                productId: batchProductId,
+                qty: 10,
+                unitCost: '4000',
+                expiryDate: day(days),
+                batchNo: no,
+              },
+            ],
+          })
+          .expect(201);
+        batchSupplyIds.push(sup.body.id);
+      }
+
+      const rows = await batchesOf(tok.admin);
+      expect(rows).toHaveLength(2);
+      // Хугацаагаар өсөхөөр эрэмбэлэгдэнэ — FEFO-гийн үндэс
+      expect(rows[0].batchNo).toBe('ОЙРХОН');
+      expect(rows[1].batchNo).toBe('ХОЛ');
+      expect(rows[0].state).toBe('CRITICAL'); // 20 ≤ 30 хоног
+      expect(rows[1].state).toBe('OK');
+      expect(rows[0].remaining).toBe(10);
+    });
+
+    it('хугацаагүй мөр цуврал үүсгэхгүй', async () => {
+      const sup = await api()
+        .post('/api/supplies')
+        .set(auth(tok.admin))
+        .send({
+          companyId: batchCompanyId,
+          items: [
+            { productId: batchProductId, qty: 5, unitCost: '4000' },
+          ],
+        })
+        .expect(201);
+      batchSupplyIds.push(sup.body.id);
+      // Цуврал нэмэгдээгүй — үлдэгдэл л өссөн
+      expect(await batchesOf(tok.admin)).toHaveLength(2);
+    });
+
+    it('захиалга ЭХЭЛЖ ДУУСАХ цувралаас хасна (FEFO)', async () => {
+      const order = await api()
+        .post('/api/orders')
+        .set(auth(tok.admin))
+        .send({
+          customerName: `Э2Э FEFO ${T}`,
+          customerPhone: `9${T}`,
+          ...UB_ADDR,
+          items: [{ productId: batchProductId, qty: 12 }],
+        })
+        .expect(201);
+      batchOrderId = order.body.id;
+
+      const rows = await batchesOf(tok.admin);
+      // ОЙРХОН бүрэн дуусч жагсаалтаас гарна, үлдсэн 2 нь ХОЛ-оос
+      expect(rows).toHaveLength(1);
+      expect(rows[0].batchNo).toBe('ХОЛ');
+      expect(rows[0].remaining).toBe(8);
+      nearId = (
+        await prisma.productBatch.findFirstOrThrow({
+          where: { productId: batchProductId, batchNo: 'ОЙРХОН' },
+        })
+      ).id;
+      farId = rows[0].id;
+      expect(
+        (await prisma.productBatch.findUniqueOrThrow({ where: { id: nearId } }))
+          .remaining,
+      ).toBe(0);
+    });
+
+    it('цуцлалт цувралыг УРВУУ дарааллаар нөхнө', async () => {
+      await api()
+        .patch(`/api/orders/${batchOrderId}/status`)
+        .set(auth(tok.admin))
+        .send({ status: 'CANCELLED' })
+        .expect(200);
+
+      const near = await prisma.productBatch.findUniqueOrThrow({
+        where: { id: nearId },
+      });
+      const far = await prisma.productBatch.findUniqueOrThrow({
+        where: { id: farId },
+      });
+      // Эхэлж дуусахаас нь хассан тул эхэлж дуусах руу нь буцна
+      expect(near.remaining).toBe(10);
+      expect(far.remaining).toBe(10);
+    });
+
+    it('гараар хугацаа зүүхэд үлдэгдэл НЭМЭГДЭХГҮЙ', async () => {
+      const before = (
+        await prisma.product.findUniqueOrThrow({
+          where: { id: batchProductId },
+        })
+      ).stockQty;
+
+      await api()
+        .post('/api/batches')
+        .set(auth(tok.admin))
+        .send({
+          productId: batchProductId,
+          expiryDate: day(-5), // хугацаа нь ДУУССАН
+          qty: 3,
+          batchNo: 'ХУУЧИН',
+        })
+        .expect(201);
+
+      const after = (
+        await prisma.product.findUniqueOrThrow({
+          where: { id: batchProductId },
+        })
+      ).stockQty;
+      expect(after).toBe(before);
+
+      const rows = await batchesOf(tok.admin);
+      const old = rows.find((b) => b.batchNo === 'ХУУЧИН')!;
+      expect(old.state).toBe('EXPIRED');
+      expect(old.daysLeft).toBeLessThan(0);
+    });
+
+    it('хугацаа зүүгээгүй үлдэгдлээс хэтрүүлж болохгүй', async () => {
+      const res = await api()
+        .post('/api/batches')
+        .set(auth(tok.admin))
+        .send({
+          productId: batchProductId,
+          expiryDate: day(90),
+          qty: 99999,
+        })
+        .expect(400);
+      expect(res.body.message).toContain('Хугацаа зүүгээгүй үлдэгдэл');
+    });
+
+    it('устгалд гаргахад үлдэгдэл хасагдаж хөдөлгөөн бичигдэнэ', async () => {
+      const rows = await batchesOf(tok.admin);
+      const expired = rows.find((b) => b.state === 'EXPIRED')!;
+      const before = (
+        await prisma.product.findUniqueOrThrow({
+          where: { id: batchProductId },
+        })
+      ).stockQty;
+
+      await api()
+        .post(`/api/batches/${expired.id}/write-off`)
+        .set(auth(tok.admin))
+        .send({ note: 'e2e устгал' })
+        .expect(201);
+
+      const after = (
+        await prisma.product.findUniqueOrThrow({
+          where: { id: batchProductId },
+        })
+      ).stockQty;
+      expect(after).toBe(before - expired.remaining);
+
+      const mv = await prisma.stockMovement.findFirst({
+        where: { productId: batchProductId, reason: 'EXPIRED' },
+      });
+      expect(mv).not.toBeNull();
+      expect(mv!.qtyChange).toBe(-expired.remaining);
+
+      // Устгасан цуврал жагсаалтаас гарна
+      expect(
+        (await batchesOf(tok.admin)).some((b) => b.id === expired.id),
+      ).toBe(false);
+
+      // Дахин устгах боломжгүй
+      const again = await api()
+        .post(`/api/batches/${expired.id}/write-off`)
+        .set(auth(tok.admin))
+        .send({})
+        .expect(400);
+      expect(again.body.message).toContain('устгалд гарсан');
+    });
+
+    it('хураангуй нь төлөв бүрээр бүлэглэнэ', async () => {
+      const res = await api()
+        .get('/api/batches/summary')
+        .set(auth(tok.admin))
+        .expect(200);
+      expect(res.body.warnDays).toBe(30);
+      for (const k of ['EXPIRED', 'CRITICAL', 'WARNING', 'OK']) {
+        expect(res.body[k]).toHaveProperty('batches');
+        expect(res.body[k]).toHaveProperty('qty');
+        expect(res.body[k]).toHaveProperty('value');
+      }
+      expect(Array.isArray(res.body.soonest)).toBe(true);
+    });
+
+    it('нярав цувралыг хардаг (агуулах бол түүний ажил)', async () => {
+      await api().get('/api/batches').set(auth(keeperToken)).expect(200);
+      await api()
+        .get('/api/batches/summary')
+        .set(auth(keeperToken))
+        .expect(200);
+    });
+
+    it('жолоочид цувралын эрх байхгүй', async () => {
+      await api().get('/api/batches').set(auth(tok.driver)).expect(403);
+      await api()
+        .post('/api/batches')
+        .set(auth(tok.driver))
+        .send({ productId: batchProductId, expiryDate: day(30), qty: 1 })
+        .expect(403);
+    });
+  });
+
 });

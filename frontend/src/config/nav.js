@@ -1,6 +1,7 @@
 import {
   Bell,
   Boxes,
+  CalendarClock,
   ChartColumn,
   ClipboardList,
   Contact,
@@ -115,6 +116,13 @@ export const NAV_ITEMS = [
     perm: 'inventory.view',
   },
   {
+    key: 'expiry',
+    label: 'Хугацаа',
+    icon: CalendarClock,
+    path: '/expiry',
+    perm: 'inventory.view',
+  },
+  {
     key: 'delivery-ops',
     label: 'Хүргэлтийн удирдлага',
     icon: Map,
@@ -186,7 +194,7 @@ const MOBILE_TABS = {
   ADMIN: ['home', 'orders', 'order-requests', 'finance'],
   MANAGER: ['home', 'orders', 'delivery-ops', 'finance'],
   SELLER: ['home', 'order-requests', 'orders', 'customers'],
-  WAREHOUSE: ['warehouse', 'orders', 'supplies', 'stock'],
+  WAREHOUSE: ['warehouse', 'orders', 'expiry', 'stock'],
   OPERATOR: ['home', 'orders', 'supplies', 'products'],
   DRIVER: ['deliveries', 'home'],
 }

@@ -353,6 +353,8 @@ function NewSupplyModal({ t, toast, onClose, onDone }) {
         name: p.name,
         qty: 1,
         unitCost: String(Math.round(Number(p.costPrice ?? 0))),
+        expiryDate: '',
+        batchNo: '',
       },
     ])
     setPick('')
@@ -380,6 +382,12 @@ function NewSupplyModal({ t, toast, onClose, onDone }) {
             productId: i.productId,
             qty: Number(i.qty),
             unitCost: String(i.unitCost),
+            // Хугацаа өгсөн мөрөнд л цуврал үүснэ — хугацаагүй
+            // бараанд (сав, баглаа) шаардлагагүй
+            ...(i.expiryDate ? { expiryDate: i.expiryDate } : {}),
+            ...(i.expiryDate && i.batchNo.trim()
+              ? { batchNo: i.batchNo.trim() }
+              : {}),
           })),
         },
       })
@@ -483,32 +491,55 @@ function NewSupplyModal({ t, toast, onClose, onDone }) {
         {items.length > 0 && (
           <ul className="border border-rule rounded divide-y divide-rule">
             {items.map((i) => (
-              <li key={i.productId} className="px-3 py-2 flex items-center gap-2">
-                <span className="flex-1 min-w-0 truncate text-sm">{i.name}</span>
-                <input
-                  aria-label={t('Тоо')}
-                  value={i.qty}
-                  onChange={(e) => upd(i.productId, 'qty', e.target.value)}
-                  inputMode="numeric"
-                  className="w-16 bg-bg border border-rule rounded px-2 py-1 text-sm text-right"
-                />
-                <input
-                  aria-label={t('Өртөг')}
-                  value={i.unitCost}
-                  onChange={(e) => upd(i.productId, 'unitCost', e.target.value)}
-                  inputMode="numeric"
-                  className="w-24 bg-bg border border-rule rounded px-2 py-1 text-sm text-right"
-                />
-                <button
-                  type="button"
-                  aria-label={t('Хасах')}
-                  onClick={() =>
-                    setItems((l) => l.filter((x) => x.productId !== i.productId))
-                  }
-                  className="text-ink-muted hover:text-alarm px-1"
-                >
-                  ×
-                </button>
+              <li key={i.productId} className="px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <span className="flex-1 min-w-0 truncate text-sm">{i.name}</span>
+                  <input
+                    aria-label={t('Тоо')}
+                    value={i.qty}
+                    onChange={(e) => upd(i.productId, 'qty', e.target.value)}
+                    inputMode="numeric"
+                    className="w-16 bg-bg border border-rule rounded px-2 py-1 text-sm text-right"
+                  />
+                  <input
+                    aria-label={t('Өртөг')}
+                    value={i.unitCost}
+                    onChange={(e) => upd(i.productId, 'unitCost', e.target.value)}
+                    inputMode="numeric"
+                    className="w-24 bg-bg border border-rule rounded px-2 py-1 text-sm text-right"
+                  />
+                  <button
+                    type="button"
+                    aria-label={t('Хасах')}
+                    onClick={() =>
+                      setItems((l) => l.filter((x) => x.productId !== i.productId))
+                    }
+                    className="text-ink-muted hover:text-alarm px-1"
+                  >
+                    ×
+                  </button>
+                </div>
+                {/* Хугацаа — заавал биш. Оруулбал цуврал үүсч,
+                    бараа FEFO дарааллаар гарна. */}
+                <div className="mt-2 flex items-center gap-2 flex-wrap">
+                  <span className="text-xs text-ink-muted shrink-0">
+                    {t('Дуусах')}
+                  </span>
+                  <input
+                    aria-label={`${i.name} — ${t('дуусах хугацаа')}`}
+                    type="date"
+                    value={i.expiryDate}
+                    onChange={(e) => upd(i.productId, 'expiryDate', e.target.value)}
+                    className="bg-bg border border-rule rounded px-2 py-1 text-xs"
+                  />
+                  <input
+                    aria-label={`${i.name} — ${t('цувралын дугаар')}`}
+                    placeholder={t('Цувралын дугаар')}
+                    value={i.batchNo}
+                    onChange={(e) => upd(i.productId, 'batchNo', e.target.value)}
+                    className="flex-1 min-w-24 bg-bg border border-rule rounded px-2 py-1 text-xs"
+                  />
+                </div>
               </li>
             ))}
           </ul>

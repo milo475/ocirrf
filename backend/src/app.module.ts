@@ -29,6 +29,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { ReportsModule } from './reports/reports.module';
 import { SettingsModule } from './settings/settings.module';
 import { ProductsModule } from './products/products.module';
+import { BatchesModule } from './batches/batches.module';
 import { StockModule } from './stock/stock.module';
 import { UPLOADS_DIR } from './uploads.config';
 import { SuppliesModule } from './supplies/supplies.module';
@@ -74,6 +75,7 @@ import { WarehouseModule } from './warehouse/warehouse.module';
     CategoriesModule,
     ProductsModule,
     StockModule,
+    BatchesModule,
     OrdersModule,
     OrderRequestsModule,
     DashboardModule,

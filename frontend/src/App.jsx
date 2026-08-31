@@ -27,6 +27,7 @@ import OrderRequests from './pages/OrderRequests'
 import Orders from './pages/Orders'
 import Products from './pages/Products'
 import Settings from './pages/Settings'
+import Expiry from './pages/Expiry'
 import Stock from './pages/Stock'
 import Supplies from './pages/Supplies'
 import UserPermissions from './pages/UserPermissions'
@@ -77,6 +78,7 @@ function App() {
                     <Route element={<PermRoute perm="inventory.view" />}>
                       <Route path="/products" element={<Products />} />
                       <Route path="/stock" element={<Stock />} />
+                      <Route path="/expiry" element={<Expiry />} />
                     </Route>
                     <Route
                       element={
