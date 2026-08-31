@@ -5995,4 +5995,127 @@ describe('ursGAL v2 API (e2e)', () => {
     });
   });
 
+
+  describe('V5: ОРЛОГО = ТӨЛБӨР хамгаалалт ⭐', () => {
+    let paidOrderId: string;
+    let payProductId: string;
+
+    afterAll(async () => {
+      if (paidOrderId) {
+        await prisma.financeEntry.deleteMany({
+          where: { refOrderId: paidOrderId },
+        });
+        await prisma.payment.deleteMany({ where: { orderId: paidOrderId } });
+        await prisma.notification.deleteMany({ where: { refId: paidOrderId } });
+        await prisma.orderItem.deleteMany({ where: { orderId: paidOrderId } });
+        await prisma.order.deleteMany({ where: { id: paidOrderId } });
+      }
+      if (payProductId) {
+        await prisma.stockMovement.deleteMany({
+          where: { productId: payProductId },
+        });
+        await prisma.product.deleteMany({ where: { id: payProductId } });
+      }
+    });
+
+    /**
+     * ЯАГААД ЭНЭ ТЕСТ БАЙХ ЁСТОЙ ВЭ:
+     *
+     * Хуучин код захиалга үүсэх мөчид шууд ОРЛОГО бичдэг байсан —
+     * төлбөр хүлээж авсан эсэхээс үл хамааран. Үүнээс болж 29
+     * захиалгын 1,102,700₮ нь ОРЛОГО ба АВЛАГА хоёуланд нь давхар
+     * зогсож, санхүүгийн тайлан 77%-иар хөөрөгдөж байв.
+     *
+     * Зарчим: ОРЛОГО = ТӨЛБӨР. Payment мөргүйгээр INCOME бичигдэхгүй.
+     */
+    it('төлсөн захиалга Payment + INCOME хоёуланг үүсгэнэ', async () => {
+      const prod = await api()
+        .post('/api/products')
+        .set(auth(tok.admin))
+        .send({ sku: `${SKU}-PAY`, name: `Э2Э Төлбөр ${T}`, price: '5000' })
+        .expect(201);
+      payProductId = prod.body.id;
+      await api()
+        .post('/api/stock/adjust')
+        .set(auth(tok.admin))
+        .send({ productId: payProductId, qtyChange: 10, reason: 'PURCHASE_IN' })
+        .expect(201);
+
+      const order = await api()
+        .post('/api/orders')
+        .set(auth(tok.admin))
+        .send({
+          customerName: `Э2Э Төлбөрт ${T}`,
+          customerPhone: `4${T}`,
+          ...UB_ADDR,
+          items: [{ productId: payProductId, qty: 2 }],
+          paid: true,
+          paymentMethod: 'CASH',
+        })
+        .expect(201);
+      paidOrderId = order.body.id;
+      expect(order.body.paymentStatus).toBe('PAID');
+
+      const payments = await prisma.payment.findMany({
+        where: { orderId: paidOrderId },
+      });
+      const incomes = await prisma.financeEntry.findMany({
+        where: { refOrderId: paidOrderId, type: 'INCOME' },
+      });
+
+      // Гурвуулаа байх ба ижил дүнтэй
+      expect(payments).toHaveLength(1);
+      expect(incomes).toHaveLength(1);
+      expect(Number(incomes[0].amount)).toBe(Number(payments[0].amount));
+      expect(Number(order.body.paidAmount)).toBe(Number(payments[0].amount));
+
+      // ОРЛОГО нь тухайн ТӨЛБӨР рүү шууд заана — өнчин бичилт үүсэхгүй
+      expect(incomes[0].refPaymentId).toBe(payments[0].id);
+    });
+
+    it('төлөөгүй захиалга ОРЛОГО үүсгэхГҮЙ', async () => {
+      const order = await api()
+        .post('/api/orders')
+        .set(auth(tok.admin))
+        .send({
+          customerName: `Э2Э Төлөөгүй ${T}`,
+          customerPhone: `4${T}`,
+          ...UB_ADDR,
+          items: [{ productId: payProductId, qty: 1 }],
+        })
+        .expect(201);
+      expect(order.body.paymentStatus).toBe('UNPAID');
+
+      const incomes = await prisma.financeEntry.count({
+        where: { refOrderId: order.body.id, type: 'INCOME' },
+      });
+      expect(incomes).toBe(0);
+
+      // Цэвэрлэгээ
+      await prisma.notification.deleteMany({ where: { refId: order.body.id } });
+      await prisma.orderItem.deleteMany({ where: { orderId: order.body.id } });
+      await prisma.order.deleteMany({ where: { id: order.body.id } });
+    });
+
+    /**
+     * Кодын ЯМАР Ч зам Payment-гүй INCOME үүсгэж болохгүй. Тестийн
+     * явцад үүссэн бүх орлогыг шалгана — хуучин өгөгдөл биш, ЭНЭ
+     * ажиллагааны кодын гаргалгааг.
+     */
+    it('тестийн явцад үүссэн бүх ОРЛОГО төлбөртэй холбоотой', async () => {
+      const since = new Date(Date.now() - 10 * 60_000);
+      const orphans = await prisma.financeEntry.findMany({
+        where: {
+          type: 'INCOME',
+          entryDate: { gte: since },
+          refPaymentId: null,
+          // Гараар бүртгэсэн бусад орлого нь төлбөргүй байх нь хэвийн
+          category: { notIn: ['OTHER_INCOME'] },
+        },
+        select: { id: true, category: true, amount: true, note: true },
+      });
+      expect(orphans).toEqual([]);
+    });
+  });
+
 });
