@@ -76,7 +76,10 @@ export default function ChangePassword() {
   return (
     <AuthShell>
       <div>
-        <div className="bg-surface border border-rule rounded-lg p-8">
+        {/* Шилэн карт: доорх зураг бүдгэрч харагдана (V5).
+            `backdrop-blur` нь ард талыг нь бүдгэрүүлдэг тул
+            зураг дээр ч текст цэвэр уншигдана. */}
+        <div className="bg-surface/80 backdrop-blur-xl border border-rule/70 rounded-lg p-8 shadow-2xl shadow-black/40">
           <h1 className="font-serif text-3xl font-medium text-center">
             {t('Шинэ нууц үг зохиох')}
           </h1>

@@ -4,48 +4,45 @@
  * Login ба ChangePassword хоёр ижил бүтэцтэй байсан тул нэг газарт
  * нэгтгэв: дэвсгэрийг өөрчлөхөд хоёуланд нь нэг дор тусна.
  *
- * ═══ ЯАГААД ХОЁР ӨӨР БАЙРЛАЛ ВЭ ═══
- * Бүтээгдэхүүний зураг нь ДӨРВӨЛЖИН. Түүнийг өргөн дэлгэц дээр
- * бүтнээр нь дүүргэвэл дээд, доод тал нь тайрагдаж, зөвхөн дунд
- * хэсэг нь харагдана.
+ * ═══ ГУРВАН ДАВХАРГА, ЯАГААД ВЭ ═══
+ * Бүтээгдэхүүний зураг нь ДӨРВӨЛЖИН. Дэлгэцийг дүүргэвэл (`cover`)
+ * дээд, доод тал нь тайрагдана. Бүтнээр нь харуулбал (`contain`)
+ * хажуу талд хоосон зай үлдэнэ.
  *
- *   Гар утас (босоо)  → зураг бүтэн дэлгэцээр, маягт нь дээр нь
- *   Компьютер (өргөн) → зүүн талд зураг, баруун талд маягт
- *
- * Компьютер дээр зургийн талбар нь БОСОО хэлбэртэй болох тул
- * дөрвөлжин зураг бараг бүтнээрээ багтана — тайралт бага.
- *
- * ЗУРАГ БАЙХГҮЙ ҮЕД: `background-image` нь олдоогүй файлыг чимээгүй
- * алгасдаг тул доорх өнгө шууд харагдана — хуудас эвдрэхгүй.
+ * Тиймээс хоёуланг нь давхарлав:
+ *   1. Бүдгэрүүлсэн ХУУЛБАР — дэлгэцийг дүүргэж, хажуугийн хоосон
+ *      зайг нөхнө. Тайрагдсан ч хамаагүй, аль хэдийн бүдэг.
+ *   2. Бүтэн зураг — тайралтгүй, голдоо. Гол харагдац нь энэ.
+ *   3. Маягт — голдоо, шилэн мэт (доод давхарга нь харагдана).
  */
 const BG = "url('/login-bg.png')"
 
 export default function AuthShell({ children }) {
   return (
-    <main className="min-h-screen bg-bg text-ink md:flex">
-      {/* ── КОМПЬЮТЕР: зүүн талын зургийн талбар ── */}
+    <main className="relative min-h-screen flex items-center justify-center px-6 py-10 bg-bg text-ink overflow-hidden">
+      {/* 1 — хажуугийн зайг нөхөх бүдэг хуулбар.
+             Зөвхөн компьютер дээр: гар утсан дээр зураг дэлгэцийг
+             аль хэдийн дүүргэдэг тул нөхөх зай үлдэхгүй. */}
       <div
         aria-hidden="true"
-        className="hidden md:block md:w-1/2 lg:w-3/5 bg-center bg-cover border-r border-rule"
+        className="hidden md:block absolute inset-0 bg-center bg-cover scale-110 blur-2xl opacity-60"
         style={{ backgroundImage: BG }}
       />
 
-      {/* ── Маягтын тал ── */}
-      <div className="relative flex-1 min-h-screen flex items-center justify-center px-6">
-        {/* Гар утсан дээр зураг бүтэн дэлгэцийн ард; компьютер дээр
-            зүүн талд аль хэдийн байгаа тул энд харуулахгүй */}
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 bg-center bg-cover md:hidden"
-          style={{ backgroundImage: BG }}
-        />
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 bg-black/55 backdrop-blur-[2px] md:hidden"
-        />
+      {/* 2 — гол зураг.
+             Гар утас (босоо): дүүргэнэ — хажуу тал нь бага зэрэг
+               тайрагдана, уут голдоо тул бүтнээрээ харагдана.
+             Компьютер (өргөн): бүтнээр — тайралтгүй. */}
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 bg-center bg-cover md:bg-contain bg-no-repeat"
+        style={{ backgroundImage: BG }}
+      />
 
-        <div className="relative w-full max-w-sm">{children}</div>
-      </div>
+      {/* 3 — маягтын ард уншигдахуйц болгох зөөлөн харанхуйлалт */}
+      <div aria-hidden="true" className="absolute inset-0 bg-black/35 md:bg-black/25" />
+
+      <div className="relative w-full max-w-sm">{children}</div>
     </main>
   )
 }
