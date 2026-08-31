@@ -101,9 +101,8 @@ v3-д нэмэгдсэн зүйлс байршуулалтад нэмэлт то
 | notifications | Хонхны мэдэгдэл (хуваарилалт, бага үлдэгдэл, амжилтгүй хүргэлт, онлайн захиалга, статус) | өөрийн л |
 | activity-log | Бүх амжилттай POST/PATCH/PUT/DELETE-ийн түүх (interceptor) | activity_log.view |
 | delivery-ops | Хүргэлтийн самбар + жолоочийн маршрутын дараалал (routeOrder, mapUrl) | orders.view+drivers.view |
-| portal | CUSTOMER бүртгэл (/api/auth/register), өөрийн захиалга/tracking/нэхэмжлэх, цуцлалт | role CUSTOMER |
 | customers | Бүртгэлтэй + утасны захиалгаас бүлэглэсэн харилцагчид | customers.* |
-| settings | companyName, companyPhone, allowCustomerCancel — DB-д (Setting хүснэгт), UI: /settings | settings.edit |
+| settings | companyName, companyPhone, банкны данс — DB-д (Setting хүснэгт), UI: /settings | settings.edit |
 | analytics | Борлуулалт/TOP бараа/жолооч/харилцагчийн аналитик | analytics.view |
 | reports | CSV тайлан (UTF-8 BOM — Excel-д кирилл зөв) | reports.* |
 
@@ -113,10 +112,9 @@ v3-д нэмэгдсэн зүйлс байршуулалтад нэмэлт то
   Effective permission = хэрэглэгчийн override ?? role default
   (`backend/src/permissions/permission-keys.ts` — нэг л эх сурвалж).
   ADMIN-ий эрхийг хэн ч хасаж чадахгүй.
-- **allowCustomerCancel** зэрэг тохиргоо .env биш DB-ийн Setting
+- **companyName, банкны данс** зэрэг тохиргоо .env биш DB-ийн Setting
   хүснэгтэд — UI-ийн /settings хуудаснаас удирдана.
-- Smoke: `bash backend/scripts/smoke-test-v3.sh` (v1: smoke-test.sh,
-  v2: smoke-test-v2.sh).
+- Smoke: `bash backend/scripts/smoke-test.sh`.
 
 ## 8. Жолоочийн PWA (V4-10)
 
@@ -169,7 +167,7 @@ docker compose up -d        # build → migrate → (эхний удаа) seed �
 - Шинэ хувилбар: `git pull && docker compose up -d --build`.
 - Зогсоох: `docker compose down` (өгөгдөл үлдэнэ);
   `down -v` — volume-уудтай нь БҮРЭН устгана (болгоомжтой!).
-- Smoke: `bash backend/scripts/smoke-test-v3.sh` (host дээрээс).
+- Smoke: `bash backend/scripts/smoke-test.sh` (host дээрээс).
 
 CI-ийн "Docker compose (smoke)" job push бүрт яг энэ урсгалыг цэвэр
 орчинд бүрэн ажиллуулж баталдаг.
@@ -180,11 +178,10 @@ CI-ийн "Docker compose (smoke)" job push бүрт яг энэ урсгалы�
 |---|---|
 | finance/payments | ОРЛОГО = ТӨЛБӨР: POST /orders/:id/payments, авлага GET /finance/receivables |
 | orders/returns | POST /orders/:id/return — restock/refund/payroll хасалт нэг transaction-д |
-| settings/tariffs | GET/PUT /settings/tariffs — тарифын лавлагаа (захиалгад автоматаар нэмэгдэхгүй) |
 | auth хамгаалалт | reset-password (түр нууц үг), rate limit, түгжилт + unlock, refresh rotation, logout revoke |
 | notifications/sse | GET /notifications/stream (token query) — real-time push |
 | products/import | GET import-template.csv, POST /products/import, barcode unique |
 | logging | logs/error-YYYY-MM-DD.log + GET /admin/errors + scripts/check-errors.sh |
 | CI/Docker | .github/workflows/ci.yml (e2e + docker smoke), docker compose up -d |
 
-Smoke: `bash backend/scripts/smoke-test-v4.sh` (v2/v3-ийнхтэй хамт).
+Smoke: `bash backend/scripts/smoke-test.sh`.

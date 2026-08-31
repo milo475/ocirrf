@@ -142,9 +142,7 @@ const DICT = {
     'Жагсаалт ачаалж чадсангүй': 'Failed to load list',
 
     // — Үлдэгдэл тохируулга —
-    'Үлдэгдэл тохируулах': 'Adjust stock',
     'Одоогийн үлдэгдэл:': 'Current stock:',
-    'Өөрчлөлт (+ орлого / − зарлага)': 'Change (+ in / − out)',
     'Жишээ: агуулахын тооллого': 'e.g. inventory count',
     '«{name}» үлдэгдэл: {qty} {unit}': '“{name}” stock: {qty} {unit}',
 
@@ -185,12 +183,7 @@ const DICT = {
 
     // — Шинэ захиалга —
     'Шинэ захиалга': 'New order',
-    'Хүргэлтийн заавар г.м. (заавал биш)': 'Delivery notes etc. (optional)',
-    'Бараа хайх — нэр эсвэл SKU…': 'Search items — name or SKU…',
     'Олдсонгүй': 'Not found',
-    '— нэмэгдсэн': '— added',
-    'Бараа сонгогдоогүй': 'No items selected',
-    'Дээрх хайлтаар бараа нэмнэ үү': 'Add items using the search above',
     '⚠ Үлдэгдэл: {n}': '⚠ In stock: {n}',
     'Мөр устгах': 'Remove row',
     'Захиалга үүсгэх': 'Create order',
@@ -272,7 +265,6 @@ const DICT = {
     'Ангиллын нэр': 'Category name',
     'Гүйлгээ нэмэгдлээ': 'Entry added',
     'Гүйлгээ олдсонгүй': 'No entries found',
-    'Захиалга (авто)': 'Order (auto)',
     'Тооцоо харах': 'View payroll',
     'Борлуулалт': 'Sales',
     'Урьдчилгаа': 'Advance payment',
@@ -320,7 +312,6 @@ const DICT = {
     'Өртөг': 'Cost',
     'Өртөг (₮)': 'Cost (₮)',
     'Ашиг': 'Profit',
-    'Ашиг %': 'Margin %',
     'Нийт ашиг': 'Total profit',
     'Нэгжийн өртөг (₮)': 'Unit cost (₮)',
     'pay.cash': 'Cash',
@@ -345,13 +336,6 @@ const DICT = {
 
     // — Хүргэлтийн тариф (V4-05) —
     'Хүргэлтийн хөлс': 'Delivery fee',
-    'Хүргэлтийн тариф': 'Delivery tariffs',
-    'Дүүрэггүй мөр нь тухайн бүсийн үндсэн тариф':
-      'Rows without a district are the default tariff for that region',
-    'Тариф хадгалагдлаа': 'Tariffs saved',
-    'Тариф давхардаж байна': 'Duplicate tariff',
-    'Дүүргийн тусгай тариф (УБ)': 'District-specific tariff (UB)',
-    'Тариф': 'Tariff',
 
     // — Нууц үг сэргээх (V4-06) —
     'Нууц үг сэргээх': 'Reset password',
@@ -376,20 +360,14 @@ const DICT = {
     'Түр (хуучин) нууц үг': 'Temporary (old) password',
     'Хадгалж байна…': 'Saving…',
     'Нууц үг солих': 'Change password',
-    'Одоогийн нууц үг': 'Current password',
-    'Нууц үг солигдлоо': 'Password changed',
     'Замд гарлаа': 'On my way',
 
     // — Нэршил: Харилцагч = бараа нийлүүлэгч түнш (OPERATOR эрх) —
     'Хүлээн авагч': 'Recipient',
     'Нийт хүлээн авагч': 'Total recipients',
     'Захиалгын хүлээн авагчид': 'Order recipients',
-    'Портал хэрэглэгчид': 'Portal users',
-    'Портал хэрэглэгч': 'Portal user',
     'Харилцагч алга — Хэрэглэгчид хуудаснаас «Харилцагч» эрхтэйгээр бүртгэнэ':
       'No partners yet — register them on the Users page with the "Partner" role',
-    'Шинэ хэрэглэгч үү?': 'New user?',
-    'Хэрэглэгчийн бүртгэл': 'User sign-up',
 
     // — Олноор хуваарилах (V5) —
     'Жолооч хуваарилах': 'Assign driver',
@@ -600,10 +578,6 @@ const DICT = {
     'захиалга': 'orders',
 
     // — Харилцагчид —
-    'Захиалгын харилцагчид': 'Order customers',
-    'Бүртгэлтэй (portal)': 'Registered (portal)',
-    'Бүртгэлтэй харилцагч алга — portal-аар бүртгүүлсэн хэрэглэгчид энд гарна':
-      'No registered customers — users who sign up via the portal appear here',
 
     // — Барааны каталог (сагс) —
     'Бараа шүүх — нэр, SKU, barcode…': 'Filter products — name, SKU, barcode…',
@@ -660,27 +634,11 @@ const DICT = {
     '«{name}»-ийн түгжээ тайлагдлаа': '"{name}" has been unlocked',
 
     // — Customer portal (V3-14) —
-    'Шинэ харилцагч уу?': 'New customer?',
-    'Бүртгүүлэх': 'Sign up',
-    'Бүртгэлтэй юу?': 'Already have an account?',
-    'Харилцагчийн бүртгэл': 'Customer sign-up',
     'Нууц үг давтах': 'Repeat password',
     'Нууц үг таарахгүй байна': 'Passwords do not match',
-    'Бүртгэж байна…': 'Signing up…',
-    'Миний самбар': 'My dashboard',
-    'Миний захиалгууд': 'My orders',
     'Профайл': 'Profile',
-    'Нийт {n} захиалга · {m} идэвхтэй': '{n} orders total · {m} active',
-    'Сүүлийн захиалгууд': 'Recent orders',
     'Захиалга алга': 'No orders yet',
-    'Эхний захиалгаа өгөөрэй!': 'Place your first order!',
-    'Профайл хадгалагдлаа': 'Profile saved',
     'Шинэ нууц үг': 'New password',
-    '(солих бол)': '(if changing)',
-    '(солих бол шинэ дугаар)': '(new number if changing)',
-    '← Миний захиалгууд': '← My orders',
-    'Нэхэмжлэх харах': 'View invoice',
-    'Нэхэмжлэх': 'Invoice',
     'Хэвлэх': 'Print',
 
     // — Аналитик, Тайлан, Харилцагчид, Тохиргоо (V3-17) —
@@ -712,20 +670,13 @@ const DICT = {
     'Тайлан татагдлаа': 'Report downloaded',
     'CSV файлууд Excel-д кирилл үсгээрээ зөв нээгдэнэ (UTF-8 BOM)':
       'CSV files open in Excel with Cyrillic intact (UTF-8 BOM)',
-    'Бүртгэлтэй': 'Registered',
     'Утасны захиалгаас': 'From phone orders',
     'Нэр(үүд)': 'Name(s)',
     'Сүүлийн захиалга': 'Last order',
     'Идэвхгүй болгох': 'Deactivate',
-    'Идэвхжүүлэх': 'Activate',
-    'Идэвхгүй болголоо': 'Deactivated',
-    'Идэвхжүүллээ': 'Activated',
-    'Бүртгэлтэй харилцагч алга': 'No registered customers',
     'Системийн тохиргоо': 'System settings',
     'Компанийн нэр': 'Company name',
     'Компанийн утас': 'Company phone',
-    'Харилцагч шинэ захиалгаа цуцлах боломжтой':
-      'Customers may cancel their new orders',
     'Тохиргоо хадгалагдлаа': 'Settings saved',
     'Төлөв': 'Status',
     'Идэвхтэй хүргэлт': 'Active deliveries',
@@ -809,7 +760,6 @@ const DICT = {
     // — Эрхийн самбарууд —
     'Удирдлагын самбар': 'Admin overview',
     'Нийт хүргэлт': 'Total deliveries',
-    'Нийт харилцагч': 'Total customers',
     'Нийт жолооч': 'Total drivers',
     'Хүргэлтэд гарсан': 'Out for delivery',
     'Амжилттай хүргэсэн': 'Delivered',
@@ -820,12 +770,6 @@ const DICT = {
     'хуваарилагдсан': 'assigned',
     'хүргэсэн': 'delivered',
 
-    'Операторын самбар': 'Operator overview',
-    'Миний шивсэн захиалга': 'My orders entered',
-    'Биелсэн': 'Fulfilled',
-    '7 хоногийн шивэлт': '7-day order entry',
-    'Бага үлдэгдэлтэй бараа': 'Low stock items',
-    'Бүх үлдэгдэл хэвийн': 'All stock levels healthy',
 
     'Менежерийн самбар': 'Manager overview',
     'Орлого / зарлага (7 хоног)': 'Stock in / out (7 days)',
@@ -838,7 +782,6 @@ const DICT = {
     'Завгүй': 'Busy',
     'Жолоочийн самбар': 'Driver overview',
     'Өнөөдрийн хүргэлт': "Today's deliveries",
-    'Авах цалин': 'Earnings',
     'Нийт хүргэсэн': 'Total delivered',
     'Хүргэлтээ эхлэх': 'Start deliveries',
     '7 хоног': '7 days',

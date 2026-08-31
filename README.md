@@ -36,7 +36,6 @@ Permission = код доторх role default матриц
 - **Санхүү**: **орлого = төлбөр** (хүргэгдсэн ≠ орлого — INCOME нь
   `POST /orders/:id/payments` дээр бичигдэнэ), авлага, гар гүйлгээ,
   жолоочийн цалингийн тооцоо (payroll close → PAID).
-- **Portal**: харилцагч өөрөө бүртгүүлж захиалаад явцаа хянана
   (progress зураас, proof зураг, хэвлэх нэхэмжлэх).
 - **Мэдэгдэл + Үйлдлийн түүх**: хонх (30с refresh), бүх өөрчлөлтийн лог.
 - **Аналитик + Тайлан**: борлуулалт/TOP бараа/жолооч/харилцагч;
@@ -67,9 +66,7 @@ node dist/main        # http://localhost:3000
 ```bash
 cd backend
 npm run test:e2e                  # 120 тест, өөрийн ул мөрөө цэвэрлэдэг
-bash scripts/smoke-test-v4.sh     # v4: төлбөр/буцаалт/тариф/түгжилт/SSE/импорт
-bash scripts/smoke-test-v3.sh     # амьд сервэр дээрх v3 урсгалууд
-bash scripts/smoke-test-v2.sh     # v2 урсгалууд
+bash scripts/smoke-test.sh        # амьд сервер: health, нэвтрэлт, эрхийн хил
 ```
 
 Гараар шалгах жагсаалт: [TESTING.md](TESTING.md).
@@ -82,7 +79,6 @@ bash scripts/smoke-test-v2.sh     # v2 урсгалууд
 | payments | Төлбөр бүртгэл (бэлэн/шилжүүлэг/карт), **ОРЛОГО = ТӨЛБӨР** (хүргэлт биш), авлагын жагсаалт | finance.* |
 | returns | Хэсэгчилсэн/бүтэн буцаалт: үлдэгдэл сэргээх, төлбөр буцаах (REFUND зарлага), жолоочийн цалингаас хасах | orders.refund |
 | cost/profit | Барааны өртөг + захиалгын мөрийн snapshot → ашиг аналитик/dashboard-д | inventory.adjustment (өртөг нуугдана) |
-| tariffs | Хүргэлтийн тарифын лавлагаа (шинэ захиалгад хөлс автоматаар НЭМЭГДЭХГҮЙ) | settings.edit |
 | security | Түр нууц үг + заавал солих урсгал, rate limit (5/мин), 5 буруу → 15 мин түгжээ, refresh token rotation + гэр бүлийн revoke | users.manage |
 | sse | Real-time мэдэгдэл (EventSource) — badge секундын дотор, 30с poll fallback | өөрийн л |
 | pwa | Жолоочийн суулгаж болох app + offline баталгаажуулалтын дараалал (IndexedDB) | — |
