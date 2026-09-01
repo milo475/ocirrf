@@ -15,6 +15,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
+import { SecurityLogService } from '../activity-log/security-log.service';
 
 export type JwtPayload = { sub: string; role: string; jti?: string };
 
@@ -30,9 +31,15 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly permissionsService: PermissionsService,
+    private readonly securityLog: SecurityLogService,
   ) {}
 
-  async login(dto: LoginDto) {
+  /**
+   * @param ip Хүсэлт хаанаас ирснийг аюулгүй байдлын бүртгэлд
+   *   тэмдэглэнэ — довтолгоо нэг эх сурвалжаас ирж буйг таних гол
+   *   мэдээлэл.
+   */
+  async login(dto: LoginDto, ip: string | null = null) {
     // User.username талбарт email хэлбэрийн утга хадгалагддаг (seed-ийн дагуу)
     const user = await this.prisma.user.findUnique({
       where: { username: dto.email },
@@ -42,6 +49,8 @@ export class AuthService {
     const invalid = new UnauthorizedException('Нэвтрэх мэдээлэл буруу');
 
     if (!user || !user.isActive) {
+      // Бүртгэлгүй/идэвхгүй хаягаар оролдсон нь ч дохио
+      this.securityLog.loginFailed(dto.email, ip, user?.id ?? null);
       throw invalid;
     }
 
@@ -51,6 +60,7 @@ export class AuthService {
       HttpStatus.LOCKED,
     );
     if (user.lockedUntil && user.lockedUntil > new Date()) {
+      this.securityLog.loginFailed(dto.email, ip, user.id);
       throw locked;
     }
 
@@ -68,6 +78,11 @@ export class AuthService {
             }
           : { failedLoginCount: count },
       });
+      if (willLock) {
+        this.securityLog.loginLocked(dto.email, ip, user.id);
+      } else {
+        this.securityLog.loginFailed(dto.email, ip, user.id);
+      }
       throw willLock ? locked : invalid;
     }
 

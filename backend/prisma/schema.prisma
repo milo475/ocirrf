@@ -285,8 +285,10 @@ model Setting {
 
 /// Үйлдлийн түүх — амжилттай өөрчлөлт бүр (interceptor бичнэ)
 model ActivityLog {
-  id        String   @id @default(uuid())
-  userId    String
+  id     String @id @default(uuid())
+  /// Хэн хийсэн бэ. Аюулгүй байдлын үйл явдалд ХООСОН байж болно
+  /// (V5): амжилтгүй нэвтрэлтэд хэрэглэгч танигдаагүй байдаг.
+  userId String?
   action    String // жишээ: "POST /api/orders", "permission_change"
   entity    String // orders / products / permissions ...
   entityId  String?

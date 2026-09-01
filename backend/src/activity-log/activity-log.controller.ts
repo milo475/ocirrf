@@ -76,8 +76,12 @@ export class ActivityLogController {
       this.prisma.activityLog.count({ where }),
     ]);
 
-    // ActivityLog-д relation байхгүй — нэрийг тусад нь татна
-    const userIds = [...new Set(items.map((i) => i.userId))];
+    // ActivityLog-д relation байхгүй — нэрийг тусад нь татна.
+    // userId нь ХООСОН байж болно (V5): амжилтгүй нэвтрэлтэд
+    // хэрэглэгч танигдаагүй байдаг.
+    const userIds = [
+      ...new Set(items.map((i) => i.userId).filter((v): v is string => !!v)),
+    ];
     const users = await this.prisma.user.findMany({
       where: { id: { in: userIds } },
       select: { id: true, fullName: true },
@@ -87,7 +91,7 @@ export class ActivityLogController {
     return {
       items: items.map((i) => ({
         ...i,
-        userName: nameById.get(i.userId) ?? '—',
+        userName: (i.userId ? nameById.get(i.userId) : null) ?? '—',
       })),
       total,
       page,

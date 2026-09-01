@@ -6493,4 +6493,95 @@ describe('ursGAL v2 API (e2e)', () => {
     });
   });
 
+
+  describe('V5: Аюулгүй байдлын мөшгилт ⭐', () => {
+    const SEC_EMAIL = `e2e-sec-${T}@ursgal.mn`;
+
+    afterAll(async () => {
+      await prisma.activityLog.deleteMany({ where: { entity: 'security' } });
+    });
+
+    /**
+     * ActivityLogInterceptor нь зөвхөн АМЖИЛТТАЙ өөрчлөлтийг бичдэг
+     * бөгөөд `/auth/`-ыг бүрэн алгасдаг байв. Тиймээс «хэн орох гэж
+     * оролдоод чадаагүй», «хэн эрхээсээ хэтрэх гэж үзсэн» гэдгийг
+     * мөшгих ямар ч зам байсангүй.
+     */
+    it('амжилтгүй нэвтрэлт бүртгэгдэнэ', async () => {
+      const before = await prisma.activityLog.count({
+        where: { action: 'LOGIN_FAILED' },
+      });
+
+      await api()
+        .post('/api/auth/login')
+        .send({ email: SEC_EMAIL, password: 'буруу-нууц-үг' })
+        .expect(401);
+
+      const rows = await prisma.activityLog.findMany({
+        where: { action: 'LOGIN_FAILED' },
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+      });
+      expect(
+        await prisma.activityLog.count({ where: { action: 'LOGIN_FAILED' } }),
+      ).toBe(before + 1);
+
+      // Бүртгэлгүй хаяг тул хэрэглэгч танигдаагүй
+      expect(rows[0].userId).toBeNull();
+      const meta = rows[0].meta as { email?: string; ip?: string };
+      // ⭐ Имэйл БҮТНЭЭР хадгалагдахгүй — лог өөрөө задралын эх
+      // сурвалж болох ёсгүй
+      expect(meta.email).not.toBe(SEC_EMAIL);
+      expect(meta.email).toContain('***');
+      expect(meta.email).toContain('@ursgal.mn');
+    });
+
+    /**
+     * ⭐ Хамгийн үнэ цэнэтэй дохио: НЭВТЭРСЭН хүн эрхээсээ хэтрэх
+     * гэж оролдсон нь.
+     */
+    it('403 бүртгэгдэж, хэн юуг оролдсон нь тодорхой байна', async () => {
+      await api().get('/api/finance/summary').set(auth(tok.driver)).expect(403);
+
+      const row = await prisma.activityLog.findFirst({
+        where: { action: 'FORBIDDEN' },
+        orderBy: { createdAt: 'desc' },
+      });
+      expect(row).not.toBeNull();
+      expect(row!.entity).toBe('security');
+      // Хэн оролдсоныг мэдэх ёстой
+      expect(row!.userId).toBeTruthy();
+      const meta = row!.meta as { method?: string; path?: string };
+      expect(meta.method).toBe('GET');
+      expect(meta.path).toContain('/finance/summary');
+    });
+
+    it('403 хариу ӨӨРЧЛӨГДӨӨГҮЙ байх ёстой', async () => {
+      // Бүртгэл нь хариуг хөндөхгүй — зөвхөн тэмдэглэнэ
+      const res = await api()
+        .get('/api/users')
+        .set(auth(tok.driver))
+        .expect(403);
+      expect(res.body.message).toBeTruthy();
+      expect(res.body.statusCode).toBe(403);
+    });
+
+    /**
+     * Ердийн 401 нь токен хугацаа дуусах бүрд, автомат сканнерээс
+     * тасралтгүй гардаг. Бичвэл хүснэгт хогоор дүүрч жинхэнэ дохио
+     * алдагдана — тиймээс ЗОРИУД бүртгэхгүй.
+     */
+    it('токенгүй хандалт (401) бүртгэлийг дүүргэхгүй', async () => {
+      const before = await prisma.activityLog.count({
+        where: { entity: 'security' },
+      });
+      for (let i = 0; i < 5; i++) {
+        await api().get('/api/orders').expect(401);
+      }
+      expect(
+        await prisma.activityLog.count({ where: { entity: 'security' } }),
+      ).toBe(before);
+    });
+  });
+
 });

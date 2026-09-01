@@ -21,9 +21,16 @@ const ENTITY_LABELS = {
   delivery: 'Хүргэлт',
   finance: 'Санхүү',
   notifications: 'Мэдэгдэл',
+  // Аюулгүй байдлын үйл явдал (V5) — амжилтгүй нэвтрэлт, 403
+  security: 'Аюулгүй байдал',
 }
 
 function actionKind(action) {
+  // Аюулгүй байдлын үйл явдлыг тус тусад нь ялгана (V5) — «нэвтэрч
+  // чадсангүй» ба «эрхээсээ хэтэрсэн» хоёр огт өөр утгатай
+  if (action === 'LOGIN_FAILED') return 'loginFailed'
+  if (action === 'LOGIN_LOCKED') return 'locked'
+  if (action === 'FORBIDDEN') return 'forbidden'
   if (action === 'permission_change') return 'permission'
   if (action.startsWith('POST')) return 'create'
   if (action.startsWith('DELETE')) return 'delete'
@@ -35,12 +42,18 @@ const ACTION_STYLE = {
   update: 'text-accent border-accent/40 bg-accent/10',
   delete: 'text-alarm border-alarm/40 bg-alarm/10',
   permission: 'text-status-preparing border-status-preparing/40 bg-status-preparing/12',
+  loginFailed: 'text-alarm border-alarm/40 bg-alarm/12',
+  forbidden: 'text-alarm border-alarm/40 bg-alarm/12',
+  locked: 'text-bg border-alarm bg-alarm',
 }
 const ACTION_LABEL = {
   create: 'action.create',
   update: 'action.update',
   delete: 'action.delete',
   permission: 'action.permission',
+  loginFailed: 'Нэвтэрч чадсангүй',
+  forbidden: 'Эрх хэтрүүлсэн',
+  locked: 'Бүртгэл түгжигдсэн',
 }
 
 export default function ActivityLog() {

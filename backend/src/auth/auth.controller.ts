@@ -5,6 +5,7 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
@@ -17,6 +18,7 @@ import { Public } from './decorators/public.decorator';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
+import type { Request } from 'express';
 
 // Rate limit (V4-07): IP тутамд login 5/мин.
 // Тест орчинд AUTH_RATE_LIMIT env-ээр өндөр лимит тавьдаг.
@@ -40,8 +42,10 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: LOGIN_LIMIT, ttl: 60_000 } })
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  login(@Body() dto: LoginDto, @Req() req: Request) {
+    // IP нь амжилтгүй оролдлогын бүртгэлд ордог — довтолгоо нэг эх
+    // сурвалжаас ирж буйг таних гол мэдээлэл (V5)
+    return this.authService.login(dto, req.ip ?? null);
   }
 
 
