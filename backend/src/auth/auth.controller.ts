@@ -45,7 +45,11 @@ export class AuthController {
   login(@Body() dto: LoginDto, @Req() req: Request) {
     // IP нь амжилтгүй оролдлогын бүртгэлд ордог — довтолгоо нэг эх
     // сурвалжаас ирж буйг таних гол мэдээлэл (V5)
-    return this.authService.login(dto, req.ip ?? null);
+    return this.authService.login(
+      dto,
+      req.ip ?? null,
+      req.get('user-agent') ?? null,
+    );
   }
 
 
@@ -72,6 +76,18 @@ export class AuthController {
   @Throttle({ default: { limit: CHANGE_PASSWORD_LIMIT, ttl: 60_000 } })
   changePassword(@Body() dto: ChangePasswordDto, @CurrentUser() user: AuthUser) {
     return this.authService.changePassword(user.id, dto);
+  }
+
+  /**
+   * Өөрийн нэвтрэлтийн түүх (V5).
+   *
+   * Эрх шаардахгүй — хэрэглэгч ӨӨРИЙНХӨӨ түүхийг л харна. «Миний
+   * бүртгэлээр өөр хүн орсон уу» гэдгийг зөвхөн тухайн хүн таньж
+   * чадна, тиймээс түүнд харуулах нь хамгийн үр дүнтэй.
+   */
+  @Get('login-history')
+  loginHistory(@CurrentUser() user: AuthUser) {
+    return this.authService.loginHistory(user.id);
   }
 
   @Get('me')

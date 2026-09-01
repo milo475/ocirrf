@@ -6584,4 +6584,112 @@ describe('ursGAL v2 API (e2e)', () => {
     });
   });
 
+
+  describe('V5: Нэвтрэлтийн түүх ⭐', () => {
+    let histUserId: string;
+    let histToken: string;
+    const HIST_EMAIL = `e2e-hist-${T}@ursgal.mn`;
+
+    afterAll(async () => {
+      if (histUserId) {
+        await prisma.loginHistory.deleteMany({ where: { userId: histUserId } });
+        await prisma.refreshToken.deleteMany({ where: { userId: histUserId } });
+        await prisma.user.deleteMany({ where: { id: histUserId } });
+      }
+    });
+
+    /**
+     * Өмнө нь зөвхөн User.lastLoginAt шинэчлэгддэг байсан тул
+     * «хаанаас, ямар төхөөрөмжөөр орсон бэ» гэдэгт хариулах ямар ч
+     * зам байсангүй.
+     */
+    it('нэвтрэхэд төхөөрөмж ба IP бүртгэгдэнэ', async () => {
+      const created = await api()
+        .post('/api/users')
+        .set(auth(tok.admin))
+        .send({
+          email: HIST_EMAIL,
+          password: 'hist123',
+          name: `Э2Э Түүх ${T}`,
+          role: 'MANAGER',
+        })
+        .expect(201);
+      histUserId = created.body.id;
+
+      const login = await api()
+        .post('/api/auth/login')
+        .set(
+          'User-Agent',
+          'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) ' +
+            'AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1',
+        )
+        .send({ email: HIST_EMAIL, password: 'hist123' })
+        .expect(200);
+      histToken = login.body.accessToken;
+
+      const rows = await api()
+        .get('/api/auth/login-history')
+        .set(auth(histToken))
+        .expect(200);
+
+      expect(rows.body).toHaveLength(1);
+      // Хүн уншихуйц болгосон байх — түүхий User-Agent биш
+      expect(rows.body[0].device).toBe('Safari · iOS');
+      expect(rows.body[0].at).toBeTruthy();
+    });
+
+    it('өөр төхөөрөмжөөс орвол тусад нь бүртгэгдэнэ', async () => {
+      await api()
+        .post('/api/auth/login')
+        .set(
+          'User-Agent',
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
+            'Chrome/120.0 Safari/537.36',
+        )
+        .send({ email: HIST_EMAIL, password: 'hist123' })
+        .expect(200);
+
+      const rows = await api()
+        .get('/api/auth/login-history')
+        .set(auth(histToken))
+        .expect(200);
+      expect(rows.body).toHaveLength(2);
+      // Хамгийн сүүлийнх нь эхэнд
+      expect(rows.body[0].device).toBe('Chrome · Windows');
+    });
+
+    /**
+     * ⭐ Хэрэглэгч ЗӨВХӨН өөрийнхөө түүхийг харна — бусдын нэвтрэлт
+     * хаанаас болсныг мэдэх нь өөрөө мэдээлэл задралт.
+     */
+    it('зөвхөн ӨӨРИЙН түүх харагдана', async () => {
+      const mine = await api()
+        .get('/api/auth/login-history')
+        .set(auth(tok.admin))
+        .expect(200);
+      const ids = (mine.body as Array<{ id: string }>).map((r) => r.id);
+
+      const theirs = await prisma.loginHistory.findMany({
+        where: { userId: histUserId },
+        select: { id: true },
+      });
+      for (const row of theirs) {
+        expect(ids).not.toContain(row.id);
+      }
+    });
+
+    it('амжилтгүй нэвтрэлт түүхэд ОРОХГҮЙ', async () => {
+      const before = await prisma.loginHistory.count({
+        where: { userId: histUserId },
+      });
+      await api()
+        .post('/api/auth/login')
+        .send({ email: HIST_EMAIL, password: 'буруу' })
+        .expect(401);
+      expect(
+        await prisma.loginHistory.count({ where: { userId: histUserId } }),
+      ).toBe(before);
+    });
+  });
+
 });

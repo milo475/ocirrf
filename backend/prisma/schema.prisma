@@ -119,6 +119,7 @@ model User {
   paymentsReceived Payment[]     @relation("PaymentsReceived")
   returnsCreated   OrderReturn[] @relation("ReturnsCreated")
   refreshTokens    RefreshToken[]
+  loginHistory     LoginHistory[]
   batchesCreated   ProductBatch[] @relation("BatchesCreated")
   suppliesBrought  Supply[]       @relation("SuppliedBy")
   suppliesReceived Supply[]       @relation("SuppliesReceived")
@@ -128,6 +129,27 @@ model User {
 /// Refresh token rotation (V4-08): id = jti claim, DB-д зөвхөн hash.
 /// revokedAt тавигдсан token ДАХИН ирвэл хулгайн шинж — эзний бүх
 /// token revoke хийгдэнэ.
+/// АМЖИЛТТАЙ НЭВТРЭЛТИЙН ТҮҮХ (V5).
+///
+/// Өмнө нь зөвхөн User.lastLoginAt шинэчлэгддэг байсан тул «хаанаас,
+/// ямар төхөөрөмжөөр орсон бэ», «миний бүртгэлээр өөр хүн орсон уу»
+/// гэдэгт хариулах ямар ч зам байсангүй.
+///
+/// Амжилтгүй оролдлого нь ActivityLog-д (entity='security') бичигддэг
+/// — тэр нь хэрэглэгчгүй ч байж болдог тул тусдаа.
+model LoginHistory {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Хүсэлт хаанаас ирсэн
+  ip        String?
+  /// Хөтөч/төхөөрөмжийн танилт (түүхий User-Agent)
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
 model RefreshToken {
   id           String    @id @default(uuid())
   userId       String

@@ -16,6 +16,7 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { SecurityLogService } from '../activity-log/security-log.service';
+import { describeUserAgent } from './user-agent.util';
 
 export type JwtPayload = { sub: string; role: string; jti?: string };
 
@@ -39,7 +40,11 @@ export class AuthService {
    *   тэмдэглэнэ — довтолгоо нэг эх сурвалжаас ирж буйг таних гол
    *   мэдээлэл.
    */
-  async login(dto: LoginDto, ip: string | null = null) {
+  async login(
+    dto: LoginDto,
+    ip: string | null = null,
+    userAgent: string | null = null,
+  ) {
     // User.username талбарт email хэлбэрийн утга хадгалагддаг (seed-ийн дагуу)
     const user = await this.prisma.user.findUnique({
       where: { username: dto.email },
@@ -91,6 +96,15 @@ export class AuthService {
       where: { id: user.id },
       data: { failedLoginCount: 0, lockedUntil: null, lastLoginAt: new Date() },
     });
+
+    /**
+     * Нэвтрэлтийн түүх (V5) — «хаанаас, ямар төхөөрөмжөөр орсон»,
+     * «миний бүртгэлээр өөр хүн орсон уу» гэдэгт хариулна.
+     * fire-and-forget: бүртгэл амжилтгүй болсон ч нэвтрэлт саадгүй.
+     */
+    void this.prisma.loginHistory
+      .create({ data: { userId: user.id, ip, userAgent } })
+      .catch(() => undefined);
 
     return this.issueTokens(updated);
   }
@@ -202,6 +216,26 @@ export class AuthService {
     // Хуучин session-ууд бүгд унтарч (V4-08) шинэ хос token олгогдоно
     await this.revokeAllTokens(userId);
     return this.issueTokens(updated);
+  }
+
+  /**
+   * Хэрэглэгчийн сүүлийн нэвтрэлтүүд.
+   * Өөрийнхөө түүхийг хэн ч харна — «энэ би мөн үү» гэдгийг зөвхөн
+   * тухайн хүн мэднэ. Бусдынхыг харах нь users.manage эрхийн ажил
+   * (controller дээр шалгагдана).
+   */
+  async loginHistory(userId: string, limit = 20) {
+    const rows = await this.prisma.loginHistory.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: Math.min(limit, 100),
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      at: r.createdAt,
+      ip: r.ip,
+      device: describeUserAgent(r.userAgent),
+    }));
   }
 
   private async issueTokens(user: User) {

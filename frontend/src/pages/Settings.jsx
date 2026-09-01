@@ -75,8 +75,56 @@ export default function Settings() {
         />
       </div>
 
+      <LoginHistory t={t} />
+
       <SystemSettings t={t} />
     </div>
+  )
+}
+
+/**
+ * НЭВТРЭЛТИЙН ТҮҮХ (V5) — хүн бүр ӨӨРИЙНХӨӨ түүхийг харна.
+ *
+ * «Миний бүртгэлээр өөр хүн орсон уу» гэдгийг зөвхөн тухайн хүн
+ * таньж чадна: танихгүй төхөөрөмж, танихгүй цаг харвал шууд мэднэ.
+ * Тиймээс админд биш, хэрэглэгч бүрт харуулах нь үр дүнтэй.
+ */
+function LoginHistory({ t }) {
+  const [rows, setRows] = useState(null)
+
+  useEffect(() => {
+    api('/auth/login-history')
+      .then(setRows)
+      .catch(() => setRows([]))
+  }, [])
+
+  if (!rows?.length) return null
+
+  return (
+    <section className="mt-12 border-t border-rule pt-8">
+      <p className="text-xs uppercase tracking-wide text-ink-muted mb-2">
+        {t('Миний нэвтрэлтүүд')}
+      </p>
+      <p className="text-sm text-ink-muted mb-4">
+        {t(
+          'Танихгүй төхөөрөмж эсвэл цаг харвал нууц үгээ солиод админд мэдэгдээрэй.',
+        )}
+      </p>
+      <ul className="border border-rule rounded-lg divide-y divide-rule">
+        {rows.map((r) => (
+          <li
+            key={r.id}
+            className="px-4 py-2.5 flex items-baseline justify-between gap-4 flex-wrap"
+          >
+            <span className="text-sm">{r.device}</span>
+            <span className="font-mono text-xs text-ink-muted tabular-nums">
+              {formatDateTime(r.at)}
+              {r.ip ? ` · ${r.ip}` : ''}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }
 
