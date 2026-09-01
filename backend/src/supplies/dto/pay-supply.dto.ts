@@ -1,4 +1,9 @@
-import { IsOptional, IsString, Matches } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+} from 'class-validator';
 
 export class PaySupplyDto {
   @Matches(/^\d{1,10}(\.\d{1,2})?$/, {
@@ -8,5 +13,6 @@ export class PaySupplyDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   note?: string;
 }

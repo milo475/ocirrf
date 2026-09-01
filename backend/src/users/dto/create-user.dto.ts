@@ -1,11 +1,13 @@
 import {
-  IsUUID,
+  ArrayMaxSize,
   IsArray,
   IsEmail,
   IsEnum,
   IsOptional,
   IsString,
+  IsUUID,
   Matches,
+  MaxLength,
   MinLength,
   ValidateIf,
 } from 'class-validator';
@@ -13,14 +15,17 @@ import { Role, EmploymentType } from '../../generated/prisma/client';
 
 export class CreateUserDto {
   @IsEmail({}, { message: 'Имэйл хаяг буруу байна' })
+  @MaxLength(254)
   email: string;
 
   @IsString()
   @MinLength(2, { message: 'Нэр хамгийн багадаа 2 тэмдэгт байна' })
+  @MaxLength(120)
   name: string;
 
   @IsString()
   @MinLength(6, { message: 'Нууц үг хамгийн багадаа 6 тэмдэгт байна' })
+  @MaxLength(128)
   password: string;
 
   @IsEnum(Role, { message: 'Role буруу' })
@@ -35,6 +40,7 @@ export class CreateUserDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(120)
   vehicleInfo?: string;
 
   /** Жолоочийн ажлын төрөл (V5): үндсэн / цагийн */
@@ -51,5 +57,7 @@ export class CreateUserDto {
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
+  @ArrayMaxSize(30)
+  @MaxLength(10, { each: true })
   zones?: string[];
 }

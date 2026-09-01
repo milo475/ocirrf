@@ -7,6 +7,7 @@ import {
   IsOptional,
   IsString,
   Matches,
+  MaxLength,
   MinLength,
   ValidateIf,
   ValidateNested,
@@ -30,6 +31,7 @@ export class UpdateOrderDto {
   @IsOptional()
   @IsString()
   @MinLength(2, { message: 'Хүлээн авагчийн нэр хамгийн багадаа 2 тэмдэгт' })
+  @MaxLength(120)
   customerName?: string;
 
   @IsOptional()
@@ -49,50 +51,61 @@ export class UpdateOrderDto {
   @ValidateIf((o: UpdateOrderDto) => o.region === 'ULAANBAATAR')
   @IsString()
   @IsNotEmpty({ message: 'Дүүрэг заавал' })
+  @MaxLength(60)
   district?: string;
 
   @ValidateIf((o: UpdateOrderDto) => o.region === 'ULAANBAATAR')
   @IsString()
   @IsNotEmpty({ message: 'Хороо заавал' })
+  @MaxLength(60)
   khoroo?: string;
 
   @ValidateIf((o: UpdateOrderDto) => o.region === 'ULAANBAATAR')
   @IsString()
   @IsNotEmpty({ message: 'Байр/Хороолол заавал' })
+  @MaxLength(120)
   building?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(20)
   entrance?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(20)
   floor?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(20)
   door?: string;
 
   @ValidateIf((o: UpdateOrderDto) => o.region === 'ORON_NUTAG')
   @IsString()
   @IsNotEmpty({ message: 'Аймаг заавал' })
+  @MaxLength(60)
   province?: string;
 
   @ValidateIf((o: UpdateOrderDto) => o.region === 'ORON_NUTAG')
   @IsString()
   @IsNotEmpty({ message: 'Сум/Суурин газар заавал' })
+  @MaxLength(60)
   soum?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(120)
   transport?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   addressDetail?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   note?: string;
 
   @IsOptional()

@@ -109,6 +109,8 @@ describe('ursGAL v2 API (e2e)', () => {
   const requestIds: string[] = [];
   /** Засварын тестийн нэмэлт бараанууд */
   const editProductIds: string[] = [];
+  /** Уртын хязгаарын тестийн захиалга */
+  let lengthOrderId: string;
   /** Хугацаа/цувралын тестийн бараа */
   let batchProductId: string;
   /** Нийлүүлэлтийн тест — компани/нийлүүлэлт/харилцагч */
@@ -161,6 +163,7 @@ describe('ursGAL v2 API (e2e)', () => {
       costOrderId,
       retOrderId,
       ...feeOrderIds,
+      lengthOrderId,
     ].filter(Boolean);
     await prisma.financeEntry.deleteMany({
       where: {
@@ -6408,6 +6411,85 @@ describe('ursGAL v2 API (e2e)', () => {
       expect(res.headers['strict-transport-security']).toBeDefined();
       // Framework-ээ зарлахгүй
       expect(res.headers['x-powered-by']).toBeUndefined();
+    });
+  });
+
+
+  describe('V5: Талбарын уртын хязгаар ⭐', () => {
+    /**
+     * Өмнө нь DTO-нуудад @MaxLength огт байхгүй байсан тул 10,000
+     * тэмдэгт нэр амжилттай хадгалагддаг байв. Ийм өгөгдөл нь
+     * хүснэгт, тайлан, CSV экспортыг эвдэж, DB-г хөөнө.
+     *
+     * ХЯЗГААР НЬ БОДИТ ХЭРЭГЛЭЭНД ТОХИРСОН БАЙХ ЁСТОЙ — хэт чанга
+     * тавибал жинхэнэ монгол хаяг, нэр татгалзана. Тиймээс хоёр
+     * талаас нь шалгана.
+     */
+    const long = (n: number) => 'А'.repeat(n);
+
+    it('хэт урт утга татгалзана', async () => {
+      const res = await api()
+        .post('/api/orders')
+        .set(auth(tok.admin))
+        .send({
+          customerName: long(10000),
+          customerPhone: `9${T}`,
+          ...UB_ADDR,
+          items: [{ productId, qty: 1 }],
+        })
+        .expect(400);
+      expect(JSON.stringify(res.body.message)).toContain('customerName');
+    });
+
+    it('тэмдэглэл, хаягийн дэлгэрэнгүйд ч хязгаар үйлчилнэ', async () => {
+      await api()
+        .post('/api/stock/adjust')
+        .set(auth(tok.admin))
+        .send({
+          productId,
+          qtyChange: 1,
+          reason: 'CORRECTION',
+          note: long(5000),
+        })
+        .expect(400);
+    });
+
+    it('ЖИНХЭНЭ урт өгөгдөл татгалзахгүй', async () => {
+      const order = await api()
+        .post('/api/orders')
+        .set(auth(tok.admin))
+        .send({
+          // Бодит монгол нэр, хаяг урт байж болно
+          customerName: 'Батбаярын Мөнх-Очирын Ганзориг-Эрдэнэбилэг',
+          customerPhone: `9${T}`,
+          region: 'ULAANBAATAR',
+          district: 'ХУД',
+          khoroo: '11-р хороо',
+          building: '13-р хорооллын 4-р байрны ард талын шинэ цамхаг',
+          entrance: '2',
+          floor: '4',
+          door: '32',
+          addressDetail: 'Гуравдугаар эмнэлгийн урдуур '.repeat(8),
+          items: [{ productId, qty: 1 }],
+        })
+        .expect(201);
+      lengthOrderId = order.body.id;
+    });
+
+    it('жолоочийн бүсийн массивт хязгаар байна', async () => {
+      const res = await api()
+        .post('/api/users')
+        .set(auth(tok.admin))
+        .send({
+          email: `e2e-zones-${T}@ursgal.mn`,
+          password: 'zones123',
+          name: `Э2Э Бүс ${T}`,
+          role: 'DRIVER',
+          feePerDelivery: '1000',
+          zones: Array.from({ length: 50 }, () => 'ХУД'),
+        })
+        .expect(400);
+      expect(JSON.stringify(res.body.message)).toContain('zones');
     });
   });
 

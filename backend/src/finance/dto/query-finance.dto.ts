@@ -5,6 +5,7 @@ import {
   IsInt,
   IsOptional,
   Max,
+  MaxLength,
   Min,
 } from 'class-validator';
 import { FinanceType } from '../../generated/prisma/client';
@@ -16,10 +17,12 @@ export class QueryFinanceEntriesDto {
 
   @IsOptional()
   @IsDateString({}, { message: 'from огноо буруу форматтай (ISO)' })
+  @MaxLength(40)
   from?: string;
 
   @IsOptional()
   @IsDateString({}, { message: 'to огноо буруу форматтай (ISO)' })
+  @MaxLength(40)
   to?: string;
 
   @IsOptional()

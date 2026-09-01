@@ -6,6 +6,7 @@ import {
   IsString,
   IsUUID,
   Matches,
+  MaxLength,
 } from 'class-validator';
 import { FinanceType } from '../../generated/prisma/client';
 
@@ -15,6 +16,7 @@ export class CreateFinanceEntryDto {
 
   @IsString()
   @IsNotEmpty({ message: 'Ангилал заавал' })
+  @MaxLength(60)
   category: string;
 
   @IsString()
@@ -25,6 +27,7 @@ export class CreateFinanceEntryDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   note?: string;
 
   @IsOptional()
@@ -33,5 +36,6 @@ export class CreateFinanceEntryDto {
 
   @IsOptional()
   @IsDateString({}, { message: 'entryDate огноо буруу форматтай (ISO)' })
+  @MaxLength(40)
   entryDate?: string;
 }

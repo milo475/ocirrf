@@ -8,6 +8,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -30,6 +31,7 @@ export class CreateReturnDto {
 
   @IsString()
   @IsNotEmpty({ message: 'Шалтгаан заавал' })
+  @MaxLength(300)
   reason: string;
 
   /** Үлдэгдэлд буцаан нэмэх эсэх */

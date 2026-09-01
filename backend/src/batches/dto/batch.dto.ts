@@ -1,4 +1,12 @@
-import { IsInt, IsOptional, IsString, IsUUID, Matches, Min } from 'class-validator';
+import {
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Matches,
+  MaxLength,
+  Min,
+} from 'class-validator';
 
 /** Хуучин үлдэгдэлд хугацаа зүүх — шинэ бараа НЭМЭХГҮЙ. */
 export class CreateBatchDto {
@@ -16,15 +24,18 @@ export class CreateBatchDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(60)
   batchNo?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   note?: string;
 }
 
 export class WriteOffDto {
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   note?: string;
 }

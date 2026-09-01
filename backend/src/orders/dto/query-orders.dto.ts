@@ -6,6 +6,7 @@ import {
   IsString,
   IsUUID,
   Max,
+  MaxLength,
   Min,
 } from 'class-validator';
 import {
@@ -35,6 +36,7 @@ export class QueryOrdersDto {
   /** УБ-ын дүүргээр шүүх (жишээ: ХУД) */
   @IsOptional()
   @IsString()
+  @MaxLength(60)
   district?: string;
 
   /** Тухайн жолоочид хуваарилагдсан захиалгууд */
@@ -45,6 +47,7 @@ export class QueryOrdersDto {
   /** orderNo / customerName / phone дээр хайна */
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   search?: string;
 
   @IsOptional()

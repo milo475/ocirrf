@@ -7,6 +7,7 @@ import {
   IsString,
   IsUUID,
   Matches,
+  MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -39,6 +40,7 @@ export class SupplyItemInput {
   /** Үйлдвэрийн цувралын дугаар — заавал биш */
   @IsOptional()
   @IsString()
+  @MaxLength(60)
   batchNo?: string;
 }
 
@@ -53,6 +55,7 @@ export class CreateSupplyDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   note?: string;
 
   @IsArray()

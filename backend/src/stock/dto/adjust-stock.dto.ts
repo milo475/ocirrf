@@ -5,6 +5,7 @@ import {
   IsString,
   IsUUID,
   Matches,
+  MaxLength,
   NotEquals,
 } from 'class-validator';
 
@@ -32,6 +33,7 @@ export class AdjustStockDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   note?: string;
 
   /** PURCHASE_IN үед нэгжийн өртөг — өгвөл барааны costPrice шинэчлэгдэнэ */

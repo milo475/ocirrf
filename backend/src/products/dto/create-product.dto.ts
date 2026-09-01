@@ -6,6 +6,7 @@ import {
   IsString,
   IsUUID,
   Matches,
+  MaxLength,
   Min,
   MinLength,
 } from 'class-validator';
@@ -13,10 +14,12 @@ import {
 export class CreateProductDto {
   @IsString()
   @IsNotEmpty({ message: 'SKU хоосон байж болохгүй' })
+  @MaxLength(60)
   sku: string;
 
   @IsString()
   @MinLength(2, { message: 'Нэр хамгийн багадаа 2 тэмдэгт байна' })
+  @MaxLength(120)
   name: string;
 
   /**
@@ -48,10 +51,12 @@ export class CreateProductDto {
   @IsOptional()
   @IsString()
   @IsNotEmpty()
+  @MaxLength(20)
   unit?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(300)
   imageUrl?: string;
 
   @IsOptional()

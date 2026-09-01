@@ -10,6 +10,7 @@ import {
   IsString,
   IsUUID,
   Matches,
+  MaxLength,
   Min,
   MinLength,
   ValidateIf,
@@ -46,6 +47,7 @@ const ifON = (o: PublicOrderRequestDto) =>
 export class PublicOrderRequestDto {
   @IsString()
   @MinLength(2, { message: 'Нэрээ бүтнээр нь бичнэ үү' })
+  @MaxLength(120)
   customerName: string;
 
   @Matches(/^\d{8}$/, { message: 'Утасны дугаар 8 оронтой тоо байна' })
@@ -58,6 +60,7 @@ export class PublicOrderRequestDto {
   /** Instagram/Facebook дээрх нэр — ажилтан ярианы холбоог олоход */
   @IsOptional()
   @IsString()
+  @MaxLength(80)
   socialName?: string;
 
   @IsOptional()
@@ -70,51 +73,62 @@ export class PublicOrderRequestDto {
   @ValidateIf(ifUB)
   @IsString()
   @IsNotEmpty({ message: 'Дүүрэг заавал' })
+  @MaxLength(60)
   district?: string;
 
   @ValidateIf(ifUB)
   @IsString()
   @IsNotEmpty({ message: 'Хороо заавал' })
+  @MaxLength(60)
   khoroo?: string;
 
   @ValidateIf(ifUB)
   @IsString()
   @IsNotEmpty({ message: 'Байр/Хороолол заавал' })
+  @MaxLength(120)
   building?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(20)
   entrance?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(20)
   floor?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(20)
   door?: string;
 
   @ValidateIf(ifON)
   @IsString()
   @IsNotEmpty({ message: 'Аймаг заавал' })
+  @MaxLength(60)
   province?: string;
 
   @ValidateIf(ifON)
   @IsString()
   @IsNotEmpty({ message: 'Сум/Суурин газар заавал' })
+  @MaxLength(60)
   soum?: string;
 
   /** Тээвэр — хэрэглэгч мэдэхгүй байж болно тул заавал биш */
   @IsOptional()
   @IsString()
+  @MaxLength(120)
   transport?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   addressDetail?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   note?: string;
 
   // `paid` талбар ХАСАГДСАН (V5): линкээр захиалахын тулд төлбөрөө

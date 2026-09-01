@@ -10,6 +10,7 @@ import {
   IsString,
   IsUUID,
   Matches,
+  MaxLength,
   Min,
   MinLength,
   ValidateIf,
@@ -40,6 +41,7 @@ export class CreateOrderDto {
   @IsOptional()
   @IsString()
   @MinLength(2, { message: 'Хүлээн авагчийн нэр хамгийн багадаа 2 тэмдэгт' })
+  @MaxLength(120)
   customerName?: string;
 
   /**
@@ -63,56 +65,67 @@ export class CreateOrderDto {
   @ValidateIf(ifUB)
   @IsString()
   @IsNotEmpty({ message: 'Дүүрэг заавал' })
+  @MaxLength(60)
   district?: string;
 
   @ValidateIf(ifUB)
   @IsString()
   @IsNotEmpty({ message: 'Хороо заавал' })
+  @MaxLength(60)
   khoroo?: string;
 
   @ValidateIf(ifUB)
   @IsString()
   @IsNotEmpty({ message: 'Барилга/Хороолол/Хашаа заавал' })
+  @MaxLength(120)
   building?: string;
 
   @ValidateIf(ifUB)
   @IsString()
   @IsNotEmpty({ message: 'Орц заавал' })
+  @MaxLength(20)
   entrance?: string;
 
   @ValidateIf(ifUB)
   @IsString()
   @IsNotEmpty({ message: 'Давхар заавал' })
+  @MaxLength(20)
   floor?: string;
 
   @ValidateIf(ifUB)
   @IsString()
   @IsNotEmpty({ message: 'Хаалга заавал' })
+  @MaxLength(20)
   door?: string;
 
   // ── Орон нутгийн горим: заавал ──
   @ValidateIf(ifON)
   @IsString()
   @IsNotEmpty({ message: 'Аймаг заавал' })
+  @MaxLength(60)
   province?: string;
 
   @ValidateIf(ifON)
   @IsString()
   @IsNotEmpty({ message: 'Сум/Суурин газар заавал' })
+  @MaxLength(60)
   soum?: string;
 
   @ValidateIf(ifON)
   @IsString()
   @IsNotEmpty({ message: 'Ачаа явах тээвэр заавал' })
+  @MaxLength(120)
   transport?: string;
 
   /** Хаягийн дэлгэрэнгүй (орон нутгийн нэмэлт, чөлөөт текст) */
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   addressDetail?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   note?: string;
 
   /** Захиалга ирсэн суваг (V5) — Instagram/Facebook/Утас; орхивол OTHER */

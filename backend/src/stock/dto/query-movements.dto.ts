@@ -6,6 +6,7 @@ import {
   IsString,
   IsUUID,
   Max,
+  MaxLength,
   Min,
 } from 'class-validator';
 
@@ -17,14 +18,17 @@ export class QueryMovementsDto {
   /** PURCHASE_IN / MANUAL_OUT / CORRECTION / ORDER / ORDER_CANCEL г.м. */
   @IsOptional()
   @IsString()
+  @MaxLength(300)
   reason?: string;
 
   @IsOptional()
   @IsDateString({}, { message: 'from огноо буруу форматтай (ISO)' })
+  @MaxLength(40)
   from?: string;
 
   @IsOptional()
   @IsDateString({}, { message: 'to огноо буруу форматтай (ISO)' })
+  @MaxLength(40)
   to?: string;
 
   @IsOptional()

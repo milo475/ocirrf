@@ -1,11 +1,13 @@
 import {
-  IsUUID,
+  ArrayMaxSize,
   IsArray,
   IsBoolean,
   IsEnum,
   IsOptional,
   IsString,
+  IsUUID,
   Matches,
+  MaxLength,
   MinLength,
 } from 'class-validator';
 import { Role, EmploymentType } from '../../generated/prisma/client';
@@ -14,6 +16,7 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   @MinLength(2, { message: 'Нэр хамгийн багадаа 2 тэмдэгт байна' })
+  @MaxLength(120)
   name?: string;
 
   @IsOptional()
@@ -28,6 +31,7 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   @MinLength(6, { message: 'Нууц үг хамгийн багадаа 6 тэмдэгт байна' })
+  @MaxLength(128)
   password?: string;
 
   /** Жолоочийн хүргэлт тутмын хөлс */
@@ -39,6 +43,7 @@ export class UpdateUserDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(120)
   vehicleInfo?: string;
 
   /** Жолоочийн ажлын төрөл (V5): үндсэн / цагийн */
@@ -55,5 +60,7 @@ export class UpdateUserDto {
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
+  @ArrayMaxSize(30)
+  @MaxLength(10, { each: true })
   zones?: string[];
 }
