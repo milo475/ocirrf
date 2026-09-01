@@ -17,13 +17,13 @@ import { diskStorage } from 'multer';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
-import { AuthThrottlerGuard } from '../auth/guards/auth-throttler.guard';
 import { OrderRequestStatus } from '../generated/prisma/client';
 import { PERM } from '../permissions/permission-keys';
 import { UPLOADS_DIR } from '../uploads.config';
 import { RequirePermission } from '../permissions/require-permission.decorator';
 import { PublicOrderRequestDto } from './dto/public-order-request.dto';
 import { OrderRequestsService } from './order-requests.service';
+import { assertRealImage } from '../uploads/image-content.util';
 import {
   ConvertRequestDto,
   RejectRequestDto,
@@ -55,7 +55,6 @@ export class PublicOrderController {
 
   @Public()
   @Post('order-requests')
-  @UseGuards(AuthThrottlerGuard)
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @UseInterceptors(
     FileInterceptor('proof', {
@@ -69,6 +68,7 @@ export class PublicOrderController {
     @Body() dto: PublicOrderRequestDto,
     @UploadedFile() proof?: Express.Multer.File,
   ) {
+    if (proof) assertRealImage(proof.path);
     return this.service.submit(token, dto, proof?.filename);
   }
 }

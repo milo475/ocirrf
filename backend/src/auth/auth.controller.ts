@@ -10,7 +10,6 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import { PermissionsService } from '../permissions/permissions.service';
 import { AuthService } from './auth.service';
-import { AuthThrottlerGuard } from './guards/auth-throttler.guard';
 import { AllowTempPassword } from './decorators/allow-temp-password.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
 import type { AuthUser } from './decorators/current-user.decorator';
@@ -40,7 +39,6 @@ export class AuthController {
   @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(AuthThrottlerGuard)
   @Throttle({ default: { limit: LOGIN_LIMIT, ttl: 60_000 } })
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
@@ -50,7 +48,6 @@ export class AuthController {
   @Public()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(AuthThrottlerGuard)
   @Throttle({ default: { limit: REFRESH_LIMIT, ttl: 60_000 } })
   refresh(@Body() dto: RefreshDto) {
     return this.authService.refresh(dto);
@@ -68,7 +65,6 @@ export class AuthController {
   @Post('change-password')
   @AllowTempPassword()
   @HttpCode(HttpStatus.OK)
-  @UseGuards(AuthThrottlerGuard)
   @Throttle({ default: { limit: CHANGE_PASSWORD_LIMIT, ttl: 60_000 } })
   changePassword(@Body() dto: ChangePasswordDto, @CurrentUser() user: AuthUser) {
     return this.authService.changePassword(user.id, dto);

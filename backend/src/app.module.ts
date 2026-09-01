@@ -1,11 +1,13 @@
 import type { ServerResponse } from 'node:http';
 import { join } from 'node:path';
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { ActivityLogInterceptor } from './activity-log/activity-log.interceptor';
 import { ActivityLogModule } from './activity-log/activity-log.module';
+import helmet from 'helmet';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { AuthThrottlerGuard } from './auth/guards/auth-throttler.guard';
 import { PasswordChangeGuard } from './auth/guards/password-change.guard';
 import { AllExceptionsFilter } from './logging/all-exceptions.filter';
 import { LoggingModule } from './logging/logging.module';
@@ -31,8 +33,8 @@ import { SettingsModule } from './settings/settings.module';
 import { ProductsModule } from './products/products.module';
 import { BatchesModule } from './batches/batches.module';
 import { ReordersModule } from './reorders/reorders.module';
+import { UploadsModule } from './uploads/uploads.module';
 import { StockModule } from './stock/stock.module';
-import { UPLOADS_DIR } from './uploads.config';
 import { SuppliesModule } from './supplies/supplies.module';
 import { UsersModule } from './users/users.module';
 import { WarehouseModule } from './warehouse/warehouse.module';
@@ -40,11 +42,30 @@ import { WarehouseModule } from './warehouse/warehouse.module';
 @Module({
   imports: [
     // Rate limit (V4-07) — global guard БИШ: зөвхөн auth route-ууд
-    // @UseGuards(ThrottlerGuard)-аар ашиглана
-    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 1000 }]),
+    /**
+     * Хязгаар нь БҮХ endpoint-д хамаарна (V5). Өмнө нь ThrottlerModule
+     * бүртгэгдсэн ч глобал guard байхгүй байсан тул зөвхөн auth
+     * route-уудад л үйлчилж, бусад зам brute-force, scraping,
+     * санамсаргүй давталтад нээлттэй байв.
+     *
+     * ЛИМИТ ЯАГААД ӨНДӨР ВЭ: throttler нь IP-гээр тоолдог. Оффисын
+     * 20 ажилтан нэг NAT IP-гээр гардаг тул хамтдаа минутанд мянга
+     * гаруй хүсэлт хийж болно — хэт бага тавибал бодит ажил тасална.
+     * Энэ хязгаар нь DoS/хуулалтаас хамгаалах зорилготой, хэрэглэгч
+     * тус бүрийн хязгаар БИШ. Нэвтрэлтийн хатуу хязгаар (5/мин) нь
+     * auth.controller-т тусдаа хэвээр.
+     */
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60_000,
+        limit: parseInt(process.env.GLOBAL_RATE_LIMIT ?? '', 10) || 2000,
+      },
+    ]),
     // frontend/dist-ийг нэг порт дээрээс serve хийнэ:
     // /api/* backend-д, бусад бүх зам SPA-ийн index.html руу.
-    // uploads/ — хүргэлтийн баталгаажуулах зургууд /api/uploads/* дээр.
+    // uploads/ нь ЭНД БИШ — UploadsModule-ээр эрхийн хамгаалалттай
+    // үйлчлэгдэнэ (V5). ServeStatic нь guard-аар дамждаггүй тул
+    // гүйлгээний баримт, хүргэлтийн зураг нэвтрэлтгүй задардаг байв.
     ServeStaticModule.forRoot(
       {
         rootPath: join(__dirname, '..', '..', 'frontend', 'dist'),
@@ -64,11 +85,6 @@ import { WarehouseModule } from './warehouse/warehouse.module';
           },
         },
       },
-      {
-        rootPath: UPLOADS_DIR, // .env-ийн UPLOADS_DIR эсвэл backend/uploads
-        serveRoot: '/api/uploads',
-        serveStaticOptions: { index: false },
-      },
     ),
     PrismaModule,
     PermissionsModule,
@@ -77,6 +93,7 @@ import { WarehouseModule } from './warehouse/warehouse.module';
     ProductsModule,
     StockModule,
     BatchesModule,
+    UploadsModule,
     ReordersModule,
     OrdersModule,
     OrderRequestsModule,
@@ -99,6 +116,17 @@ import { WarehouseModule } from './warehouse/warehouse.module';
   providers: [
     // Дараалал чухал: эхлээд JWT (Public-ийг үл хамааруулна), дараа нь Roles,
     // сүүлд Permissions (@RequirePermission заасан route дээр л оролцоно)
+    /**
+     * Rate-limit нь бүх route-д — JWT-ээс ӨМНӨ ажиллана.
+     * AuthThrottlerGuard нь ThrottlerGuard-ыг өргөтгөж 429-ийн
+     * мессежийг монголоор өгдөг. Route бүрийн @Throttle тохиргоог
+     * хэвээр уншина.
+     *
+     * ЗӨВХӨН ЭНЭ ГУУДАН БАЙХ ЁСТОЙ: route дээр давхар
+     * @UseGuards(AuthThrottlerGuard) тавибал нэг хүсэлт ХОЁР удаа
+     * тоологдож, тухайн route-ын хязгаар хагасална.
+     */
+    { provide: APP_GUARD, useClass: AuthThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     // Түр нууц үгтэй хэрэглэгчийг солитол нь түгжинэ (V4-06)
     { provide: APP_GUARD, useClass: PasswordChangeGuard },
@@ -110,4 +138,37 @@ import { WarehouseModule } from './warehouse/warehouse.module';
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  /**
+   * АЮУЛГҮЙ БАЙДЛЫН HTTP ТОЛГОЙ (V5).
+   *
+   * Өмнө нь CSP, nosniff, HSTS, X-Frame-Options аль нь ч байхгүй,
+   * X-Powered-By нь framework-ээ зарладаг байв.
+   *
+   * ЯАГААД main.ts БИШ ЭНД ВЭ: bootstrap дахь `app.use()` нь зөвхөн
+   * production-ы entry point дээр ажилладаг тул тест орчинд
+   * үйлчлэхгүй — өөрөөр хэлбэл ХАМГААЛАЛТ ТЕСТЭЭР БАРИГДАХГҮЙ.
+   * Модулийн middleware болгосноор хаана ч ажиллана.
+   */
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(
+        helmet({
+          contentSecurityPolicy: {
+            directives: {
+              defaultSrc: ["'self'"],
+              scriptSrc: ["'self'"],
+              styleSrc: ["'self'", "'unsafe-inline'"], // Tailwind
+              imgSrc: ["'self'", 'data:', 'blob:'],
+              connectSrc: ["'self'"],
+              fontSrc: ["'self'", 'data:'],
+              objectSrc: ["'none'"],
+              frameAncestors: ["'none'"],
+            },
+          },
+          crossOriginResourcePolicy: { policy: 'same-site' },
+        }),
+      )
+      .forRoutes('*');
+  }
+}

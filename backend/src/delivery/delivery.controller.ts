@@ -34,6 +34,7 @@ import {
 } from './dto/assign-driver.dto';
 import { CompleteDeliveryDto } from './dto/complete-delivery.dto';
 import { RouteOrderDto } from './dto/route-order.dto';
+import { assertRealImage } from '../uploads/image-content.util';
 
 const ALLOWED_MIME: Record<string, string> = {
   'image/jpeg': '.jpg',
@@ -171,6 +172,7 @@ export class DeliveryController {
     @CurrentUser() user: AuthUser,
     @UploadedFile() file?: Express.Multer.File,
   ) {
+    if (file) assertRealImage(file.path);
     return this.deliveryService.complete(orderId, user.id, dto, file);
   }
 }

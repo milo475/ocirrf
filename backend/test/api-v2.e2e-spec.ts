@@ -6293,4 +6293,122 @@ describe('ursGAL v2 API (e2e)', () => {
     });
   });
 
+
+  describe('V5: Аюулгүй байдал — файл ба толгой ⭐', () => {
+    let secProductId: string;
+    let productImageUrl: string;
+    let proofOrderId: string;
+
+    afterAll(async () => {
+      if (proofOrderId) {
+        await prisma.notification.deleteMany({ where: { refId: proofOrderId } });
+        await prisma.orderItem.deleteMany({ where: { orderId: proofOrderId } });
+        await prisma.order.deleteMany({ where: { id: proofOrderId } });
+      }
+      if (secProductId) {
+        await prisma.stockMovement.deleteMany({
+          where: { productId: secProductId },
+        });
+        await prisma.product.deleteMany({ where: { id: secProductId } });
+      }
+    });
+
+    it('бэлтгэл — зурагтай бараа', async () => {
+      const prod = await api()
+        .post('/api/products')
+        .set(auth(tok.admin))
+        .send({ sku: `${SKU}-SEC`, name: `Э2Э Аюулгүй ${T}`, price: '1000' })
+        .expect(201);
+      secProductId = prod.body.id;
+
+      const withImg = await api()
+        .post(`/api/products/${secProductId}/image`)
+        .set(auth(tok.admin))
+        .attach('image', PNG, { filename: 'p.png', contentType: 'image/png' })
+        .expect(201);
+      productImageUrl = withImg.body.imageUrl;
+      expect(productImageUrl).toMatch(/^\/api\/uploads\/[a-f0-9]{32}\.png$/);
+    });
+
+    /**
+     * ⭐ Барааны зураг нь НИЙТИЙН захиалгын хуудсанд гардаг —
+     * үйлчлүүлэгч нэвтэрдэггүй тул нээлттэй байх ЁСТОЙ.
+     */
+    it('барааны зураг нэвтрэлтгүйгээр нээгдэнэ', async () => {
+      const res = await api().get(productImageUrl).expect(200);
+      expect(res.headers['content-type']).toContain('image/png');
+      // Браузер агуулгыг нь таамаглахгүй байх толгой
+      expect(res.headers['x-content-type-options']).toBe('nosniff');
+    });
+
+    /**
+     * ⭐ Гүйлгээний баримт, хүргэлтийн зураг нь хувийн мэдээлэл
+     * агуулдаг — нэвтрэлтгүйгээр хаагдсан байх ЁСТОЙ.
+     * (Өмнө нь ServeStaticModule guard-гүй үйлчилдэг тул задарч байв.)
+     */
+    it('баримтын зураг нэвтрэлтгүйд ХААЛТТАЙ', async () => {
+      const order = await api()
+        .post('/api/orders')
+        .set(auth(tok.admin))
+        .send({
+          customerName: `Э2Э Баримт ${T}`,
+          customerPhone: `3${T}`,
+          ...UB_ADDR,
+          items: [{ productId: productId, qty: 1 }],
+        })
+        .expect(201);
+      proofOrderId = order.body.id;
+
+      // Барааны зураг БИШ файл нэр — DB-д бүртгэлгүй тул хаалттай
+      const name = productImageUrl.split('/').pop()!;
+      const other = name.replace(/^./, name[0] === 'a' ? 'b' : 'a');
+
+      await api().get(`/api/uploads/${other}`).expect(401);
+      // Нэвтэрсэн хүнд 404 (файл байхгүй) — 401 биш
+      await api()
+        .get(`/api/uploads/${other}`)
+        .set(auth(tok.admin))
+        .expect(404);
+    });
+
+    it('зам гарах оролдлого таслагдана', async () => {
+      // Нэвтрэлтгүйд 401 — файл байгаа эсэхийг ч мэдэгдэхгүй нь зөв
+      await api().get('/api/uploads/..%2F..%2Fpackage.json').expect(401);
+      // Нэвтэрсэн хүнд нэрийн шалгалт: hex+өргөтгөл биш бол 400
+      await api()
+        .get('/api/uploads/..%2F..%2Fpackage.json')
+        .set(auth(tok.admin))
+        .expect(400);
+      await api()
+        .get('/api/uploads/not-a-valid-name.png')
+        .set(auth(tok.admin))
+        .expect(400);
+    });
+
+    /**
+     * ⭐ Клиентийн зарласан mimetype хуурамчлагдана. Файлын ЖИНХЭНЭ
+     * агуулгыг (magic bytes) шалгах ёстой — эс тэгвэл HTML/скрипт
+     * агуулгатай файл зураг нэрээр сервер дээр хадгалагдана.
+     */
+    it('зураг биш агуулгыг зураг гэж хуурч болохгүй', async () => {
+      const html = Buffer.from('<html><script>alert(1)</script></html>');
+      const res = await api()
+        .post(`/api/products/${secProductId}/image`)
+        .set(auth(tok.admin))
+        .attach('image', html, { filename: 'x.png', contentType: 'image/png' })
+        .expect(400);
+      expect(res.body.message).toContain('Зураг биш');
+    });
+
+    it('аюулгүй байдлын HTTP толгойнууд байна', async () => {
+      const res = await api().get('/api/health').expect(200);
+      expect(res.headers['x-content-type-options']).toBe('nosniff');
+      expect(res.headers['content-security-policy']).toBeDefined();
+      expect(res.headers['x-frame-options']).toBeDefined();
+      expect(res.headers['strict-transport-security']).toBeDefined();
+      // Framework-ээ зарлахгүй
+      expect(res.headers['x-powered-by']).toBeUndefined();
+    });
+  });
+
 });
