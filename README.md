@@ -1,13 +1,37 @@
 # ocirrf
 
-Дотоод дэлгүүрийн захиалга бүртгэл, агуулах, хүргэлт, санхүүгийн удирдлагын
-систем. Нэг порт дээр NestJS API + React frontend хамт үйлчилнэ.
+Олон байгууллагад зориулсан (multi-tenant) захиалга бүртгэл, агуулах,
+хүргэлт, санхүүгийн удирдлагын систем. Байгууллага бүр /signup-аар
+бүртгүүлж, тус тусын бүрэн тусгаарлагдсан өгөгдөлтэй ажиллана.
+Нэг порт дээр NestJS API + React frontend хамт үйлчилнэ.
 
 ## Технологи
 
 - **Backend:** NestJS 11, Prisma 7, PostgreSQL, JWT (access + refresh)
 - **Frontend:** React 19, Vite, Tailwind v4, React Router 7
-- **Тест:** Jest + supertest e2e (89 тест), bash smoke скриптүүд
+- **Тест:** Jest + supertest e2e (248 тест, tenant-isolation багтсан), bash smoke скриптүүд
+
+## Олон байгууллага (Multi-tenancy)
+
+Нэг deployment дээр олон байгууллага: хүснэгт бүр `organizationId`-тай,
+`src/prisma/org-scope.extension.ts` нь query бүрт байгууллагын шүүлтийг
+АВТОМАТААР нэмдэг (context байхгүй бол fail closed — алдаа шидэж унана).
+Байгууллагыг `JwtStrategy` (нэвтэрсэн хэрэглэгч) эсвэл нийтийн захиалгын
+token (`Organization.publicOrderToken`) тогтооно. Бүртгэл: `POST
+/api/auth/register-org` буюу frontend-ийн `/signup`. Хуучин өгөгдөл
+migration-аар default 'ocirrf' байгууллагад (UUID
+`00000000-0000-4000-8000-000000000001`) харьяалагдсан.
+
+**Шинэ model нэмэхдээ (checklist):**
+1. `schema.prisma`-д `organizationId` + `organization` relation (+ index,
+   байгууллага доторх unique бол `@@unique([organizationId, X])`)
+2. `org-scope.extension.ts`-ийн `SCOPED_MODELS`-д нэрийг нь нэмэх
+3. create call site бүрт `organizationId: OrgContext.require()` тодоор өгөх
+4. Raw SQL бичвэл `"organizationId" = ...` шүүлтийг ГАРААР нэмэх
+   (extension нь $queryRaw-д үйлчилдэггүй)
+
+`OrgContext.runBypassed` — зөвхөн auth bootstrap-д (login, refresh,
+JwtStrategy, SSE token, uploads guard); шинэ хэрэглээ бүр аудит шаардана.
 
 ## Эрхийн систем (5 эрх)
 

@@ -61,6 +61,23 @@ cd ../backend && npm ci && npx prisma migrate deploy && npm run build
 pm2 restart ocirrf-api
 ```
 
+### Multi-tenancy migration (20260902120000, нэг удаагийн big-bang)
+
+Хуучин (нэг байгууллагын) хувилбараас шинэчлэхэд энэ migration нь шинэ
+кодтой ХАМТ атомоор орох ёстой — хуучин код шинэ схемтэй (Setting-ийн PK
+өөрчлөгдсөн), шинэ код хуучин схемтэй ажиллахгүй:
+
+```bash
+pm2 stop ocirrf-api
+npx prisma migrate deploy    # бүх өгөгдөл default 'ocirrf' байгууллагад орно
+npm run build                # шинэ dist
+pm2 start ocirrf-api
+```
+
+Богино зогсолт гарна (PM2 instances:1 тул асуудалгүй). Migration нь
+одоогийн өгөгдлийг default байгууллагад backfill хийдэг тул өгөгдөл
+алдагдахгүй; хуучин нийтийн захиалгын линк (/z/:token) хэвээр ажиллана.
+
 ## 5. Backup
 
 Өдөр тутмын DB dump + uploads/ зургийн архив (14 хоног хадгална):
