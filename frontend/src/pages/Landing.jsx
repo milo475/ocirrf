@@ -34,8 +34,8 @@ export default function Landing() {
     )
   }
 
-  // Нэвтэрсэн хэрэглэгч landing биш ажлын орчиндоо (launcher/dashboard)
-  if (user) return <Navigate to="/dashboard" replace />
+  // Нэвтэрсэн хэрэглэгч landing биш ажлын орчиндоо (App Launcher)
+  if (user) return <Navigate to="/launcher" replace />
 
   return (
     <main className="min-h-screen bg-bg text-ink flex flex-col">

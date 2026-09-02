@@ -183,6 +183,13 @@ describe('Платформын App Registry (e2e)', () => {
         .expect(200);
       expect(res.headers['content-type']).toContain('text/html');
     });
+
+    maybe('/launcher SPA fallback-аар нээгдэнэ (Prompt 3)', async () => {
+      const res = await request(spaApp!.getHttpServer())
+        .get('/launcher')
+        .expect(200);
+      expect(res.headers['content-type']).toContain('text/html');
+    });
   });
 
   describe('GET /api/platform/my-apps — байгууллагын app-ууд', () => {

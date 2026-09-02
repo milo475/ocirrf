@@ -33,6 +33,30 @@ migration-аар default 'ocirrf' байгууллагад (UUID
 `OrgContext.runBypassed` — зөвхөн auth bootstrap-д (login, refresh,
 JwtStrategy, SSE token, uploads guard); шинэ хэрэглээ бүр аудит шаардана.
 
+## Платформ ба App Registry
+
+ocirrf нь Odoo маягийн ОЛОН системийн платформ: `/` нь нийтийн каталог
+(landing), нэвтэрсний дараа `/launcher` — байгууллагын идэвхтэй app-ууд.
+"Урсгал" (агуулах/захиалга/хүргэлт) нь эхний app. Каталог нь Application
+хүснэгт (глобал), байгууллага бүрийн идэвхжүүлэлт нь OrganizationApp.
+
+### Шинэ app нэмэх алхмууд (модулийн стандарт)
+
+1. **Application seed** — migration эсвэл SUPERADMIN консолоор каталогт
+   бүртгэнэ: key (тогтмол, өөрчлөгдөхгүй!), нэр, icon, өнгө, статус.
+2. **Frontend манифест** — `frontend/src/apps/<key>/manifest.js`:
+   `{ key, nameMn, icon, color, basePath, routes, navItems,
+   requiredPermissions }`. routes нь `<Route>` мод (`routes.jsx`),
+   navItems нь nav.js-ийн хэв маягтай `{perm|anyPerm|roles|requires}`
+   шүүлттэй жагсаалт.
+3. **Бүртгэх** — `frontend/src/apps/index.js`-ийн APP_MANIFESTS-д нэмнэ.
+   App.jsx-д гар хүрэхгүй: платформ бүрхүүл route/nav-аа өөрөө угсарна.
+4. **Backend module** — NestJS module + Prisma model-ууд (org-scoped:
+   дээрх Multi-tenancy checklist-ийг ЗААВАЛ дага).
+5. **Permission key** — permission-keys.ts-д нэмж ROLE_DEFAULTS-д онооно
+   (хуучин key-үүдийн нэрэнд хүрэхгүй).
+6. **Тест** — e2e (cross-tenant тусгаарлалтын тест ЗААВАЛ).
+
 ## Эрхийн систем (5 эрх)
 
 | Эрх | Хэн | Гол чадвар |

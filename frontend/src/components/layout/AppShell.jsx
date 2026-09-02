@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router'
 import {
   Bell,
+  LayoutGrid,
   LogOut,
   Menu,
   PanelLeft,
@@ -10,6 +11,8 @@ import {
   X,
 } from 'lucide-react'
 import ConfirmDialog from '../ui/ConfirmDialog'
+import { manifestFor } from '../../apps'
+import { appIcon } from '../../lib/appIcon'
 import { mobileTabsFor, navFor } from '../../config/nav'
 import { useAuth } from '../../context/AuthContext'
 import { useLang } from '../../context/LanguageContext'
@@ -261,6 +264,8 @@ export default function AppShell() {
       {/* ── Баруун тал: topbar + контент ── */}
       <div className="flex-1 min-w-0 flex flex-col">
         <header className="h-12 border-b border-rule flex items-center gap-3 px-4 md:px-6 shrink-0">
+          {/* App switcher (платформ бүрхүүл) — идэвхтэй app-ууд + Launcher */}
+          <AppSwitcher />
           <NavLink to="/dashboard" className="font-serif text-xl font-medium tracking-tight">
             {/* Байгууллагын нэр (Multi-tenancy) — login/refresh хариунаас */}
             {user?.organizationName ?? 'ocirrf'}
@@ -410,6 +415,80 @@ export default function AppShell() {
             </div>
           </div>
         </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * APP SWITCHER (платформ бүрхүүл) — идэвхтэй app-уудын dropdown.
+ * Идэвхтэй app хооронд шилжинэ; "Бүх апп" нь Launcher руу. Одоогийн
+ * app-ийн nav-ийг ОРЛОХГҮЙ, дээр нь нэмэгддэг платформ түвшний элемент.
+ */
+function AppSwitcher() {
+  const { t } = useLang()
+  const [open, setOpen] = useState(false)
+  const [apps, setApps] = useState([])
+
+  useEffect(() => {
+    let alive = true
+    api('/platform/my-apps')
+      .then((data) => alive && setApps(data))
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-label={t('Апп сэлгэх')}
+        className="flex items-center justify-center w-8 h-8 rounded text-ink-muted hover:text-ink hover:bg-surface transition-colors"
+      >
+        <LayoutGrid size={18} />
+      </button>
+      {open && (
+        <>
+          {/* Гадна дархад хаагдана */}
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setOpen(false)}
+            aria-hidden="true"
+          />
+          <div className="absolute left-0 top-10 z-50 w-64 border border-rule rounded-lg bg-surface shadow-2xl shadow-black/30 p-2">
+            {apps.map((app) => {
+              const Icon = appIcon(app.icon)
+              const manifest = manifestFor(app.key)
+              return (
+                <NavLink
+                  key={app.key}
+                  to={manifest?.basePath ?? '/launcher'}
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-3 rounded px-3 py-2 text-sm hover:bg-bg"
+                >
+                  <span
+                    className="w-7 h-7 rounded flex items-center justify-center text-white shrink-0"
+                    style={{ backgroundColor: app.color }}
+                  >
+                    <Icon size={15} strokeWidth={1.75} />
+                  </span>
+                  <span className="truncate">{app.nameMn}</span>
+                </NavLink>
+              )
+            })}
+            <NavLink
+              to="/launcher"
+              onClick={() => setOpen(false)}
+              className="mt-1 flex items-center gap-3 rounded px-3 py-2 text-sm text-ink-muted hover:bg-bg hover:text-ink border-t border-rule/60 pt-2.5"
+            >
+              <LayoutGrid size={15} className="shrink-0" />
+              <span>{t('Бүх апп')}</span>
+            </NavLink>
+          </div>
+        </>
       )}
     </div>
   )

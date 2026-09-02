@@ -4,9 +4,10 @@ import { useAuth } from '../../context/AuthContext'
 
 /** Хэрэглэгчийн эрхээс хамаарсан "нүүр" зам */
 export function homeFor(role) {
+  // Жолоочийн mobile урсгал шууд хүргэлт рүүгээ (launcher нэмэлт алхам болно)
   if (role === 'DRIVER') return '/deliveries'
-  // '/' нь платформын нийтийн landing болсон тул ажлын нүүр /dashboard
-  return '/dashboard'
+  // Нэвтэрсний дараах анхны хуудас = App Launcher (платформ бүрхүүл)
+  return '/launcher'
 }
 
 /**
