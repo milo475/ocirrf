@@ -11,6 +11,7 @@ import ChangePassword from './pages/ChangePassword'
 import Landing from './pages/Landing'
 import Launcher from './pages/Launcher'
 import Login from './pages/Login'
+import PlatformAdmin from './pages/PlatformAdmin'
 import PublicOrder from './pages/PublicOrder'
 import Signup from './pages/Signup'
 
@@ -41,6 +42,8 @@ function App() {
                 <Route element={<ProtectedRoute />}>
                   {/* App Launcher — нэвтэрсний дараах анхны хуудас */}
                   <Route path="/launcher" element={<Launcher />} />
+                  {/* SUPERADMIN консол — бусдад 404 харагдана */}
+                  <Route path="/platform-admin" element={<PlatformAdmin />} />
                   <Route element={<AppShell />}>
                     {/*
                      * МОДУЛИЙН СТАНДАРТ: app бүрийн route src/apps/<key>/

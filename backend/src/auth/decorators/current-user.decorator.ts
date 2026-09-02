@@ -13,6 +13,8 @@ export type AuthUser = {
    * байгууллагад хязгаарлагдана.
    */
   organizationId: string;
+  /** Платформын SUPERADMIN (байгууллагын role-уудаас тусдаа давхарга) */
+  isSuperAdmin: boolean;
   /** Түр нууц үгтэй — солитол бусад API 403 (V4-06) */
   mustChangePassword: boolean;
   /** Сүүлд нэвтэрсэн огноо (V4-07) */

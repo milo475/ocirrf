@@ -182,6 +182,10 @@ model User {
   phone              String? // холбоо барих утас
   role               Role      @default(OPERATOR)
   isActive           Boolean   @default(true)
+  /// ПЛАТФОРМЫН SUPERADMIN — байгууллага ДОТОРХ role-уудаас тусдаа,
+  /// дээд давхаргын эрх: бүх байгууллага, app каталогийг удирдана.
+  /// Зөвхөн scripts/make-superadmin.ts-ээр олгоно (UI-гаас олгохгүй).
+  isSuperAdmin       Boolean   @default(false)
   /// Аль байгууллагын хэрэглэгч вэ (Multi-tenancy)
   organizationId     String
   /// Аль харилцагч компанийн хүн бэ (V5) — голдуу OPERATOR эрхтэйд

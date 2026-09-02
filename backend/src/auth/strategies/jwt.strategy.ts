@@ -44,6 +44,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       phone: user.phone,
       role: user.role,
       organizationId: user.organizationId,
+      isSuperAdmin: user.isSuperAdmin,
       mustChangePassword: user.mustChangePassword,
       lastLoginAt: user.lastLoginAt,
       companyId: user.companyId,

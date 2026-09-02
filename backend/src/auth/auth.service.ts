@@ -119,6 +119,22 @@ export class AuthService {
       throw willLock ? locked : invalid;
     }
 
+    /**
+     * Байгууллагын түдгэлзүүлэлт (SUPERADMIN, Prompt 5): түдгэлзсэн
+     * байгууллагын хэрэглэгч ЗӨВ нууц үгтэй ч нэвтрэхгүй — учир
+     * шалтгааныг нь ойлгомжтой хэлнэ (нууц үг буруутай андуурахгүй).
+     */
+    const org = await this.prisma.organization.findUnique({
+      where: { id: user.organizationId },
+      select: { isActive: true },
+    });
+    if (org && !org.isActive) {
+      throw new HttpException(
+        'Танай байгууллагын эрх түдгэлзсэн байна',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
     // Амжилттай: counter 0, түгжээ арилж, lastLoginAt шинэчлэгдэнэ
     const updated = await this.prisma.user.update({
       where: { id: user.id },
@@ -267,6 +283,18 @@ export class AuthService {
       throw invalid;
     }
 
+    // Түдгэлзсэн байгууллагын session refresh-ээр сунгагдахгүй (Prompt 5)
+    const org = await this.prisma.organization.findUnique({
+      where: { id: user.organizationId },
+      select: { isActive: true },
+    });
+    if (org && !org.isActive) {
+      throw new HttpException(
+        'Танай байгууллагын эрх түдгэлзсэн байна',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
     // Хугацаа дууссан token-уудыг энд дайрч цэвэрлэнэ (өдөр тутмын cleanup)
     await this.prisma.refreshToken.deleteMany({
       where: { expiresAt: { lt: new Date() } },
@@ -401,6 +429,7 @@ export class AuthService {
         role: user.role,
         organizationId: user.organizationId,
         organizationName: organization?.name ?? null,
+        isSuperAdmin: user.isSuperAdmin,
         mustChangePassword: user.mustChangePassword,
         lastLoginAt: user.lastLoginAt,
         companyId: user.companyId,

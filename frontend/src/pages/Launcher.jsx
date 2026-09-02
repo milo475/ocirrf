@@ -57,6 +57,14 @@ export default function Launcher() {
           {user?.organizationName ?? 'ocirrf'}
         </span>
         <div className="ml-auto flex items-center gap-3">
+          {user?.isSuperAdmin && (
+            <Link
+              to="/platform-admin"
+              className="text-sm text-ink-muted hover:text-ink underline underline-offset-2"
+            >
+              {t('Платформ удирдлага')}
+            </Link>
+          )}
           <span className="text-sm text-ink-muted hidden sm:inline">
             {user?.name}
           </span>
