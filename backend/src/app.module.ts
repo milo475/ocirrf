@@ -1,6 +1,7 @@
-import type { ServerResponse } from 'node:http';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 import { join } from 'node:path';
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { orgAls } from './org/org-context';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { ActivityLogInterceptor } from './activity-log/activity-log.interceptor';
@@ -153,6 +154,14 @@ export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
       .apply(
+        /**
+         * БАЙГУУЛЛАГЫН CONTEXT STORE (Multi-tenancy). Request бүр хоосон
+         * AsyncLocalStorage store-той эхэлж, JwtStrategy эсвэл public
+         * token resolver байгууллагаа онооно. Helmet-тэй ижил
+         * шалтгаанаар main.ts биш ЭНД — тест орчинд ч үйлчилнэ.
+         */
+        (_req: IncomingMessage, _res: ServerResponse, next: () => void) =>
+          orgAls.run({}, next),
         helmet({
           contentSecurityPolicy: {
             directives: {

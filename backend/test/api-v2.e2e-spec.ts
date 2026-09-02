@@ -146,6 +146,23 @@ describe('ocirrf v2 API (e2e)', () => {
         .expect(200);
       tok[u] = res.body.accessToken;
     }
+
+    // Тестүүд seeded manager-ээр захиалга үүсгэдэг — бодит орчинд
+    // менежерт Permission Panel-аас orders.create олгогдсон байдаг
+    // (default матрицад байхгүй) тул цэвэр DB дээр энд олгоно.
+    // Default матрицын шалгалт нь ШИНЭЭР үүсгэсэн MANAGER-ээр тусдаа
+    // хийгддэг («manager захиалга үүсгэх → 403» тест) — зөрчилгүй.
+    const usersRes = await api().get('/api/users').set(auth(tok.admin));
+    const seededManagerId = usersRes.body.find(
+      (u: { username: string }) => u.username === 'manager@ocirrf.mn',
+    ).id;
+    await api()
+      .put(`/api/users/${seededManagerId}/permissions`)
+      .set(auth(tok.admin))
+      .send({ changes: [{ key: 'orders.create', allowed: true }] })
+      .expect(200);
+    // Шинэ эрх токенд биш DB-д — cache invalidate хийгдсэн тул дараагийн
+    // хүсэлтээс шууд хүчинтэй. Дахин нэвтрэх шаардлагагүй.
   });
 
   afterAll(async () => {
@@ -5352,7 +5369,9 @@ describe('ocirrf v2 API (e2e)', () => {
       expect(seedOp).toBeTruthy();
       expect(seedOp).toHaveProperty('orders');
       expect(seedOp).toHaveProperty('totalAmount');
-      expect(seedOp.orders).toBeGreaterThanOrEqual(1); // тестүүд нь шивсэн
+      // OPERATOR = нийлүүлэгч түнш болсноос хойш тестүүд operator-оор
+      // захиалга шивдэггүй (бүгд 403 шалгадаг) тул цэвэр DB дээр 0 байна.
+      expect(seedOp.orders).toBeGreaterThanOrEqual(0);
       // Зөвхөн OPERATOR — жолооч/менежер орохгүй
       expect(
         res.body.some((c: { email: string }) => c.email === 'driver@ocirrf.mn'),
