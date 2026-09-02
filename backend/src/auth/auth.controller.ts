@@ -18,6 +18,7 @@ import { Public } from './decorators/public.decorator';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
+import { RegisterOrgDto } from './dto/register-org.dto';
 import type { Request } from 'express';
 
 // Rate limit (V4-07): IP тутамд login 5/мин.
@@ -30,6 +31,9 @@ const CHANGE_PASSWORD_LIMIT = Number.isFinite(ENV_LIMIT) ? ENV_LIMIT : 5;
 // refresh нь хэвийн ажиллагаанд 15 минутад нэг л удаа дуудагддаг тул
 // 20/мин нь бодит хэрэглээнд саад болохгүй, харин token brute-force-ыг хаана.
 const REFRESH_LIMIT = Number.isFinite(ENV_LIMIT) ? ENV_LIMIT : 20;
+// Байгууллагын бүртгэл бүр DB-д мөр үүсгэдэг тул хамгийн хатуу лимит:
+// нэг IP-ээс цагт 5 (бодит хэрэглээнд байгууллага нэг л удаа бүртгүүлнэ).
+const REGISTER_ORG_LIMIT = Number.isFinite(ENV_LIMIT) ? ENV_LIMIT : 5;
 
 @Controller('auth')
 export class AuthController {
@@ -52,6 +56,17 @@ export class AuthController {
     );
   }
 
+
+  /**
+   * Байгууллагын нээлттэй бүртгэл (Multi-tenancy) — байгууллага +
+   * эхний ADMIN нэг алхамд үүсээд шууд нэвтэрнэ.
+   */
+  @Public()
+  @Post('register-org')
+  @Throttle({ default: { limit: REGISTER_ORG_LIMIT, ttl: 3_600_000 } })
+  registerOrg(@Body() dto: RegisterOrgDto) {
+    return this.authService.registerOrganization(dto);
+  }
 
   @Public()
   @Post('refresh')

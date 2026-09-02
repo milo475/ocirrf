@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   HttpException,
   HttpStatus,
   Injectable,
@@ -7,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { Role } from '../generated/prisma/client';
 import type { User } from '../generated/prisma/client';
 import { OrgContext } from '../org/org-context';
@@ -16,6 +17,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
+import { RegisterOrgDto } from './dto/register-org.dto';
 import { SecurityLogService } from '../activity-log/security-log.service';
 import { describeUserAgent } from './user-agent.util';
 
@@ -135,6 +137,78 @@ export class AuthService {
     return this.issueTokens(updated);
   }
 
+
+  /**
+   * БАЙГУУЛЛАГЫН НЭЭЛТТЭЙ БҮРТГЭЛ (Multi-tenancy). Байгууллага + эхний
+   * ADMIN хэрэглэгч + companyName тохиргоо нэг transaction-д үүсээд
+   * шууд нэвтэрсэн төлөвт орно (login-той ижил хариу).
+   *
+   * Байгууллагын нэр САНААТАЙГААР unique биш: нэрээр таах/enumeration
+   * боломж өгөхгүй, ижил нэртэй хоёр компани байж болно.
+   */
+  async registerOrganization(dto: RegisterOrgDto) {
+    const email = dto.email.trim().toLowerCase();
+
+    // Имэйл глобал unique — байгууллага тогтоогдоогүй үе тул bypass
+    return OrgContext.runBypassed(async () => {
+      const existing = await this.prisma.user.findUnique({
+        where: { username: email },
+        select: { id: true },
+      });
+      if (existing) {
+        throw new ConflictException('Энэ и-мэйл бүртгэлтэй байна');
+      }
+
+      const passwordHash = await bcrypt.hash(dto.password, 10);
+      const user = await this.prisma.$transaction(async (tx) => {
+        const org = await tx.organization.create({
+          data: {
+            name: dto.orgName.trim(),
+            phone: dto.phone?.trim() || null,
+            // Нийтийн захиалгын линк шинэ байгууллагад шууд бэлэн
+            // (order-requests.service-ийн token-той ижил хэлбэр, 128 бит)
+            publicOrderToken: randomBytes(16).toString('base64url'),
+          },
+        });
+        try {
+          const admin = await tx.user.create({
+            data: {
+              username: email,
+              passwordHash,
+              fullName: dto.fullName.trim(),
+              role: Role.ADMIN,
+              organizationId: org.id,
+            },
+          });
+          await tx.setting.create({
+            data: {
+              organizationId: org.id,
+              key: 'companyName',
+              value: dto.orgName.trim(),
+            },
+          });
+          if (dto.phone?.trim()) {
+            await tx.setting.create({
+              data: {
+                organizationId: org.id,
+                key: 'companyPhone',
+                value: dto.phone.trim(),
+              },
+            });
+          }
+          return admin;
+        } catch (e) {
+          // Зэрэг илгээсэн давхар бүртгэлийн уралдаан — P2002
+          if ((e as { code?: string }).code === 'P2002') {
+            throw new ConflictException('Энэ и-мэйл бүртгэлтэй байна');
+          }
+          throw e;
+        }
+      });
+
+      return this.issueTokens(user);
+    });
+  }
 
   /**
    * Refresh + ROTATION (V4-08): хуучин token revoke хийгдэж шинэ хос
