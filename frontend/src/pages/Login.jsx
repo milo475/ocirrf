@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Navigate, useNavigate } from 'react-router'
+import { Link, Navigate, useNavigate } from 'react-router'
 import { homeFor } from '../components/auth/RoleRoute'
 import Modal from '../components/ui/Modal'
 import { useAuth } from '../context/AuthContext'
@@ -142,6 +142,16 @@ export default function Login() {
             >
               {t('Нууц үг мартсан?')}
             </button>
+          </p>
+
+          <p className="mt-4 pt-4 border-t border-rule/50 text-center text-sm text-ink-muted">
+            {t('Шинэ байгууллага уу?')}{' '}
+            <Link
+              to="/signup"
+              className="underline underline-offset-2 hover:text-ink"
+            >
+              {t('Бүртгүүлэх')}
+            </Link>
           </p>
         </div>
       </div>

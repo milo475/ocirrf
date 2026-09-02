@@ -39,6 +39,20 @@ export function AuthProvider({ children }) {
   }, [])
 
 
+  /**
+   * Байгууллагын нээлттэй бүртгэл (Multi-tenancy) — байгууллага +
+   * эхний админ үүсээд login-той ижил хариу ирдэг тул шууд нэвтэрнэ.
+   */
+  const registerOrg = useCallback(async (payload) => {
+    const data = await api('/auth/register-org', {
+      method: 'POST',
+      body: payload,
+    })
+    setTokens(data)
+    setUser(data.user)
+    return data.user
+  }, [])
+
   const logout = useCallback(() => {
     // Сервер талд refresh token-ыг revoke хийнэ (V4-08) — хариуг хүлээхгүй
     void serverLogout()
@@ -73,6 +87,7 @@ export function AuthProvider({ children }) {
         user,
         loading,
         login,
+        registerOrg,
         logout,
         hasPerm,
         applyAuth,

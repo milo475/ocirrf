@@ -19,6 +19,7 @@ import Finance from './pages/Finance'
 import FinanceReport from './pages/FinanceReport'
 import Login from './pages/Login'
 import PublicOrder from './pages/PublicOrder'
+import Signup from './pages/Signup'
 import Notifications from './pages/Notifications'
 import Payroll from './pages/Payroll'
 import MyDeliveries from './pages/MyDeliveries'
@@ -46,6 +47,8 @@ function App() {
               <Routes>
                 {/* Login — nav-гүй, хамгаалалтгүй */}
                 <Route path="/login" element={<Login />} />
+                {/* Байгууллагын нээлттэй бүртгэл (Multi-tenancy) */}
+                <Route path="/signup" element={<Signup />} />
                 {/* Нийтийн захиалгын линк — нэвтрэлтгүй (V5) */}
                 <Route path="/z/:token" element={<PublicOrder />} />
                 {/* Түр нууц үг солих — ProtectedRoute-ийн ГАДНА (V4-06) */}
