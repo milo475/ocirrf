@@ -1,6 +1,7 @@
 import {
   Bell,
   Boxes,
+  LayoutGrid,
   CalendarClock,
   ChartColumn,
   ClipboardList,
@@ -180,6 +181,15 @@ export const NAV_ITEMS = [
     path: '/users',
     end: true,
     perm: 'users.manage',
+  },
+  {
+    key: 'apps',
+    label: 'Апп-ууд',
+    icon: LayoutGrid,
+    path: '/settings/apps',
+    end: true,
+    // Endpoint-ийн permission-тэй ЯГ ижил (App Registry, Prompt 4)
+    perm: 'platform.manage_apps',
   },
   {
     key: 'activity',

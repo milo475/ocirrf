@@ -77,6 +77,8 @@ export const PERM = {
   SETTINGS_EDIT: 'settings.edit',
   ACTIVITY_LOG_VIEW: 'activity_log.view',
   ANALYTICS_VIEW: 'analytics.view',
+  /** Байгууллагадаа app идэвхжүүлэх/унтраах (App Registry, Prompt 4) */
+  PLATFORM_MANAGE_APPS: 'platform.manage_apps',
 } as const;
 
 export type PermKey = (typeof PERM)[keyof typeof PERM];
@@ -124,6 +126,7 @@ export const PERM_LABELS: Record<PermKey, string> = {
   [PERM.SETTINGS_EDIT]: 'Тохиргоо засах',
   [PERM.ACTIVITY_LOG_VIEW]: 'Үйлдлийн түүх харах',
   [PERM.ANALYTICS_VIEW]: 'Аналитик харах',
+  [PERM.PLATFORM_MANAGE_APPS]: 'Апп идэвхжүүлэх/унтраах',
 };
 
 /** Panel-ын бүлэглэлт — дараалал нь UI-ийн дараалал */
@@ -183,6 +186,7 @@ export const PERM_GROUPS: { group: string; keys: PermKey[] }[] = [
       PERM.SETTINGS_EDIT,
       PERM.ACTIVITY_LOG_VIEW,
       PERM.ANALYTICS_VIEW,
+      PERM.PLATFORM_MANAGE_APPS,
     ],
   },
 ];

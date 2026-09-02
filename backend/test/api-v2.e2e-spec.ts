@@ -1218,7 +1218,8 @@ describe('ocirrf v2 API (e2e)', () => {
       }
       // Панелын түлхүүр бүр backend-ийн ямар нэг route-д хэрэглэгддэг
       // (V5-д нярав нэмэгдэхэд +2: orders.assign_warehouse, warehouse.handover)
-      expect(allKeys).toHaveLength(33);
+      // 34 = 33 (v2 сүүлчийн байдал) + platform.manage_apps (App Registry)
+      expect(allKeys).toHaveLength(34);
       expect(allKeys).toContain('drivers.zones');
       expect(allKeys).toContain('orders.cancel');
       expect(allKeys).toContain('supplies.create');

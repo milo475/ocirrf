@@ -3,6 +3,7 @@ import PermRoute from '../../components/auth/PermRoute'
 import RoleRoute from '../../components/auth/RoleRoute'
 import ActivityLog from '../../pages/ActivityLog'
 import Analytics from '../../pages/Analytics'
+import AppsSettings from '../../pages/AppsSettings'
 import Customers from '../../pages/Customers'
 import Dashboard from '../../pages/Dashboard'
 import Reports from '../../pages/Reports'
@@ -113,6 +114,10 @@ export const ursgalRoutes = (
     </Route>
     <Route element={<PermRoute perm="activity_log.view" />}>
       <Route path="/activity-log" element={<ActivityLog />} />
+    </Route>
+    {/* Байгууллагын app удирдлага (платформ, Prompt 4) */}
+    <Route element={<PermRoute perm="platform.manage_apps" />}>
+      <Route path="/settings/apps" element={<AppsSettings />} />
     </Route>
 
     {/* Хүргэлт — зөвхөн DRIVER */}

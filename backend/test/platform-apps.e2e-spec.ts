@@ -207,6 +207,92 @@ describe('Платформын App Registry (e2e)', () => {
       expect(res.body[0].enabledAt).toBeTruthy();
     });
 
+    it('ADMIN app идэвхжүүлж/унтраана; хориглолтууд ажиллана (Prompt 4) ⭐', async () => {
+      // Б идэвхжүүлнэ → жагсаалтад нэмэгдэнэ
+      await api()
+        .post(`/api/platform/my-apps/iso-extra-${T}/enable`)
+        .set(auth(tokB))
+        .expect(201);
+      const after = await api()
+        .get('/api/platform/my-apps')
+        .set(auth(tokB))
+        .expect(200);
+      expect(
+        after.body.some((x: { key: string }) => x.key === `iso-extra-${T}`),
+      ).toBe(true);
+
+      // Давхар идэвхжүүлэлт idempotent
+      await api()
+        .post(`/api/platform/my-apps/iso-extra-${T}/enable`)
+        .set(auth(tokB))
+        .expect(201);
+
+      // COMING_SOON app идэвхжүүлэх → 400
+      await api()
+        .post('/api/platform/my-apps/sankhuu/enable')
+        .set(auth(tokB))
+        .expect(400);
+
+      // Цөм ursgal унтраах → 400, ойлгомжтой мессежтэй
+      const core = await api()
+        .delete('/api/platform/my-apps/ursgal')
+        .set(auth(tokB))
+        .expect(400);
+      expect(core.body.message).toContain('Урсгал');
+
+      // Унтраана → жагсаалтаас алга болно; давхар унтраалт 404
+      await api()
+        .delete(`/api/platform/my-apps/iso-extra-${T}`)
+        .set(auth(tokB))
+        .expect(200);
+      await api()
+        .delete(`/api/platform/my-apps/iso-extra-${T}`)
+        .set(auth(tokB))
+        .expect(404);
+      const cleaned = await api()
+        .get('/api/platform/my-apps')
+        .set(auth(tokB))
+        .expect(200);
+      expect(cleaned.body).toHaveLength(1);
+
+      // Б-гийн үйлдлүүд А-д НӨЛӨӨЛӨӨГҮЙ (cross-tenant): iso-extra хэвээр
+      const a = await api()
+        .get('/api/platform/my-apps')
+        .set(auth(tokA))
+        .expect(200);
+      expect(
+        a.body.some((x: { key: string }) => x.key === `iso-extra-${T}`),
+      ).toBe(true);
+    });
+
+    it('platform.manage_apps эрхгүй хэрэглэгч 403 авна (Prompt 4)', async () => {
+      // Б-гийн админ OPERATOR ажилтан үүсгэнэ (default: зөвхөн supplies.view)
+      await api()
+        .post('/api/users')
+        .set(auth(tokB))
+        .send({
+          email: `app-reg-op-${T}@example.mn`,
+          name: 'Оператор Тест',
+          password: 'operator123',
+          role: 'OPERATOR',
+        })
+        .expect(201);
+      const login = await api()
+        .post('/api/auth/login')
+        .send({ email: `app-reg-op-${T}@example.mn`, password: 'operator123' })
+        .expect(200);
+      const opTok = login.body.accessToken;
+
+      await api()
+        .post(`/api/platform/my-apps/iso-extra-${T}/enable`)
+        .set(auth(opTok))
+        .expect(403);
+      await api()
+        .delete('/api/platform/my-apps/ursgal')
+        .set(auth(opTok))
+        .expect(403);
+    });
+
     it('өөр байгууллагын идэвхжүүлэлт харагдахгүй (cross-tenant) ⭐', async () => {
       // А-д нэмэлт app идэвхжүүлсэн → 2 app
       const a = await api()
