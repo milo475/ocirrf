@@ -9,6 +9,8 @@ import { LanguageProvider } from './context/LanguageContext'
 import { ThemeProvider } from './context/ThemeContext'
 import ActivityLog from './pages/ActivityLog'
 import Analytics from './pages/Analytics'
+import AppDetail from './pages/AppDetail'
+import Landing from './pages/Landing'
 import ChangePassword from './pages/ChangePassword'
 import Customers from './pages/Customers'
 import Dashboard from './pages/Dashboard'
@@ -45,6 +47,13 @@ function App() {
           <ToastProvider>
             <BrowserRouter>
               <Routes>
+                {/*
+                 * Платформын нийтийн нүүр (Odoo маягийн каталог) — нэвтрээгүй
+                 * хүнд. Нэвтэрсэн хэрэглэгчийг Landing өөрөө ажлын орчин руу
+                 * шилжүүлнэ. Dashboard /dashboard руу нүүсэн (доор).
+                 */}
+                <Route path="/" element={<Landing />} />
+                <Route path="/apps/:key" element={<AppDetail />} />
                 {/* Login — nav-гүй, хамгаалалтгүй */}
                 <Route path="/login" element={<Login />} />
                 {/* Байгууллагын нээлттэй бүртгэл (Multi-tenancy) */}
@@ -56,8 +65,9 @@ function App() {
 
                 <Route element={<ProtectedRoute />}>
                   <Route element={<AppShell />}>
-                    {/* Бүх эрхэд нээлттэй (dashboard эрхээрээ өөр агуулгатай) */}
-                    <Route path="/" element={<Dashboard />} />
+                    {/* Бүх эрхэд нээлттэй (dashboard эрхээрээ өөр агуулгатай).
+                        '/' нь платформын landing болсон тул энд /dashboard. */}
+                    <Route path="/dashboard" element={<Dashboard />} />
                     <Route path="/settings" element={<Settings />} />
                     <Route path="/notifications" element={<Notifications />} />
 

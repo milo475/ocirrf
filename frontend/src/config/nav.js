@@ -46,7 +46,8 @@ export const NAV_ITEMS = [
     key: 'home',
     label: 'Нүүр',
     icon: Home,
-    path: '/',
+    // '/' нь платформын нийтийн landing болсон (App Registry)
+    path: '/dashboard',
     end: true,
     roles: ['ADMIN', 'MANAGER', 'OPERATOR', 'DRIVER', 'WAREHOUSE', 'SELLER'],
   },

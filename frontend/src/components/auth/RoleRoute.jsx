@@ -5,7 +5,8 @@ import { useAuth } from '../../context/AuthContext'
 /** Хэрэглэгчийн эрхээс хамаарсан "нүүр" зам */
 export function homeFor(role) {
   if (role === 'DRIVER') return '/deliveries'
-  return '/'
+  // '/' нь платформын нийтийн landing болсон тул ажлын нүүр /dashboard
+  return '/dashboard'
 }
 
 /**
@@ -20,7 +21,7 @@ export function homeFor(role) {
 export function landingFor(user, hasPerm) {
   if (!user) return '/login'
   if (user.role === 'DRIVER') return '/deliveries'
-  const reachable = navFor(user, hasPerm).find((i) => i.path !== '/')
+  const reachable = navFor(user, hasPerm).find((i) => i.path !== '/dashboard')
   return reachable?.path ?? '/settings'
 }
 

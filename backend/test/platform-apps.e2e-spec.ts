@@ -1,5 +1,8 @@
 import 'dotenv/config';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { NestFactory } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
@@ -145,6 +148,40 @@ describe('Платформын App Registry (e2e)', () => {
       expect(
         res.body.some((a: { key: string }) => a.key === `iso-disabled-${T}`),
       ).toBe(false);
+    });
+  });
+
+  describe('Нийтийн landing SPA (Prompt 2)', () => {
+    // ServeStatic нь Test.createTestingModule дотор route-оо бүртгэдэггүй
+    // тул ЭНЭ блок NestFactory-ээр тусдаа app асаана. Frontend build
+    // байхгүй орчинд (CI) алгасна.
+    const hasDist = existsSync(
+      join(__dirname, '..', '..', 'frontend', 'dist', 'index.html'),
+    );
+    const maybe = hasDist ? it : it.skip;
+    let spaApp: INestApplication | null = null;
+
+    beforeAll(async () => {
+      if (!hasDist) return;
+      spaApp = await NestFactory.create(AppModule, { logger: false });
+      spaApp.setGlobalPrefix('api');
+      await spaApp.init();
+    });
+
+    afterAll(async () => {
+      await spaApp?.close();
+    });
+
+    maybe('/ нэвтрэлтгүй SPA буцаана (landing)', async () => {
+      const res = await request(spaApp!.getHttpServer()).get('/').expect(200);
+      expect(res.headers['content-type']).toContain('text/html');
+    });
+
+    maybe('/apps/ursgal SPA fallback-аар нээгдэнэ (app detail)', async () => {
+      const res = await request(spaApp!.getHttpServer())
+        .get('/apps/ursgal')
+        .expect(200);
+      expect(res.headers['content-type']).toContain('text/html');
     });
   });
 

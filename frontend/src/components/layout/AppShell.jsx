@@ -261,7 +261,7 @@ export default function AppShell() {
       {/* ── Баруун тал: topbar + контент ── */}
       <div className="flex-1 min-w-0 flex flex-col">
         <header className="h-12 border-b border-rule flex items-center gap-3 px-4 md:px-6 shrink-0">
-          <NavLink to="/" className="font-serif text-xl font-medium tracking-tight">
+          <NavLink to="/dashboard" className="font-serif text-xl font-medium tracking-tight">
             {/* Байгууллагын нэр (Multi-tenancy) — login/refresh хариунаас */}
             {user?.organizationName ?? 'ocirrf'}
           </NavLink>
