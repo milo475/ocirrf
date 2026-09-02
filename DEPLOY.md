@@ -78,6 +78,35 @@ pm2 start ocirrf-api
 одоогийн өгөгдлийг default байгууллагад backfill хийдэг тул өгөгдөл
 алдагдахгүй; хуучин нийтийн захиалгын линк (/z/:token) хэвээр ажиллана.
 
+### Платформ бүрхүүлийн migration-ууд (App Registry + SUPERADMIN)
+
+Multitenancy-ийн ДАРАА энэ дарааллаар (prisma migrate deploy автоматаар
+зөв дарааллыг барина):
+
+1. `20260902120000_multitenancy` — big-bang (дээрх runbook)
+2. `20260902180000_app_registry` — Application + OrganizationApp,
+   каталогийн 6 app seed, бүх байгууллагад ursgal идэвхжинэ. Хуучин
+   кодтой зэрэгцэн ажиллаж БОЛНО (шинэ хүснэгтүүд л нэмэгддэг).
+3. `20260902200000_superadmin` — User.isSuperAdmin (default false).
+   Мөн хуучин кодтой нийцтэй.
+
+Тиймээс 2, 3-т зогсолт шаардлагагүй — энгийн release урсгалаар л явна.
+
+**Дараах шалгалтууд** (release бүрийн дараа):
+
+```bash
+curl -s localhost:3000/api/health                # {"status":"ok","db":true}
+curl -s localhost:3000/api/platform/apps | head  # каталог 6 app
+npm run test:e2e                                 # бүх тест ногоон
+```
+
+**SUPERADMIN олгох** (нэг удаа, deploy-ийн дараа):
+
+```bash
+docker compose exec app npx tsx scripts/make-superadmin.ts <email>
+# эсвэл PM2 орчинд: cd backend && npx tsx scripts/make-superadmin.ts <email>
+```
+
 ## 5. Backup
 
 Өдөр тутмын DB dump + uploads/ зургийн архив (14 хоног хадгална):

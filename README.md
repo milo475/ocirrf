@@ -42,20 +42,32 @@ ocirrf нь Odoo маягийн ОЛОН системийн платформ: `/
 
 ### Шинэ app нэмэх алхмууд (модулийн стандарт)
 
-1. **Application seed** — migration эсвэл SUPERADMIN консолоор каталогт
-   бүртгэнэ: key (тогтмол, өөрчлөгдөхгүй!), нэр, icon, өнгө, статус.
-2. **Frontend манифест** — `frontend/src/apps/<key>/manifest.js`:
-   `{ key, nameMn, icon, color, basePath, routes, navItems,
-   requiredPermissions }`. routes нь `<Route>` мод (`routes.jsx`),
-   navItems нь nav.js-ийн хэв маягтай `{perm|anyPerm|roles|requires}`
-   шүүлттэй жагсаалт.
-3. **Бүртгэх** — `frontend/src/apps/index.js`-ийн APP_MANIFESTS-д нэмнэ.
-   App.jsx-д гар хүрэхгүй: платформ бүрхүүл route/nav-аа өөрөө угсарна.
-4. **Backend module** — NestJS module + Prisma model-ууд (org-scoped:
-   дээрх Multi-tenancy checklist-ийг ЗААВАЛ дага).
-5. **Permission key** — permission-keys.ts-д нэмж ROLE_DEFAULTS-д онооно
-   (хуучин key-үүдийн нэрэнд хүрэхгүй).
-6. **Тест** — e2e (cross-tenant тусгаарлалтын тест ЗААВАЛ).
+Дараагийн app (жишээ: Санхүү) хийхэд энэ дарааллаар:
+
+1. **Application seed** — каталогт бүртгэнэ: migration-д тогтмол UUID-тай
+   INSERT (+ seed.ts-ийн APP_CATALOG-д нэмэх) эсвэл SUPERADMIN консолоор.
+   `key` нь тогтмол — production-д ороод ирвэл ХЭЗЭЭ Ч солигдохгүй.
+   Эхлээд COMING_SOON — бэлэн болмогц консолоос ACTIVE болгоно.
+2. **Permission key-үүд** — `src/permissions/permission-keys.ts`-д app-ийн
+   эрхүүдийг нэмж PERM_LABELS, PERM_GROUPS, ROLE_DEFAULTS-д онооно.
+   Хуучин key-үүдийн НЭРЭНД хүрэхгүй (тестийн тоололыг шинэчилнэ).
+3. **Backend module** — `src/<key>/` NestJS module + controller + service;
+   controller-ууд @RequirePermission-той.
+4. **Prisma model-ууд** — org-scoped: дээрх Multi-tenancy checklist-ийг
+   ЗААВАЛ дага (organizationId + relation + SCOPED_MODELS + create бүрт
+   explicit orgId + байгууллага доторх unique бол composite).
+5. **Frontend манифест** — `frontend/src/apps/<key>/manifest.js` +
+   `routes.jsx`: `{ key, nameMn, icon, color, basePath, routes, navItems,
+   requiredPermissions }`. `key` нь Application.key-тэй ЯГ ижил.
+6. **Launcher/nav бүртгэл** — `frontend/src/apps/index.js`-ийн
+   APP_MANIFESTS-д нэмнэ. App.jsx-д гар хүрэхгүй — бүрхүүл өөрөө угсарна.
+7. **e2e тест** — app-ийн ажиллагаа + **cross-tenant тусгаарлалт ЗААВАЛ**
+   (өөр байгууллагын өгөгдөл 404/харагдахгүй гэдгийг батлах,
+   tenant-isolation.e2e-spec.ts-ийн загвараар).
+8. **DEPLOY тэмдэглэл** — migration-тэй бол DEPLOY.md-ийн runbook-д
+   дараалал, шалгалтыг нь бичнэ.
+
+Дэлгэрэнгүй архитектур: [ARCHITECTURE.md](ARCHITECTURE.md)
 
 ## Эрхийн систем (5 эрх)
 
