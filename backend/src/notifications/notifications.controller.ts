@@ -17,6 +17,7 @@ import type { JwtPayload } from '../auth/auth.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
+import { OrgContext } from '../org/org-context';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from './notifications.service';
 import type { SseEvent } from './notifications.service';
@@ -67,10 +68,15 @@ export class NotificationsController {
       } catch {
         throw new UnauthorizedException('Stream token хүчингүй');
       }
-      const user = await this.prisma.user.findUnique({
-        where: { id: payload.sub },
-        select: { id: true, isActive: true },
-      });
+      // @Public route тул байгууллагын context тавигдаагүй — auth
+      // bootstrap-ийн адил bypass-аар уншина (Multi-tenancy). Stream
+      // өөрөө зөвхөн Notification (unscoped, userId-ээр) уншдаг.
+      const user = await OrgContext.runBypassed(() =>
+        this.prisma.user.findUnique({
+          where: { id: payload.sub },
+          select: { id: true, isActive: true },
+        }),
+      );
       if (!user?.isActive) {
         throw new UnauthorizedException('Stream token хүчингүй');
       }

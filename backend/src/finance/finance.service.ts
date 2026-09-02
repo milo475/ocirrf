@@ -15,6 +15,7 @@ import {
 } from '../generated/prisma/client';
 import { PERM, PermKey } from '../permissions/permission-keys';
 import { PermissionsService } from '../permissions/permissions.service';
+import { OrgContext } from '../org/org-context';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateFinanceEntryDto } from './dto/create-finance-entry.dto';
 import { QueryFinanceEntriesDto } from './dto/query-finance.dto';
@@ -72,6 +73,7 @@ export class FinanceService {
 
     return this.prisma.financeEntry.create({
       data: {
+        organizationId: OrgContext.require(),
         type: dto.type,
         category: code,
         amount: new Prisma.Decimal(dto.amount),
@@ -197,7 +199,9 @@ export class FinanceService {
         FROM "OrderReturnItem" ri
         GROUP BY ri."orderItemId"
       ) r ON r."orderItemId" = oi.id
-      WHERE o."createdAt" >= ${start} AND o."orderStatus" != 'CANCELLED'`;
+      -- Raw SQL-д org-scope extension үйлчлэхгүй тул ГАРААР шүүнэ (Multi-tenancy)
+      WHERE o."organizationId" = ${OrgContext.require()}
+        AND o."createdAt" >= ${start} AND o."orderStatus" != 'CANCELLED'`;
     const salesRevenue = salesRows[0]?.revenue ?? zero;
     const salesCost = salesRows[0]?.cost ?? zero;
 
@@ -292,6 +296,7 @@ export class FinanceService {
 
       const payout = await tx.driverPayout.create({
         data: {
+          organizationId: OrgContext.require(),
           driverId,
           periodStart: dates[0] ?? new Date(),
           periodEnd: dates[dates.length - 1] ?? new Date(),
@@ -311,6 +316,7 @@ export class FinanceService {
       // Цалингийн зарлага — refOrderId талбарт payout.id хадгална
       await tx.financeEntry.create({
         data: {
+          organizationId: OrgContext.require(),
           type: FinanceType.EXPENSE,
           category: 'DRIVER_PAYROLL',
           amount: totalAmount,
@@ -451,7 +457,9 @@ export class FinanceService {
       LEFT JOIN (SELECT ri."orderItemId", SUM(ri.qty) AS qty
                  FROM "OrderReturnItem" ri GROUP BY ri."orderItemId") r
         ON r."orderItemId" = oi.id
-      WHERE o."createdAt" >= ${from} AND o."createdAt" <= ${to}
+      -- Raw SQL-д org-scope extension үйлчлэхгүй тул ГАРААР шүүнэ (Multi-tenancy)
+      WHERE o."organizationId" = ${OrgContext.require()}
+        AND o."createdAt" >= ${from} AND o."createdAt" <= ${to}
         AND o."orderStatus" != 'CANCELLED'
     `;
     const revenue = new Prisma.Decimal(sales[0]?.revenue ?? 0);

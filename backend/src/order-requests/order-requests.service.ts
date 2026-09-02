@@ -13,13 +13,11 @@ import {
   Prisma,
 } from '../generated/prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
+import { OrgContext } from '../org/org-context';
 import { OrdersService } from '../orders/orders.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.service';
 import { PublicOrderRequestDto } from './dto/public-order-request.dto';
-
-/** Нийтийн линкийн нууц хэсэг Setting-д хадгалагдана */
-export const PUBLIC_TOKEN_KEY = 'publicOrderToken';
 
 @Injectable()
 export class OrderRequestsService {
@@ -30,37 +28,54 @@ export class OrderRequestsService {
     private readonly orders: OrdersService,
   ) {}
 
-  /** Линкийн нууц — байхгүй бол үүсгэнэ (эхний дуудлагад) */
+  /**
+   * Линкийн нууц — БАЙГУУЛЛАГА БҮРТ тусдаа (Multi-tenancy).
+   * Organization.publicOrderToken баганад хадгалагдана: нийтийн
+   * endpoint token-оороо байгууллагаа олдог тул глобал unique.
+   * Байхгүй бол эхний дуудлагад үүсгэнэ.
+   */
   async getOrCreateToken(): Promise<string> {
-    const row = await this.prisma.setting.findUnique({
-      where: { key: PUBLIC_TOKEN_KEY },
+    const organizationId = OrgContext.require();
+    const org = await this.prisma.organization.findUniqueOrThrow({
+      where: { id: organizationId },
+      select: { publicOrderToken: true },
     });
-    if (row?.value) return row.value;
-    const token = randomBytes(6).toString('base64url');
-    await this.prisma.setting.upsert({
-      where: { key: PUBLIC_TOKEN_KEY },
-      create: { key: PUBLIC_TOKEN_KEY, value: token },
-      update: { value: token },
+    if (org.publicOrderToken) return org.publicOrderToken;
+    // 128 бит — таах/мөргөлдөх боломжгүй (өмнөх 48 битийг өргөтгөв)
+    const token = randomBytes(16).toString('base64url');
+    await this.prisma.organization.update({
+      where: { id: organizationId },
+      data: { publicOrderToken: token },
     });
     return token;
   }
 
   /** Нууцыг шинэчилнэ — спам ирвэл хуучин линк хүчингүй болно */
   async rotateToken(): Promise<string> {
-    const token = randomBytes(6).toString('base64url');
-    await this.prisma.setting.upsert({
-      where: { key: PUBLIC_TOKEN_KEY },
-      create: { key: PUBLIC_TOKEN_KEY, value: token },
-      update: { value: token },
+    const token = randomBytes(16).toString('base64url');
+    await this.prisma.organization.update({
+      where: { id: OrgContext.require() },
+      data: { publicOrderToken: token },
     });
     return token;
   }
 
-  private async assertToken(token?: string) {
-    const current = await this.getOrCreateToken();
-    if (!token || token !== current) {
+  /**
+   * Нийтийн token-оос байгууллагыг ТОГТООНО (Multi-tenancy-ийн гол
+   * цэг): үүнээс хойшхи бүх query тухайн байгууллагад хязгаарлагдана.
+   */
+  private async resolveOrg(token?: string) {
+    if (!token) {
       throw new NotFoundException('Линк хүчингүй байна');
     }
+    const org = await this.prisma.organization.findUnique({
+      where: { publicOrderToken: token },
+      select: { id: true, isActive: true },
+    });
+    if (!org || !org.isActive) {
+      throw new NotFoundException('Линк хүчингүй байна');
+    }
+    OrgContext.set(org.id);
   }
 
   /**
@@ -68,7 +83,7 @@ export class OrderRequestsService {
    * үлдэгдлийн тоо, SKU, өртөг гадагш гарахгүй (зөвхөн "байгаа эсэх").
    */
   async publicForm(token?: string) {
-    await this.assertToken(token);
+    await this.resolveOrg(token);
     const [settings, products] = await Promise.all([
       this.settings.getPublic(),
       this.prisma.product.findMany({
@@ -111,7 +126,7 @@ export class OrderRequestsService {
     dto: PublicOrderRequestDto,
     proofFilename?: string,
   ) {
-    await this.assertToken(token);
+    await this.resolveOrg(token);
 
     /**
      * ГҮЙЛГЭЭНИЙ БАРИМТ ЗААВАЛ (V5).
@@ -142,6 +157,7 @@ export class OrderRequestsService {
     const isUB = dto.region === DeliveryRegion.ULAANBAATAR;
     const request = await this.prisma.orderRequest.create({
       data: {
+        organizationId: OrgContext.require(),
         customerName: dto.customerName.trim(),
         phone: dto.phone,
         extraPhone: dto.extraPhone ?? null,

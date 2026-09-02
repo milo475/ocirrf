@@ -8,6 +8,7 @@ import type { AuthUser } from '../auth/decorators/current-user.decorator';
 import type { Prisma } from '../generated/prisma/client';
 import { PERM } from '../permissions/permission-keys';
 import { PermissionsService } from '../permissions/permissions.service';
+import { OrgContext } from '../org/org-context';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { QueryProductsDto } from './dto/query-products.dto';
@@ -107,6 +108,7 @@ export class ProductsService {
     try {
       return await this.prisma.product.create({
         data: {
+          organizationId: OrgContext.require(),
           sku: dto.sku,
           name: dto.name,
           price: dto.price, // string → Decimal, float-гүй
@@ -228,20 +230,24 @@ export class ProductsService {
         }
 
         const kind = await this.prisma.$transaction(async (tx) => {
+          // Composite unique тул selector нь [organizationId, sku/name] хос
+          const organizationId = OrgContext.require();
           let categoryId: string | undefined;
           if (catName) {
             const cat = await tx.category.upsert({
-              where: { name: catName },
+              where: { organizationId_name: { organizationId, name: catName } },
               update: {},
-              create: { name: catName },
+              create: { name: catName, organizationId },
             });
             categoryId = cat.id;
           }
 
-          const existing = await tx.product.findUnique({ where: { sku } });
+          const existing = await tx.product.findUnique({
+            where: { organizationId_sku: { organizationId, sku } },
+          });
           if (existing) {
             await tx.product.update({
-              where: { sku },
+              where: { organizationId_sku: { organizationId, sku } },
               data: {
                 ...(name ? { name } : {}),
                 ...(price ? { price } : {}),
@@ -259,6 +265,7 @@ export class ProductsService {
           const qty = initQty ? parseInt(initQty, 10) : 0;
           const product = await tx.product.create({
             data: {
+              organizationId,
               sku,
               name,
               price,
@@ -272,6 +279,7 @@ export class ProductsService {
           if (qty > 0) {
             await tx.stockMovement.create({
               data: {
+                organizationId,
                 productId: product.id,
                 qtyChange: qty,
                 reason: 'INITIAL',

@@ -11,6 +11,7 @@ import {
   Role,
 } from '../generated/prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
+import { OrgContext } from '../org/org-context';
 import { PrismaService } from '../prisma/prisma.service';
 
 /** Хүлээлгэн өгөхөд бэлэн болсон захиалгын төлөвүүд */
@@ -224,8 +225,12 @@ export class WarehouseService {
           String(now.getDate()).padStart(2, '0'),
         ].join('');
         const prefix = `ХҮЛ-${ymd}-`;
+        // Дугаарын дараалал БАЙГУУЛЛАГА ДОТРОО (Multi-tenancy) — extension
+        // автоматаар шүүдэг ч composite unique-тэй нийцэж буйг энд
+        // тодоор харуулна
+        const organizationId = OrgContext.require();
         const todays = await tx.driverHandover.findMany({
-          where: { number: { startsWith: prefix } },
+          where: { organizationId, number: { startsWith: prefix } },
           select: { number: true },
         });
         const next =
@@ -236,6 +241,7 @@ export class WarehouseService {
 
         const handover = await tx.driverHandover.create({
           data: {
+            organizationId,
             number: prefix + String(next).padStart(3, '0'),
             driverId: dto.driverId,
             keeperId: user.id,

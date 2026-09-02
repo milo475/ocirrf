@@ -21,12 +21,32 @@ import { orgAls } from '../org/org-context';
  *     нэмбэл NOT NULL багана чанга унагана)
  */
 
-// Step 1-д бөглөгдөнө. Хоосон үед extension нь no-op.
-export const SCOPED_MODELS: ReadonlySet<string> = new Set<string>([]);
+// organizationId ЗААВАЛ байх model-ууд. Шинэ model нэмэхдээ:
+// (1) schema-д organizationId + relation, (2) энд нэрийг нь,
+// (3) create call site-д explicit organizationId — гурвууланг нь.
+export const SCOPED_MODELS: ReadonlySet<string> = new Set<string>([
+  'User',
+  'Company',
+  'Category',
+  'Product',
+  'Order',
+  'OrderRequest',
+  'Supply',
+  'DriverHandover',
+  'Payment',
+  'FinanceEntry',
+  'DriverPayout',
+  'StockMovement',
+  'ProductBatch',
+  'OrderReturn',
+  'Setting',
+]);
 
 // organizationId нь nullable: нэвтрэлтийн ӨМНӨХ security event
 // context-гүй бичигдэж болно (уншилт нь ердийнхөөрөө scoped).
-export const OPTIONAL_SCOPED_MODELS: ReadonlySet<string> = new Set<string>([]);
+export const OPTIONAL_SCOPED_MODELS: ReadonlySet<string> = new Set<string>([
+  'ActivityLog',
+]);
 
 const WHERE_OPS = new Set([
   'findUnique',

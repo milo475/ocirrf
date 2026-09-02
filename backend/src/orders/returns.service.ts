@@ -12,6 +12,7 @@ import {
   Prisma,
 } from '../generated/prisma/client';
 import { lockOrderForUpdate } from '../prisma/lock.util';
+import { OrgContext } from '../org/org-context';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateReturnDto } from './dto/create-return.dto';
 import { applyBatchDelta } from '../stock/batch.util';
@@ -120,6 +121,7 @@ export class ReturnsService {
 
       const ret = await tx.orderReturn.create({
         data: {
+          organizationId: OrgContext.require(),
           orderId,
           reason: dto.reason.trim(),
           refundAmount,
@@ -147,6 +149,7 @@ export class ReturnsService {
           });
           await tx.stockMovement.create({
             data: {
+              organizationId: OrgContext.require(),
               productId: l.item.productId,
               qtyChange: l.qty,
               reason: 'RETURN',
@@ -168,6 +171,7 @@ export class ReturnsService {
         data.paymentStatus = statusFor(newPaid, order.totalAmount);
         await tx.financeEntry.create({
           data: {
+            organizationId: OrgContext.require(),
             type: FinanceType.EXPENSE,
             category: 'REFUND',
             amount: refundable,

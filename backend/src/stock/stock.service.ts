@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import type { Prisma } from '../generated/prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
+import { OrgContext } from '../org/org-context';
 import { PrismaService } from '../prisma/prisma.service';
 import { AdjustStockDto } from './dto/adjust-stock.dto';
 import { QueryMovementsDto } from './dto/query-movements.dto';
@@ -62,6 +63,7 @@ export class StockService {
 
       const movement = await tx.stockMovement.create({
         data: {
+          organizationId: OrgContext.require(),
           productId: dto.productId,
           qtyChange: dto.qtyChange,
           reason: dto.reason,

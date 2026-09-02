@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { OrgContext } from '../org/org-context';
 import { PrismaService } from '../prisma/prisma.service';
 
 /** Нэвтэрсэн бүх хэрэглэгчид харагдах public түлхүүрүүд + default утга */
@@ -69,18 +70,34 @@ export const PUBLIC_SETTINGS: Record<string, string> = {
 export class SettingsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** Public түлхүүрүүд — DB-д байхгүй бол default */
+  /**
+   * Public түлхүүрүүд — DB-д байхгүй бол default.
+   * findMany-г org-scope extension автоматаар байгууллагаар шүүнэ.
+   */
   async getPublic(): Promise<Record<string, string>> {
     const rows = await this.prisma.setting.findMany({
       where: { key: { in: Object.keys(PUBLIC_SETTINGS) } },
     });
     const out = { ...PUBLIC_SETTINGS };
     for (const r of rows) out[r.key] = r.value;
+    // companyName-ээ тохируулаагүй байгууллагад бүртгэлийн нэр нь
+    // хатуу бичсэн default-аас илүү зөв fallback (Multi-tenancy)
+    if (!rows.some((r) => r.key === 'companyName')) {
+      const org = await this.prisma.organization.findUnique({
+        where: { id: OrgContext.require() },
+        select: { name: true },
+      });
+      if (org?.name) out.companyName = org.name;
+    }
     return out;
   }
 
   async get(key: string): Promise<string> {
-    const row = await this.prisma.setting.findUnique({ where: { key } });
+    const row = await this.prisma.setting.findUnique({
+      where: {
+        organizationId_key: { organizationId: OrgContext.require(), key },
+      },
+    });
     return row?.value ?? PUBLIC_SETTINGS[key] ?? '';
   }
 
@@ -98,11 +115,12 @@ export class SettingsService {
         throw new BadRequestException('Тохиргооны утга string байна');
       }
     }
+    const organizationId = OrgContext.require();
     await this.prisma.$transaction(
       Object.entries(entries).map(([key, value]) =>
         this.prisma.setting.upsert({
-          where: { key },
-          create: { key, value },
+          where: { organizationId_key: { organizationId, key } },
+          create: { organizationId, key, value },
           update: { value },
         }),
       ),

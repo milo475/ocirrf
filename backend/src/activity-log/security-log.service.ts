@@ -44,6 +44,7 @@ export class SecurityLogService {
 
   private write(entry: {
     userId?: string | null;
+    organizationId?: string | null;
     action: string;
     meta: Prisma.InputJsonValue;
   }) {
@@ -51,6 +52,14 @@ export class SecurityLogService {
       .create({
         data: {
           userId: entry.userId ?? null,
+          /**
+           * Нэвтрэлтийн зам bypass context-д ажилладаг тул байгууллагыг
+           * ЭНД тодоор өгнө (Multi-tenancy) — мэдэгдэж буй хэрэглэгчийн
+           * амжилтгүй нэвтрэлт тухайн байгууллагын логт харагдана.
+           * Танигдаагүй имэйл → NULL → аль ч байгууллагад харагдахгүй
+           * (платформын түвшний дохио, SUPERADMIN ирэхээр шийднэ).
+           */
+          organizationId: entry.organizationId ?? null,
           action: entry.action,
           entity: 'security',
           meta: entry.meta,
@@ -60,18 +69,30 @@ export class SecurityLogService {
   }
 
   /** Нууц үг буруу оруулсан */
-  loginFailed(email: string, ip: string | null, userId?: string | null) {
+  loginFailed(
+    email: string,
+    ip: string | null,
+    userId?: string | null,
+    organizationId?: string | null,
+  ) {
     this.write({
       userId,
+      organizationId,
       action: 'LOGIN_FAILED',
       meta: { email: this.maskEmail(email), ip },
     });
   }
 
   /** Дараалсан оролдлогын улмаас бүртгэл түгжигдсэн */
-  loginLocked(email: string, ip: string | null, userId?: string | null) {
+  loginLocked(
+    email: string,
+    ip: string | null,
+    userId?: string | null,
+    organizationId?: string | null,
+  ) {
     this.write({
       userId,
+      organizationId,
       action: 'LOGIN_LOCKED',
       meta: { email: this.maskEmail(email), ip },
     });

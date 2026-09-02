@@ -10,6 +10,7 @@ import * as bcrypt from 'bcrypt';
 import { createHash, randomUUID } from 'node:crypto';
 import { Role } from '../generated/prisma/client';
 import type { User } from '../generated/prisma/client';
+import { OrgContext } from '../org/org-context';
 import { PermissionsService } from '../permissions/permissions.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
@@ -45,6 +46,16 @@ export class AuthService {
     ip: string | null = null,
     userAgent: string | null = null,
   ) {
+    // Байгууллага ХАРААХАН тогтоогдоогүй үе (Multi-tenancy) — нэвтрэлт
+    // өөрөө л байгууллагыг тодорхойлдог тул bypass-аар ажиллана
+    return OrgContext.runBypassed(() => this.loginImpl(dto, ip, userAgent));
+  }
+
+  private async loginImpl(
+    dto: LoginDto,
+    ip: string | null,
+    userAgent: string | null,
+  ) {
     // User.username талбарт email хэлбэрийн утга хадгалагддаг (seed-ийн дагуу)
     const user = await this.prisma.user.findUnique({
       where: { username: dto.email },
@@ -55,7 +66,12 @@ export class AuthService {
 
     if (!user || !user.isActive) {
       // Бүртгэлгүй/идэвхгүй хаягаар оролдсон нь ч дохио
-      this.securityLog.loginFailed(dto.email, ip, user?.id ?? null);
+      this.securityLog.loginFailed(
+        dto.email,
+        ip,
+        user?.id ?? null,
+        user?.organizationId ?? null,
+      );
       throw invalid;
     }
 
@@ -65,7 +81,7 @@ export class AuthService {
       HttpStatus.LOCKED,
     );
     if (user.lockedUntil && user.lockedUntil > new Date()) {
-      this.securityLog.loginFailed(dto.email, ip, user.id);
+      this.securityLog.loginFailed(dto.email, ip, user.id, user.organizationId);
       throw locked;
     }
 
@@ -84,9 +100,19 @@ export class AuthService {
           : { failedLoginCount: count },
       });
       if (willLock) {
-        this.securityLog.loginLocked(dto.email, ip, user.id);
+        this.securityLog.loginLocked(
+          dto.email,
+          ip,
+          user.id,
+          user.organizationId,
+        );
       } else {
-        this.securityLog.loginFailed(dto.email, ip, user.id);
+        this.securityLog.loginFailed(
+          dto.email,
+          ip,
+          user.id,
+          user.organizationId,
+        );
       }
       throw willLock ? locked : invalid;
     }
@@ -116,6 +142,11 @@ export class AuthService {
    * хэрэглэгчийн БҮХ token унтарна.
    */
   async refresh(dto: RefreshDto) {
+    // Login-той ижил: байгууллага тогтоогдохоос өмнөх зам — bypass
+    return OrgContext.runBypassed(() => this.refreshImpl(dto));
+  }
+
+  private async refreshImpl(dto: RefreshDto) {
     const invalid = new UnauthorizedException('Refresh token хүчингүй');
     let payload: JwtPayload;
     try {
@@ -267,6 +298,12 @@ export class AuthService {
       user.role,
     );
 
+    // Байгууллагын нэр — frontend-ийн topbar-т (Organization scoped биш)
+    const organization = await this.prisma.organization.findUnique({
+      where: { id: user.organizationId },
+      select: { name: true },
+    });
+
     return {
       accessToken,
       refreshToken,
@@ -277,6 +314,8 @@ export class AuthService {
         name: user.fullName,
         phone: user.phone,
         role: user.role,
+        organizationId: user.organizationId,
+        organizationName: organization?.name ?? null,
         mustChangePassword: user.mustChangePassword,
         lastLoginAt: user.lastLoginAt,
         companyId: user.companyId,

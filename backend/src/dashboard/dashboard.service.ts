@@ -5,6 +5,7 @@ import {
   Prisma,
 } from '../generated/prisma/client';
 import { formatShortAddress } from '../orders/address.util';
+import { OrgContext } from '../org/org-context';
 import { PrismaService } from '../prisma/prisma.service';
 import { StockService } from '../stock/stock.service';
 import type {
@@ -132,7 +133,9 @@ export class DashboardService {
           FROM "OrderReturnItem" ri
           GROUP BY ri."orderItemId"
         ) r ON r."orderItemId" = oi.id
-        WHERE o."orderStatus" != 'CANCELLED'`,
+        -- Raw SQL-д org-scope extension үйлчлэхгүй тул ГАРААР шүүнэ
+        WHERE o."organizationId" = ${OrgContext.require()}
+          AND o."orderStatus" != 'CANCELLED'`,
     ]);
 
     const days = new Map<

@@ -6,6 +6,7 @@ import {
 import type { AuthUser } from '../auth/decorators/current-user.decorator';
 import { FinanceType, Prisma, Role } from '../generated/prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
+import { OrgContext } from '../org/org-context';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSupplyDto } from './dto/create-supply.dto';
 import { PaySupplyDto } from './dto/pay-supply.dto';
@@ -122,8 +123,10 @@ export class SuppliesService {
           String(now.getDate()).padStart(2, '0'),
         ].join('');
         const prefix = `НИЙ-${ymd}-`;
+        // Дугаарын дараалал БАЙГУУЛЛАГА ДОТРОО (Multi-tenancy)
+        const organizationId = OrgContext.require();
         const todays = await tx.supply.findMany({
-          where: { number: { startsWith: prefix } },
+          where: { organizationId, number: { startsWith: prefix } },
           select: { number: true },
         });
         const next =
@@ -149,6 +152,7 @@ export class SuppliesService {
 
         const supply = await tx.supply.create({
           data: {
+            organizationId,
             number: prefix + String(next).padStart(3, '0'),
             companyId: dto.companyId,
             supplierId: dto.supplierId ?? null,
@@ -174,6 +178,7 @@ export class SuppliesService {
           });
           await tx.stockMovement.create({
             data: {
+              organizationId,
               productId: i.productId,
               qtyChange: i.qty,
               reason: 'SUPPLY',
@@ -189,6 +194,7 @@ export class SuppliesService {
           if (src.expiryDate) {
             await tx.productBatch.create({
               data: {
+                organizationId,
                 productId: i.productId,
                 batchNo: src.batchNo || null,
                 expiryDate: new Date(src.expiryDate + 'T00:00:00.000Z'),
@@ -319,6 +325,7 @@ export class SuppliesService {
 
       await tx.financeEntry.create({
         data: {
+          organizationId: OrgContext.require(),
           type: FinanceType.EXPENSE,
           category: 'SUPPLY',
           amount,

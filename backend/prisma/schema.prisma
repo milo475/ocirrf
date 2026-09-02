@@ -14,7 +14,7 @@ enum Role {
   OPERATOR
   DRIVER
   WAREHOUSE // нярав (V5)
-  SELLER    // борлуулагч — линкийн хүсэлтийг батлаж хүргэлтэд гаргана (V5)
+  SELLER // борлуулагч — линкийн хүсэлтийг батлаж хүргэлтэд гаргана (V5)
 }
 
 enum OrderStatus {
@@ -29,9 +29,9 @@ enum OrderStatus {
 /// Захиалга ирсэн суваг (V5) — DM-ээс шивэгддэг тул эх сурвалжийг тэмдэглэнэ
 /// Хүсэлтийн төлөв (V5)
 enum OrderRequestStatus {
-  NEW       // ажилтан хараагүй
+  NEW // ажилтан хараагүй
   CONVERTED // захиалга болсон
-  REJECTED  // хогийн/буруу хүсэлт
+  REJECTED // хогийн/буруу хүсэлт
 }
 
 enum OrderChannel {
@@ -78,7 +78,7 @@ enum PaymentMethod {
 /// Жолоочийн ажлын төрөл (V5)
 enum EmploymentType {
   FULL_TIME // үндсэн
-  HOURLY    // цагийн
+  HOURLY // цагийн
 }
 
 enum PayoutStatus {
@@ -86,44 +86,87 @@ enum PayoutStatus {
   PAID
 }
 
-model User {
-  id           String   @id @default(uuid())
-  username     String   @unique
-  passwordHash String
-  fullName     String
-  phone        String? // холбоо барих утас
-  role         Role     @default(OPERATOR)
-  isActive     Boolean  @default(true)
-  /// Аль харилцагч компанийн хүн бэ (V5) — голдуу OPERATOR эрхтэйд
-  companyId    String?
-  /// Түр нууц үгээр нэвтэрсэн — солитол бусад API 403 (V4-06)
-  mustChangePassword Boolean @default(false)
-  // Нэвтрэлтийн хамгаалалт (V4-07)
-  lastLoginAt      DateTime?
-  failedLoginCount Int       @default(0)
-  lockedUntil      DateTime?
-  createdAt    DateTime @default(now())
+/// ТҮРЭЭСЛЭГЧ БАЙГУУЛЛАГА (Multi-tenancy) — нэг deployment дээр олон
+/// компани тус тусын бүрэн тусгаарлагдсан өгөгдөлтэй ажиллана.
+///
+/// Company-тай андуурахгүй: Company нь байгууллагын ДОТОРХ нийлүүлэгч
+/// түнш; Organization нь системийг ашиглаж буй байгууллага өөрөө.
+/// Scoped model бүр organizationId-тай бөгөөд org-scope extension
+/// query бүрт автоматаар шүүлт нэмдэг (src/prisma/org-scope.extension.ts).
+model Organization {
+  id               String   @id @default(uuid())
+  /// Санаатайгаар unique БИШ — нэр давхардаж болно (enumeration хаана)
+  name             String
+  phone            String?
+  /// Нийтийн захиалгын линкийн нууц — /z/:token энэ баганаар орг-оо
+  /// олдог тул ГЛОБАЛ unique. Setting-ийн publicOrderToken-оос нүүсэн.
+  publicOrderToken String?  @unique
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
 
-  orders         Order[]         @relation("CreatedOrders")
+  users          User[]
+  companies      Company[]
+  categories     Category[]
+  products       Product[]
+  orders         Order[]
+  orderRequests  OrderRequest[]
+  supplies       Supply[]
+  handovers      DriverHandover[]
+  payments       Payment[]
+  financeEntries FinanceEntry[]
+  driverPayouts  DriverPayout[]
   stockMoves     StockMovement[]
-  assignedOrders Order[]         @relation("AssignedOrders")
-  warehouseOrders Order[]        @relation("WarehouseOrders")
-  handoversMade  DriverHandover[] @relation("HandoversMade")
-  handoversTaken DriverHandover[] @relation("HandoversTaken")
-  driverProfile  DriverProfile?
-  permissions    UserPermission[]
-  financeEntries FinanceEntry[]  @relation("FinanceEntries")
-  driverPayouts  DriverPayout[]  @relation("DriverPayouts")
-  payoutsCreated DriverPayout[]  @relation("PayoutsCreated")
-  notifications  Notification[]
-  paymentsReceived Payment[]     @relation("PaymentsReceived")
-  returnsCreated   OrderReturn[] @relation("ReturnsCreated")
+  batches        ProductBatch[]
+  orderReturns   OrderReturn[]
+  settings       Setting[]
+  activityLogs   ActivityLog[]
+}
+
+model User {
+  id                 String    @id @default(uuid())
+  /// ГЛОБАЛ unique хэвээр (v1: нэг хэрэглэгч = яг нэг байгууллага) —
+  /// login өөрчлөгдөхгүй, org сонгох шаардлагагүй
+  username           String    @unique
+  passwordHash       String
+  fullName           String
+  phone              String? // холбоо барих утас
+  role               Role      @default(OPERATOR)
+  isActive           Boolean   @default(true)
+  /// Аль байгууллагын хэрэглэгч вэ (Multi-tenancy)
+  organizationId     String
+  /// Аль харилцагч компанийн хүн бэ (V5) — голдуу OPERATOR эрхтэйд
+  companyId          String?
+  /// Түр нууц үгээр нэвтэрсэн — солитол бусад API 403 (V4-06)
+  mustChangePassword Boolean   @default(false)
+  // Нэвтрэлтийн хамгаалалт (V4-07)
+  lastLoginAt        DateTime?
+  failedLoginCount   Int       @default(0)
+  lockedUntil        DateTime?
+  createdAt          DateTime  @default(now())
+
+  orders           Order[]          @relation("CreatedOrders")
+  stockMoves       StockMovement[]
+  assignedOrders   Order[]          @relation("AssignedOrders")
+  warehouseOrders  Order[]          @relation("WarehouseOrders")
+  handoversMade    DriverHandover[] @relation("HandoversMade")
+  handoversTaken   DriverHandover[] @relation("HandoversTaken")
+  driverProfile    DriverProfile?
+  permissions      UserPermission[]
+  financeEntries   FinanceEntry[]   @relation("FinanceEntries")
+  driverPayouts    DriverPayout[]   @relation("DriverPayouts")
+  payoutsCreated   DriverPayout[]   @relation("PayoutsCreated")
+  notifications    Notification[]
+  paymentsReceived Payment[]        @relation("PaymentsReceived")
+  returnsCreated   OrderReturn[]    @relation("ReturnsCreated")
   refreshTokens    RefreshToken[]
   loginHistory     LoginHistory[]
-  batchesCreated   ProductBatch[] @relation("BatchesCreated")
-  suppliesBrought  Supply[]       @relation("SuppliedBy")
-  suppliesReceived Supply[]       @relation("SuppliesReceived")
-  company          Company?       @relation(fields: [companyId], references: [id])
+  batchesCreated   ProductBatch[]   @relation("BatchesCreated")
+  suppliesBrought  Supply[]         @relation("SuppliedBy")
+  suppliesReceived Supply[]         @relation("SuppliesReceived")
+  company          Company?         @relation(fields: [companyId], references: [id])
+  organization     Organization     @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
 }
 
 /// Refresh token rotation (V4-08): id = jti claim, DB-д зөвхөн hash.
@@ -167,8 +210,10 @@ model RefreshToken {
 /// Хэрэглэгч өөрөө бөглөнө — ҮЛДЭГДЭЛД ХҮРЭХГҮЙ. Ажилтан мөнгө/хаягийг
 /// шалгаад баталгаажуулсны дараа л жинхэнэ захиалга үүсч үлдэгдэл хасагдана.
 model OrderRequest {
-  id     String             @id @default(uuid())
-  status OrderRequestStatus @default(NEW)
+  id             String             @id @default(uuid())
+  organizationId String
+  organization   Organization       @relation(fields: [organizationId], references: [id])
+  status         OrderRequestStatus @default(NEW)
 
   // Хүлээн авагч
   customerName String
@@ -199,13 +244,14 @@ model OrderRequest {
   // Боловсруулалт
   /// Татгалзсан шалтгаан (V5) — «мөнгө ороогүй» тохиолдлыг тэмдэглэнэ
   rejectReason String?
-  orderId     String?
-  handledById String?
-  handledAt   DateTime?
-  createdAt   DateTime  @default(now())
+  orderId      String?
+  handledById  String?
+  handledAt    DateTime?
+  createdAt    DateTime  @default(now())
 
   items OrderRequestItem[]
 
+  @@index([organizationId])
   @@index([status, createdAt])
 }
 
@@ -221,19 +267,22 @@ model OrderRequestItem {
 
 /// Захиалгын буцаалт (v4) — бүтэн/хэсэгчилсэн
 model OrderReturn {
-  id                 String   @id @default(uuid())
+  id                 String       @id @default(uuid())
+  organizationId     String
+  organization       Organization @relation(fields: [organizationId], references: [id])
   orderId            String
-  order              Order    @relation(fields: [orderId], references: [id])
+  order              Order        @relation(fields: [orderId], references: [id])
   reason             String
-  refundAmount       Decimal  @db.Decimal(12, 2)
+  refundAmount       Decimal      @db.Decimal(12, 2)
   restocked          Boolean
-  excludeFromPayroll Boolean  @default(false)
+  excludeFromPayroll Boolean      @default(false)
   createdById        String
-  createdBy          User     @relation("ReturnsCreated", fields: [createdById], references: [id])
-  createdAt          DateTime @default(now())
+  createdBy          User         @relation("ReturnsCreated", fields: [createdById], references: [id])
+  createdAt          DateTime     @default(now())
 
   items OrderReturnItem[]
 
+  @@index([organizationId])
   @@index([orderId])
 }
 
@@ -249,8 +298,10 @@ model OrderReturnItem {
 /// Нярав захиалгуудыг нэг хуудсанд багцалж жолоочид хүлээлгэн өгнө.
 /// Хуудсыг хэвлээд хоёр тал цаасан дээр нь гарын үсгээ зурна.
 model DriverHandover {
-  id     String @id @default(uuid())
-  number String @unique // ХҮЛ-YYYYMMDD-NNN
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  number         String // ХҮЛ-YYYYMMDD-NNN — байгууллага дотроо unique
 
   driverId String
   driver   User   @relation("HandoversTaken", fields: [driverId], references: [id])
@@ -265,21 +316,27 @@ model DriverHandover {
 
   orders Order[]
 
+  @@unique([organizationId, number])
   @@index([driverId, createdAt])
 }
 
 /// Захиалгын төлбөрийн бүртгэл (бэлэн/шилжүүлэг/карт)
 model Payment {
-  id           String        @id @default(uuid())
-  orderId      String
-  order        Order         @relation(fields: [orderId], references: [id])
-  amount       Decimal       @db.Decimal(12, 2)
-  method       PaymentMethod
-  note         String?
-  receivedById String
-  receivedBy   User          @relation("PaymentsReceived", fields: [receivedById], references: [id])
-  createdAt    DateTime      @default(now())
+  id             String        @id @default(uuid())
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id])
+  orderId        String
+  order          Order         @relation(fields: [orderId], references: [id])
+  amount         Decimal       @db.Decimal(12, 2)
+  // 20260831180000_transfer_only migration DEFAULT 'TRANSFER' тавьсан —
+  // schema-д тусгагдаагүй байсныг залруулав (drift арилгах)
+  method         PaymentMethod @default(TRANSFER)
+  note           String?
+  receivedById   String
+  receivedBy     User          @relation("PaymentsReceived", fields: [receivedById], references: [id])
+  createdAt      DateTime      @default(now())
 
+  @@index([organizationId])
   @@index([orderId])
 }
 
@@ -299,40 +356,58 @@ model Notification {
   @@index([userId, isRead])
 }
 
-/// Системийн тохиргоо (key-value)
+/// Байгууллага тус бүрийн тохиргоо (key-value) — Multi-tenancy-ийн
+/// дараа PK нь (organizationId, key) хос болсон
 model Setting {
-  key   String @id
-  value String
+  organizationId String
+  key            String
+  value          String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@id([organizationId, key])
 }
 
 /// Үйлдлийн түүх — амжилттай өөрчлөлт бүр (interceptor бичнэ)
 model ActivityLog {
-  id     String @id @default(uuid())
+  id             String        @id @default(uuid())
+  /// Аль байгууллагад хамаарах вэ. Нэвтрэлтийн ӨМНӨХ security event
+  /// (танигдаагүй нэрээр амжилтгүй нэвтрэлт) байгууллагагүй тул NULL —
+  /// тийм мөр аль ч байгууллагын логт харагдахгүй (платформын түвшний
+  /// асуудал, SUPERADMIN ирэхээр шийдэгдэнэ).
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
   /// Хэн хийсэн бэ. Аюулгүй байдлын үйл явдалд ХООСОН байж болно
   /// (V5): амжилтгүй нэвтрэлтэд хэрэглэгч танигдаагүй байдаг.
-  userId String?
-  action    String // жишээ: "POST /api/orders", "permission_change"
-  entity    String // orders / products / permissions ...
-  entityId  String?
-  meta      Json?
-  createdAt DateTime @default(now())
+  userId         String?
+  action         String // жишээ: "POST /api/orders", "permission_change"
+  entity         String // orders / products / permissions ...
+  entityId       String?
+  meta           Json?
+  createdAt      DateTime      @default(now())
 
+  @@index([organizationId, createdAt])
   @@index([entity, createdAt])
+  // 20260901120000_security_audit migration-аар нэмэгдсэн — schema-д
+  // тусгагдаагүй байсныг залруулав (drift арилгах)
+  @@index([action, createdAt])
 }
 
 /// Санхүүгийн гүйлгээ — гараар бүртгэсэн эсвэл системээс автомат (category "ORDER")
 model FinanceEntry {
-  id          String      @id @default(uuid())
-  type        FinanceType
-  category    String
-  amount      Decimal     @db.Decimal(12, 2)
-  note         String?
-  refOrderId   String? // автомат орлогод — эх захиалга
-  refPaymentId String? // PAYMENT орлогод — эх төлбөр (устгахад хамт устна)
-  createdById  String
-  createdBy   User        @relation("FinanceEntries", fields: [createdById], references: [id])
-  entryDate   DateTime    @default(now())
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  type           FinanceType
+  category       String
+  amount         Decimal      @db.Decimal(12, 2)
+  note           String?
+  refOrderId     String? // автомат орлогод — эх захиалга
+  refPaymentId   String? // PAYMENT орлогод — эх төлбөр (устгахад хамт устна)
+  createdById    String
+  createdBy      User         @relation("FinanceEntries", fields: [createdById], references: [id])
+  entryDate      DateTime     @default(now())
 
+  @@index([organizationId])
   @@index([type, entryDate])
   @@index([refOrderId])
 }
@@ -340,6 +415,8 @@ model FinanceEntry {
 /// Жолоочийн цалингийн тооцоо (нэг хугацааны багц)
 model DriverPayout {
   id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
   driverId       String
   driver         User         @relation("DriverPayouts", fields: [driverId], references: [id])
   periodStart    DateTime
@@ -353,6 +430,7 @@ model DriverPayout {
   createdBy      User         @relation("PayoutsCreated", fields: [createdById], references: [id])
   orders         Order[]      @relation("PayoutOrders")
 
+  @@index([organizationId])
   @@index([driverId])
 }
 
@@ -371,16 +449,20 @@ model UserPermission {
 /// Харилцагч компани (V5) — бараа нийлүүлдэг түнш байгууллага.
 /// Оператор (=Харилцагч эрхтэй хэрэглэгч) болон бараа нь компанид харьяалагдана.
 model Company {
-  id        String   @id @default(uuid())
-  name      String   @unique
-  phone     String?
-  note      String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  name           String // байгууллага дотроо unique
+  phone          String?
+  note           String?
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
 
   users    User[]
   products Product[]
   supplies Supply[]
+
+  @@unique([organizationId, name])
 }
 
 /// Харилцагчийн НИЙЛҮҮЛЭЛТ (V5).
@@ -389,11 +471,13 @@ model Company {
 /// тул ХЭН нийлүүлсэн, ЯМАР ӨРТГӨӨР, ХЭД төлөх ёстойг систем мэддэггүй
 /// байв — бүгд Excel дээр л байсан. Энэ модель тэр гурвыг хаана.
 model Supply {
-  id     String @id @default(uuid())
-  number String @unique // НИЙ-YYYYMMDD-NNN
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  number         String // НИЙ-YYYYMMDD-NNN — байгууллага дотроо unique
 
-  companyId String
-  company   Company @relation(fields: [companyId], references: [id])
+  companyId  String
+  company    Company @relation(fields: [companyId], references: [id])
   /// Барааг авчирсан харилцагч хүн (OPERATOR) — мэдэгдэж болно
   supplierId String?
   supplier   User?   @relation("SuppliedBy", fields: [supplierId], references: [id])
@@ -412,6 +496,7 @@ model Supply {
   items   SupplyItem[]
   batches ProductBatch[]
 
+  @@unique([organizationId, number])
   @@index([companyId, createdAt])
 }
 
@@ -425,9 +510,11 @@ model Supply {
 /// Цуврал нь түүнийг ХУГАЦААГААР задалж харуулна — бараа цувралгүй ч
 /// бүрэн ажиллана (хугацаагүй бараанд цуврал шаардлагагүй).
 model ProductBatch {
-  id        String  @id @default(uuid())
-  productId String
-  product   Product @relation(fields: [productId], references: [id])
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  productId      String
+  product        Product      @relation(fields: [productId], references: [id])
 
   /// Үйлдвэрийн цувралын дугаар — заавал биш
   batchNo    String?
@@ -449,6 +536,7 @@ model ProductBatch {
   createdBy   User     @relation("BatchesCreated", fields: [createdById], references: [id])
   createdAt   DateTime @default(now())
 
+  @@index([organizationId])
   @@index([productId, expiryDate])
   @@index([expiryDate])
 }
@@ -469,53 +557,64 @@ model SupplyItem {
 }
 
 model Category {
-  id       String    @id @default(uuid())
-  name     String    @unique
-  products Product[]
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  name           String // байгууллага дотроо unique
+  products       Product[]
+
+  @@unique([organizationId, name])
 }
 
 model Product {
-  id            String   @id @default(uuid())
-  sku           String   @unique
-  barcode       String?  @unique // штрих код (V4-12) — сканнерын хайлтад
-  name          String
-  price         Decimal  @db.Decimal(12, 2)
-  costPrice     Decimal  @default(0) @db.Decimal(12, 2) // өртөг (v4) — сүүлийн орлогын үнэ
-  stockQty      Int      @default(0)
-  lowStockLimit Int      @default(5) // үүнээс доош орвол анхааруулга
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  sku            String // байгууллага дотроо unique
+  barcode        String? // штрих код (V4-12) — байгууллага дотроо unique
+  name           String
+  price          Decimal      @db.Decimal(12, 2)
+  costPrice      Decimal      @default(0) @db.Decimal(12, 2) // өртөг (v4) — сүүлийн орлогын үнэ
+  stockQty       Int          @default(0)
+  lowStockLimit  Int          @default(5) // үүнээс доош орвол анхааруулга
   /// Нэг ширхэг нь хэрэглэгчид ХЭДЭН ХОНОГ хүрэх вэ (V5).
   /// Давтан захиалгын таамаглалд ашиглана — нэмэлт бүтээгдэхүүн
   /// дуусах дөхөхөд үйлчлүүлэгчид сануулна.
   ///   null → тохиргооны ерөнхий утгыг хэрэглэнэ
   ///   0    → энэ бараа давтан захиалгад ОРОХГҮЙ (сав, багаж гэх мэт)
   ///   N    → N хоног
-  daysSupply    Int?
-  unit          String   @default("ш")
-  imageUrl      String?
-  isActive      Boolean  @default(true)
-  categoryId    String?
+  daysSupply     Int?
+  unit           String       @default("ш")
+  imageUrl       String?
+  isActive       Boolean      @default(true)
+  categoryId     String?
   /// Аль харилцагч компанийн бараа вэ (V5)
-  companyId     String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  companyId      String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
-  category   Category?       @relation(fields: [categoryId], references: [id])
-  company    Company?        @relation(fields: [companyId], references: [id])
+  category    Category?       @relation(fields: [categoryId], references: [id])
+  company     Company?        @relation(fields: [companyId], references: [id])
   orderItems  OrderItem[]
   stockMoves  StockMovement[]
   supplyItems SupplyItem[]
   batches     ProductBatch[]
 
+  @@unique([organizationId, sku])
+  @@unique([organizationId, barcode])
+  @@index([organizationId, isActive])
   @@index([name])
   @@index([isActive])
 }
 
 model Order {
-  id           String  @id @default(uuid())
-  orderNo      String  @unique
-  customerName String? // Хүлээн авагчийн нэр (заавал биш)
-  phone        String // Хүлээн авагчийн утас — заавал
-  extraPhone   String? // Нэмэлт (захиалагчийн) утас
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  orderNo        String // ORD-YYYYMMDD-NNNN — байгууллага дотроо unique
+  customerName   String? // Хүлээн авагчийн нэр (заавал биш)
+  phone          String // Хүлээн авагчийн утас — заавал
+  extraPhone     String? // Нэмэлт (захиалагчийн) утас
 
   // Бүтэцлэгдсэн хаяг (v2 нэмэлт багц)
   region        DeliveryRegion @default(ULAANBAATAR)
@@ -566,16 +665,16 @@ model Order {
   // Жолоочийн маршрутын дараалал (1..n, тухайн жолоочийн идэвхтэй хүргэлтэд)
   routeOrder Int?
 
-
-  createdBy      User          @relation("CreatedOrders", fields: [createdById], references: [id])
-  assignedDriver User?         @relation("AssignedOrders", fields: [assignedDriverId], references: [id])
-  warehouse      User?         @relation("WarehouseOrders", fields: [warehouseId], references: [id])
+  createdBy      User            @relation("CreatedOrders", fields: [createdById], references: [id])
+  assignedDriver User?           @relation("AssignedOrders", fields: [assignedDriverId], references: [id])
+  warehouse      User?           @relation("WarehouseOrders", fields: [warehouseId], references: [id])
   handover       DriverHandover? @relation(fields: [handoverId], references: [id])
-  payout         DriverPayout? @relation("PayoutOrders", fields: [payoutId], references: [id])
+  payout         DriverPayout?   @relation("PayoutOrders", fields: [payoutId], references: [id])
   items          OrderItem[]
   payments       Payment[]
   returns        OrderReturn[]
 
+  @@unique([organizationId, orderNo])
   @@index([orderStatus])
   @@index([phone])
   @@index([createdAt])
@@ -599,11 +698,11 @@ model OrderItem {
 }
 
 model DriverProfile {
-  id             String  @id @default(uuid())
-  userId         String  @unique
-  feePerDelivery Decimal @db.Decimal(12, 2) // хүргэлт тутмын хөлс
+  id             String         @id @default(uuid())
+  userId         String         @unique
+  feePerDelivery Decimal        @db.Decimal(12, 2) // хүргэлт тутмын хөлс
   vehicleInfo    String?
-  isAvailable    Boolean @default(true)
+  isAvailable    Boolean        @default(true)
   /// Ажлын төрөл (V5): үндсэн ажилтан эсвэл цагийн
   employmentType EmploymentType @default(FULL_TIME)
   /// Харьяалах бүс — дүүргийн товчлолууд (V5), ж: ["ХУД", "БЗД"]
@@ -613,17 +712,20 @@ model DriverProfile {
 }
 
 model StockMovement {
-  id        String   @id @default(uuid())
-  productId String
-  qtyChange Int // + орлого, - зарлага
-  reason    String // "PURCHASE_IN", "MANUAL_OUT", "CORRECTION", "ORDER", "ORDER_CANCEL", "INITIAL"
-  note      String? // нэмэлт тайлбар (v2)
-  refId     String? // захиалгын id гэх мэт
-  userId    String
-  createdAt DateTime @default(now())
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  productId      String
+  qtyChange      Int // + орлого, - зарлага
+  reason         String // "PURCHASE_IN", "MANUAL_OUT", "CORRECTION", "ORDER", "ORDER_CANCEL", "INITIAL"
+  note           String? // нэмэлт тайлбар (v2)
+  refId          String? // захиалгын id гэх мэт
+  userId         String
+  createdAt      DateTime     @default(now())
 
   product Product @relation(fields: [productId], references: [id])
   user    User    @relation(fields: [userId], references: [id])
 
+  @@index([organizationId])
   @@index([productId])
 }

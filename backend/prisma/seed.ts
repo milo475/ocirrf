@@ -8,6 +8,22 @@ const adapter = new PrismaPg({
 });
 const prisma = new PrismaClient({ adapter });
 
+/**
+ * DEFAULT БАЙГУУЛЛАГА (Multi-tenancy) — migration-ы тогтмол UUID-тай
+ * ижил: хуучин өгөгдөл бүгд энэ байгууллагад backfill хийгдсэн байдаг.
+ * Seed нь raw PrismaClient ашигладаг (org-scope extension-гүй) тул
+ * organizationId-г ХААНА Ч БҮГДЭД нь тодоор өгнө.
+ */
+export const DEFAULT_ORG_ID = '00000000-0000-4000-8000-000000000001';
+
+async function seedOrganization() {
+  await prisma.organization.upsert({
+    where: { id: DEFAULT_ORG_ID },
+    update: { isActive: true },
+    create: { id: DEFAULT_ORG_ID, name: 'ocirrf' },
+  });
+}
+
 async function seedUsers() {
   const users = [
     {
@@ -53,6 +69,7 @@ async function seedUsers() {
         passwordHash,
         fullName: u.fullName,
         role: u.role,
+        organizationId: DEFAULT_ORG_ID,
       },
     });
     byUsername.set(u.username, user.id);
@@ -81,9 +98,11 @@ async function seedCategories() {
 
   for (const name of names) {
     const cat = await prisma.category.upsert({
-      where: { name },
+      where: {
+        organizationId_name: { organizationId: DEFAULT_ORG_ID, name },
+      },
       update: {},
-      create: { name },
+      create: { name, organizationId: DEFAULT_ORG_ID },
     });
     byName.set(name, cat.id);
   }
@@ -116,9 +135,12 @@ async function seedProducts(
   const admin = users.get('admin@ocirrf.mn');
   for (const p of products) {
     const categoryId = categories.get(p.category) ?? null;
-    const existed = await prisma.product.findUnique({ where: { sku: p.sku } });
+    const skuWhere = {
+      organizationId_sku: { organizationId: DEFAULT_ORG_ID, sku: p.sku },
+    };
+    const existed = await prisma.product.findUnique({ where: skuWhere });
     await prisma.product.upsert({
-      where: { sku: p.sku },
+      where: skuWhere,
       // stockQty-г update-д ОРУУЛДАГГҮЙ: амьд үлдэгдлийг StockMovement
       // түүхгүйгээр дарж бичихээс сэргийлнэ (зөвхөн шинээр үүсэхэд тавигдана)
       update: {
@@ -138,14 +160,16 @@ async function seedProducts(
         unit: p.unit,
         categoryId,
         isActive: true,
+        organizationId: DEFAULT_ORG_ID,
       },
     });
     if (!existed && p.stockQty > 0 && admin) {
       const created = await prisma.product.findUniqueOrThrow({
-        where: { sku: p.sku },
+        where: skuWhere,
       });
       await prisma.stockMovement.create({
         data: {
+          organizationId: DEFAULT_ORG_ID,
           productId: created.id,
           qtyChange: p.stockQty,
           reason: 'INITIAL',
@@ -158,6 +182,7 @@ async function seedProducts(
 }
 
 async function main() {
+  await seedOrganization();
   const users = await seedUsers();
   await seedDriverProfile(users);
   const categories = await seedCategories();

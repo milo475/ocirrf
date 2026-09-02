@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { OrgContext } from '../org/org-context';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
@@ -25,7 +26,9 @@ export class CategoriesService {
 
   async create(dto: CreateCategoryDto) {
     try {
-      return await this.prisma.category.create({ data: { name: dto.name } });
+      return await this.prisma.category.create({
+        data: { name: dto.name, organizationId: OrgContext.require() },
+      });
     } catch (e) {
       if (isUniqueViolation(e)) {
         throw new ConflictException('Ийм нэртэй ангилал аль хэдийн байна');

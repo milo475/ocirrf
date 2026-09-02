@@ -12,6 +12,7 @@ import {
   Prisma,
 } from '../generated/prisma/client';
 import { lockOrderForUpdate } from '../prisma/lock.util';
+import { OrgContext } from '../org/org-context';
 import { PrismaService } from '../prisma/prisma.service';
 
 /** Хэлбэр нь зөвхөн шилжүүлэг — бэлэн мөнгө системд байхгүй (V5) */
@@ -69,6 +70,7 @@ export class PaymentsService {
 
       const payment = await tx.payment.create({
         data: {
+          organizationId: OrgContext.require(),
           orderId,
           amount,
           method: dto.method,
@@ -90,6 +92,7 @@ export class PaymentsService {
 
       await tx.financeEntry.create({
         data: {
+          organizationId: OrgContext.require(),
           type: FinanceType.INCOME,
           category: 'PAYMENT',
           amount,

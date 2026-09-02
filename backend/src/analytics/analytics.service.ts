@@ -6,6 +6,7 @@ import {
   Role,
 } from '../generated/prisma/client';
 import { parseDateRange } from '../date-range.util';
+import { OrgContext } from '../org/org-context';
 import { PrismaService } from '../prisma/prisma.service';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -157,6 +158,8 @@ export class AnalyticsService {
         FROM "OrderItem" oi
         JOIN "Order" o ON o.id = oi."orderId"
         WHERE oi."productId" IN (${Prisma.join(ids)})
+          -- Raw SQL-д org-scope extension үйлчлэхгүй тул ГАРААР шүүнэ
+          AND o."organizationId" = ${OrgContext.require()}
           AND o."createdAt" >= ${start} AND o."createdAt" <= ${end}
           AND o."orderStatus" != 'CANCELLED'
         GROUP BY oi."productId"`,

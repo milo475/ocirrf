@@ -1,4 +1,5 @@
 import { Prisma } from '../generated/prisma/client';
+import { OrgContext } from '../org/org-context';
 
 /**
  * Захиалгын мөрийг transaction дуустал түгжинэ (PostgreSQL `FOR UPDATE`).
@@ -24,8 +25,12 @@ export async function lockOrderForUpdate(
   tx: Prisma.TransactionClient,
   orderId: string,
 ): Promise<boolean> {
+  // Raw SQL-д org-scope extension үйлчлэхгүй тул ГАРААР шүүнэ
+  // (Multi-tenancy) — өөр байгууллагын захиалга «олдсонгүй» болно
   const rows = await tx.$queryRaw<{ id: string }[]>`
-    SELECT "id" FROM "Order" WHERE "id" = ${orderId} FOR UPDATE
+    SELECT "id" FROM "Order"
+    WHERE "id" = ${orderId} AND "organizationId" = ${OrgContext.require()}
+    FOR UPDATE
   `;
   return rows.length > 0;
 }

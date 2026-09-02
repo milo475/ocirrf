@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { IsBoolean, IsOptional, IsString, MinLength } from 'class-validator';
 import { Role } from '../generated/prisma/client';
+import { OrgContext } from '../org/org-context';
 import { PERM } from '../permissions/permission-keys';
 import { RequirePermission } from '../permissions/require-permission.decorator';
 import { PrismaService } from '../prisma/prisma.service';
@@ -97,7 +98,9 @@ export class CompaniesController {
   @Post()
   @RequirePermission(PERM.CUSTOMERS_EDIT)
   create(@Body() dto: CompanyDto) {
-    return this.prisma.company.create({ data: dto });
+    return this.prisma.company.create({
+      data: { ...dto, organizationId: OrgContext.require() },
+    });
   }
 
   /**
@@ -115,7 +118,10 @@ export class CompaniesController {
   @RequirePermission(PERM.SUPPLIES_CREATE)
   async quickCreate(@Body() dto: QuickCompanyDto) {
     const name = dto.name.trim();
-    const existing = await this.prisma.company.findUnique({ where: { name } });
+    const organizationId = OrgContext.require();
+    const existing = await this.prisma.company.findUnique({
+      where: { organizationId_name: { organizationId, name } },
+    });
     if (existing) {
       throw new ConflictException({
         message: `«${name}» нэртэй компани бүртгэлтэй байна`,
@@ -130,6 +136,7 @@ export class CompaniesController {
       data: {
         name,
         phone: dto.phone?.trim() || null,
+        organizationId,
       },
     });
   }

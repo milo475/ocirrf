@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { OrgContext } from '../org/org-context';
 import { PrismaService } from '../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.service';
 import { AuthUser } from '../auth/decorators/current-user.decorator';
@@ -125,6 +126,7 @@ export class BatchesService {
 
       return tx.productBatch.create({
         data: {
+          organizationId: OrgContext.require(),
           productId: dto.productId,
           batchNo: dto.batchNo?.trim() || null,
           expiryDate: new Date(dto.expiryDate + 'T00:00:00.000Z'),
@@ -166,6 +168,7 @@ export class BatchesService {
       });
       await tx.stockMovement.create({
         data: {
+          organizationId: OrgContext.require(),
           productId: batch.productId,
           qtyChange: -batch.remaining,
           reason: 'EXPIRED',

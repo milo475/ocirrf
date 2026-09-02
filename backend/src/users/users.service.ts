@@ -8,6 +8,7 @@ import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'node:crypto';
 import { DeliveryStatus } from '../generated/prisma/client';
 import { PermissionsService } from '../permissions/permissions.service';
+import { OrgContext } from '../org/org-context';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { QueryUsersDto } from './dto/query-users.dto';
@@ -69,6 +70,8 @@ export class UsersService {
           data: {
             username: dto.email, // email хэлбэрийн утга username талбарт
             fullName: dto.name,
+            // Шинэ ажилтан үүсгэгчийнхээ байгууллагад харьяалагдана
+            organizationId: OrgContext.require(),
             companyId: dto.companyId,
             passwordHash,
             role: dto.role,

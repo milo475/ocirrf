@@ -14,12 +14,16 @@ export class SettingsController {
     return this.settingsService.getPublic();
   }
 
-  /** V4-06: login хуудасны "Нууц үг мартсан?" — нэвтрэлтгүйгээр компанийн утас */
+  /**
+   * V4-06: login хуудасны "Нууц үг мартсан?" — нэвтрэлтгүй endpoint.
+   * Multi-tenancy-ийн дараа нэвтрээгүй хүний БАЙГУУЛЛАГА тодорхойгүй
+   * тул аль нэг байгууллагын утас/нэрийг задлахгүй — статик утга.
+   * (Public захиалгын хуудас нэр/утсаа order-form payload-оос авдаг.)
+   */
   @Public()
   @Get('company')
-  async company() {
-    const s = await this.settingsService.getPublic();
-    return { companyName: s.companyName, companyPhone: s.companyPhone };
+  company() {
+    return { companyName: 'ocirrf', companyPhone: '' };
   }
 
 

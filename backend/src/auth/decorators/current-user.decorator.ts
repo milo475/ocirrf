@@ -7,6 +7,12 @@ export type AuthUser = {
   name: string;
   phone: string | null;
   role: Role;
+  /**
+   * Аль байгууллагын хэрэглэгч вэ (Multi-tenancy). JwtStrategy
+   * request бүрт OrgContext-д онооно — бүх query автоматаар энэ
+   * байгууллагад хязгаарлагдана.
+   */
+  organizationId: string;
   /** Түр нууц үгтэй — солитол бусад API 403 (V4-06) */
   mustChangePassword: boolean;
   /** Сүүлд нэвтэрсэн огноо (V4-07) */

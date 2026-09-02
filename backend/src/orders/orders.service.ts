@@ -17,6 +17,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { PERM } from '../permissions/permission-keys';
 import { PermissionsService } from '../permissions/permissions.service';
 import { lockOrderForUpdate } from '../prisma/lock.util';
+import { OrgContext } from '../org/org-context';
 import { PrismaService } from '../prisma/prisma.service';
 import { formatFullAddress, formatShortAddress } from './address.util';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -181,8 +182,11 @@ export class OrdersService {
       // (string) эрэмбэ тул өдөрт 9999-ээс дээш захиалга орвол '9999' нь
       // '10000'-ээс их гэж тооцогдож дугаар давхардаж эхэлдэг байсан.
       // Нэг өдрийн мөрүүд цөөн (нэг богино багана) тул ачаалал өчүүхэн.
+      // Дараалал БАЙГУУЛЛАГА ДОТРОО (Multi-tenancy) — байгууллага бүр
+      // өдрөө 0001-ээс эхэлнэ, unique нь [organizationId, orderNo] хос.
+      const organizationId = OrgContext.require();
       const todays = await tx.order.findMany({
-        where: { orderNo: { startsWith: prefix } },
+        where: { organizationId, orderNo: { startsWith: prefix } },
         select: { orderNo: true },
       });
       const maxNum = todays.reduce((max, o) => {
@@ -213,6 +217,7 @@ export class OrdersService {
       const isUB = dto.region === 'ULAANBAATAR';
       const order = await tx.order.create({
         data: {
+          organizationId,
           orderNo,
           customerName,
           phone,
@@ -260,6 +265,7 @@ export class OrdersService {
         }
         await tx.stockMovement.create({
           data: {
+            organizationId,
             productId: item.productId,
             qtyChange: -item.qty,
             reason: 'ORDER',
@@ -278,6 +284,7 @@ export class OrdersService {
         const method = PaymentMethod.TRANSFER;
         const payment = await tx.payment.create({
           data: {
+            organizationId,
             orderId: order.id,
             amount: totalAmount,
             method,
@@ -287,6 +294,7 @@ export class OrdersService {
         });
         await tx.financeEntry.create({
           data: {
+            organizationId,
             type: FinanceType.INCOME,
             category: 'PAYMENT',
             amount: totalAmount,
@@ -449,6 +457,7 @@ export class OrdersService {
             }
             await tx.stockMovement.create({
               data: {
+                organizationId: OrgContext.require(),
                 productId,
                 qtyChange: -delta,
                 reason: 'ORDER_EDIT',
@@ -603,6 +612,7 @@ export class OrdersService {
           });
           await tx.stockMovement.create({
             data: {
+              organizationId: OrgContext.require(),
               productId: item.productId,
               qtyChange: item.qty,
               reason: 'ORDER_CANCEL',

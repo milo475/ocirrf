@@ -10,7 +10,17 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PaymentsService } from '../src/finance/payments.service';
 import { NotificationsService } from '../src/notifications/notifications.service';
-import { PrismaService } from '../src/prisma/prisma.service';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient } from '../src/generated/prisma/client';
+import { OrgContext } from '../src/org/org-context';
+
+/**
+ * Fixture/cleanup-ийн Prisma нь org-scope extension-ГҮЙ raw client
+ * (seed.ts-тэй ижил): request context-ийн гадуур ажилладаг тул
+ * app-ийн PrismaService-ийг хэрэглэвэл fail-closed унана.
+ * Бүх тестийн өгөгдөл default байгууллагад хамаарна.
+ */
+const DEFAULT_ORG_ID = '00000000-0000-4000-8000-000000000001';
 import { UPLOADS_DIR } from '../src/uploads.config';
 
 /**
@@ -75,7 +85,7 @@ const PNG = makePng();
 describe('ocirrf v2 API (e2e)', () => {
   let app: INestApplication;
   let http: ReturnType<INestApplication['getHttpServer']>;
-  let prisma: PrismaService;
+  let prisma: PrismaClient;
 
   // Токенууд
   const tok: Record<string, string> = {};
@@ -137,7 +147,9 @@ describe('ocirrf v2 API (e2e)', () => {
     app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
     await app.init();
     http = app.getHttpServer();
-    prisma = app.get(PrismaService);
+    prisma = new PrismaClient({
+      adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
+    });
 
     for (const u of ['admin', 'manager', 'operator', 'driver', 'seller']) {
       const res = await api()
@@ -297,6 +309,7 @@ describe('ocirrf v2 API (e2e)', () => {
         /* аль хэдийн байхгүй бол зүгээр */
       }
     }
+    await prisma.$disconnect();
     await app.close();
   });
 
@@ -1792,11 +1805,15 @@ describe('ocirrf v2 API (e2e)', () => {
         .set(auth(tok.manager))
         .expect(200);
       const results = await Promise.allSettled(
+        // Service-ийг ШУУД дуудаж буй тул байгууллагын context-ийг
+        // гараар өгнө (request-ийн гадуур fail-closed байдаг)
         [0, 1, 2, 3].map(() =>
-          payments.addPayment(
-            raceOrderId,
-            { amount: total, method: 'TRANSFER' },
-            mgr.body,
+          OrgContext.runWith(DEFAULT_ORG_ID, () =>
+            payments.addPayment(
+              raceOrderId,
+              { amount: total, method: 'TRANSFER' },
+              mgr.body,
+            ),
           ),
         ),
       );
@@ -3324,7 +3341,11 @@ describe('ocirrf v2 API (e2e)', () => {
       expect(res.body.errors[0].reason).toContain('Үнэ');
 
       // Шинэ бараа: эхний үлдэгдэл + INITIAL movement, 2 дахь мөрөөр шинэчлэгдсэн
-      const p1 = await prisma.product.findUnique({ where: { sku: impSku1 } });
+      const p1 = await prisma.product.findUnique({
+        where: {
+          organizationId_sku: { organizationId: DEFAULT_ORG_ID, sku: impSku1 },
+        },
+      });
       expect(p1?.stockQty).toBe(12);
       expect(Number(p1?.price)).toBe(4800);
       expect(p1?.name).toBe('Импорт бараа 1 v2');
@@ -3336,7 +3357,12 @@ describe('ocirrf v2 API (e2e)', () => {
 
       // Ангилал нэрээр үүссэн; суурь барааны үнэ шинэчлэгдсэн
       const cat = await prisma.category.findUnique({
-        where: { name: impCat },
+        where: {
+          organizationId_name: {
+            organizationId: DEFAULT_ORG_ID,
+            name: impCat,
+          },
+        },
       });
       expect(cat).toBeTruthy();
       const base = await api()

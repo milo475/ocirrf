@@ -52,9 +52,13 @@ export const OrgContext = {
    * JwtStrategy-ийн хэрэглэгч уншилт, uploads guard-ийн эзэмшил
    * шалгалт) хэрэглэнэ — шинэ хэрэглээ бүр код review-д тайлбар
    * шаардана.
+   *
+   * `await fn()` нь ЗААВАЛ run() ДОТОР: PrismaPromise нь lazy тул
+   * гадаа await хийвэл query нь context-гүй орчинд ажиллаж
+   * extension буруу store уншина.
    */
   runBypassed<T>(fn: () => Promise<T>): Promise<T> {
-    return orgAls.run({ bypass: true }, fn);
+    return orgAls.run({ bypass: true }, async () => await fn());
   },
 
   /**
@@ -62,6 +66,6 @@ export const OrgContext = {
    * transaction, public-token endpoint, тест fixture, ирээдүйн cron.
    */
   runWith<T>(organizationId: string, fn: () => Promise<T>): Promise<T> {
-    return orgAls.run({ organizationId }, fn);
+    return orgAls.run({ organizationId }, async () => await fn());
   },
 };
