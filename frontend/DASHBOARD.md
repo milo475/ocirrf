@@ -1,4 +1,4 @@
-# ursGAL — Нүүр хуудас (Нөөцийн эрүүл мэндийн самбар)
+# ocirrf — Нүүр хуудас (Нөөцийн эрүүл мэндийн самбар)
 
 ## Эх загвар (template brief)
 
@@ -31,7 +31,7 @@ demo data in one module.
 
 Гол асуулт: **аль бараа дуусах гэж байна, аль нь хэдэн төгрөгийн эрсдэлтэй вэ.**
 
-| Загвар | ursGAL |
+| Загвар | ocirrf |
 |---|---|
 | Account | Product (бараа) |
 | healthScore | stockHealth 0–100 |
@@ -68,7 +68,7 @@ demo data in one module.
 ## Алхам 1 — Тема, фонт, токен
 
 ```bash
-cd ~/ursGAL/frontend
+cd ~/ocirrf/frontend
 npm install @fontsource/newsreader @fontsource/ibm-plex-mono @fontsource/work-sans
 npm install -D tailwindcss @tailwindcss/vite
 ```

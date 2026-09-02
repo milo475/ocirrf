@@ -2,12 +2,12 @@
  * PM2 тохиргоо — production-д ажиллуулах:
  *   pm2 start ecosystem.config.js
  *   pm2 save && pm2 startup   (реboot дараа автоматаар асаах)
- * Лог: pm2 logs ursgal-api
+ * Лог: pm2 logs ocirrf-api
  */
 module.exports = {
   apps: [
     {
-      name: 'ursgal-api',
+      name: 'ocirrf-api',
       cwd: __dirname,
       script: 'dist/main.js',
       instances: 1,

@@ -73,7 +73,7 @@ export default function Login() {
             `backdrop-blur` нь ард талыг нь бүдгэрүүлдэг тул
             зураг дээр ч текст цэвэр уншигдана. */}
         <div className="bg-surface/40 backdrop-blur-lg border border-rule/50 rounded-lg p-8 shadow-2xl shadow-black/40">
-          <h1 className="font-serif text-4xl font-medium text-center">ursGAL</h1>
+          <h1 className="font-serif text-4xl font-medium text-center">ocirrf</h1>
           <p className="mt-2 text-center text-sm text-ink-muted">
             {t('Нөөц ба захиалгын систем')}
           </p>
@@ -94,7 +94,7 @@ export default function Login() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full bg-bg border border-rule rounded px-3 py-2 text-sm focus:outline-none focus:border-ink-muted"
-                placeholder="admin@ursgal.mn"
+                placeholder="admin@ocirrf.mn"
               />
             </div>
 

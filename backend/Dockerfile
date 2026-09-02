@@ -1,4 +1,4 @@
-# ursGAL — multi-stage Docker build (V4-15).
+# ocirrf — multi-stage Docker build (V4-15).
 # Context нь repo-гийн ROOT байх ёстой (frontend-ийг хамт build хийдэг):
 #   docker build -f backend/Dockerfile .
 

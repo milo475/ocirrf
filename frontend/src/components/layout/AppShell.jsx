@@ -36,7 +36,7 @@ export default function AppShell() {
   const { t } = useLang()
   const navigate = useNavigate()
   const [collapsed, setCollapsed] = useState(
-    () => localStorage.getItem('ursgal.sidebar') === '1',
+    () => localStorage.getItem('ocirrf.sidebar') === '1',
   )
 
   // Эрхийн accent тема: root дээр data-role
@@ -128,7 +128,7 @@ export default function AppShell() {
 
   function toggleSidebar() {
     setCollapsed((c) => {
-      localStorage.setItem('ursgal.sidebar', c ? '0' : '1')
+      localStorage.setItem('ocirrf.sidebar', c ? '0' : '1')
       return !c
     })
   }
@@ -262,7 +262,7 @@ export default function AppShell() {
       <div className="flex-1 min-w-0 flex flex-col">
         <header className="h-12 border-b border-rule flex items-center gap-3 px-4 md:px-6 shrink-0">
           <NavLink to="/" className="font-serif text-xl font-medium tracking-tight">
-            ursGAL
+            ocirrf
           </NavLink>
           <div className="ml-auto flex items-center gap-2 md:gap-3">
             {/* Offline индикатор (V4-10) */}

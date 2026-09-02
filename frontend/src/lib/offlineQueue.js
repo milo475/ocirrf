@@ -10,7 +10,7 @@
 
 import { apiUpload } from './api'
 
-const DB_NAME = 'ursgal-offline'
+const DB_NAME = 'ocirrf-offline'
 const STORE = 'completeQueue'
 
 function openDb() {

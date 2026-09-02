@@ -1,14 +1,14 @@
-# ursGAL v2 — Эрхийн эцсийн гар туршилтын чеклист
+# ocirrf v2 — Эрхийн эцсийн гар туршилтын чеклист
 
 Бэлтгэл: `cd backend && npm run start:dev`, `cd frontend && npm run dev`
 → http://localhost:5173
 
 | Хэрэглэгч | Нууц үг | Эрх | Accent |
 |---|---|---|---|
-| admin@ursgal.mn | admin123 | ADMIN | бордо |
-| manager@ursgal.mn | manager123 | MANAGER | хөх |
-| operator@ursgal.mn | operator123 | OPERATOR | ногоон |
-| driver@ursgal.mn | driver123 | DRIVER | amber |
+| admin@ocirrf.mn | admin123 | ADMIN | бордо |
+| manager@ocirrf.mn | manager123 | MANAGER | хөх |
+| operator@ocirrf.mn | operator123 | OPERATOR | ногоон |
+| driver@ocirrf.mn | driver123 | DRIVER | amber |
 
 ## 1. Эрх бүрийн тема / nav / dashboard
 

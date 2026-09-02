@@ -14,8 +14,8 @@ export default defineConfig({
       injectRegister: 'auto',
       includeAssets: ['favicon.svg'],
       manifest: {
-        name: 'ursGAL',
-        short_name: 'ursGAL',
+        name: 'ocirrf',
+        short_name: 'ocirrf',
         description: 'Нөөц ба захиалгын систем',
         display: 'standalone',
         start_url: '/',

@@ -14,7 +14,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { UPLOADS_DIR } from '../src/uploads.config';
 
 /**
- * ursGAL v2 — иж бүрэн E2E тест.
+ * ocirrf v2 — иж бүрэн E2E тест.
  * Бодит DB ашиглана: өөрийн тест өгөгдлөө (T суффикстэй) үүсгэж,
  * төгсгөлд бүгдийг цэвэрлэнэ. Seed-ийн 4 хэрэглэгч байх шаардлагатай.
  */
@@ -72,7 +72,7 @@ function makePng(): Buffer {
 }
 const PNG = makePng();
 
-describe('ursGAL v2 API (e2e)', () => {
+describe('ocirrf v2 API (e2e)', () => {
   let app: INestApplication;
   let http: ReturnType<INestApplication['getHttpServer']>;
   let prisma: PrismaService;
@@ -142,7 +142,7 @@ describe('ursGAL v2 API (e2e)', () => {
     for (const u of ['admin', 'manager', 'operator', 'driver', 'seller']) {
       const res = await api()
         .post('/api/auth/login')
-        .send({ email: `${u}@ursgal.mn`, password: `${u}123` })
+        .send({ email: `${u}@ocirrf.mn`, password: `${u}123` })
         .expect(200);
       tok[u] = res.body.accessToken;
     }
@@ -301,7 +301,7 @@ describe('ursGAL v2 API (e2e)', () => {
     it('буруу нууц үг → 401 ялгагдахгүй мессежтэй', async () => {
       const res = await api()
         .post('/api/auth/login')
-        .send({ email: 'admin@ursgal.mn', password: 'buruu' })
+        .send({ email: 'admin@ocirrf.mn', password: 'buruu' })
         .expect(401);
       expect(res.body.message).toBe('Нэвтрэх мэдээлэл буруу');
     });
@@ -309,7 +309,7 @@ describe('ursGAL v2 API (e2e)', () => {
     it('refresh шинэ хос token өгнө', async () => {
       const login = await api()
         .post('/api/auth/login')
-        .send({ email: 'operator@ursgal.mn', password: 'operator123' })
+        .send({ email: 'operator@ocirrf.mn', password: 'operator123' })
         .expect(200);
       const res = await api()
         .post('/api/auth/refresh')
@@ -352,7 +352,7 @@ describe('ursGAL v2 API (e2e)', () => {
         .post('/api/users')
         .set(auth(tok.admin))
         .send({
-          email: `e2e-mgr-${T}@ursgal.mn`,
+          email: `e2e-mgr-${T}@ocirrf.mn`,
           name: `Э2Э Менежер ${T}`,
           password: 'e2epass123',
           role: 'MANAGER',
@@ -361,7 +361,7 @@ describe('ursGAL v2 API (e2e)', () => {
       e2eMgrId = mgr.body.id;
       const login = await api()
         .post('/api/auth/login')
-        .send({ email: `e2e-mgr-${T}@ursgal.mn`, password: 'e2epass123' })
+        .send({ email: `e2e-mgr-${T}@ocirrf.mn`, password: 'e2epass123' })
         .expect(200);
       await api()
         .post('/api/orders')
@@ -710,7 +710,7 @@ describe('ursGAL v2 API (e2e)', () => {
         .post('/api/users')
         .set(auth(tok.admin))
         .send({
-          email: `e2e-drv-${T}@ursgal.mn`,
+          email: `e2e-drv-${T}@ocirrf.mn`,
           name: `Э2Э Жолооч ${T}`,
           password: 'e2epass123',
           role: 'DRIVER',
@@ -723,7 +723,7 @@ describe('ursGAL v2 API (e2e)', () => {
 
       const login = await api()
         .post('/api/auth/login')
-        .send({ email: `e2e-drv-${T}@ursgal.mn`, password: 'e2epass123' })
+        .send({ email: `e2e-drv-${T}@ocirrf.mn`, password: 'e2epass123' })
         .expect(200);
       e2eDriverToken = login.body.accessToken;
     });
@@ -733,7 +733,7 @@ describe('ursGAL v2 API (e2e)', () => {
         .post('/api/users')
         .set(auth(tok.admin))
         .send({
-          email: `e2e-drv2-${T}@ursgal.mn`,
+          email: `e2e-drv2-${T}@ocirrf.mn`,
           name: 'Хөлсгүй',
           password: 'e2epass123',
           role: 'DRIVER',
@@ -1130,7 +1130,7 @@ describe('ursGAL v2 API (e2e)', () => {
         .post('/api/users')
         .set(auth(tok.admin))
         .send({
-          email: `e2e-perm-${T}@ursgal.mn`,
+          email: `e2e-perm-${T}@ocirrf.mn`,
           name: `Э2Э Перм ${T}`,
           password: 'e2epass123',
           role: 'SELLER',
@@ -1139,7 +1139,7 @@ describe('ursGAL v2 API (e2e)', () => {
       permUserId = res.body.id;
       const login = await api()
         .post('/api/auth/login')
-        .send({ email: `e2e-perm-${T}@ursgal.mn`, password: 'e2epass123' })
+        .send({ email: `e2e-perm-${T}@ocirrf.mn`, password: 'e2epass123' })
         .expect(200);
       permUserToken = login.body.accessToken;
 
@@ -1307,7 +1307,7 @@ describe('ursGAL v2 API (e2e)', () => {
         .set(auth(tok.admin))
         .expect(200);
       const managerId = users.body.find(
-        (u: { username: string }) => u.username === 'manager@ursgal.mn',
+        (u: { username: string }) => u.username === 'manager@ocirrf.mn',
       ).id;
 
       // Хасахаас ӨМНӨ: guard нь param validation-аас түрүүнд тул
@@ -2929,7 +2929,7 @@ describe('ursGAL v2 API (e2e)', () => {
 
   // ────────────────────────────────────────────── V4: НУУЦ ҮГ СЭРГЭЭХ
   describe('V4: Нууц үг сэргээх ⭐', () => {
-    const pwEmail = `e2e-pw-${T}@ursgal.mn`;
+    const pwEmail = `e2e-pw-${T}@ocirrf.mn`;
     let pwUserId: string;
     let pwToken: string;
     let tempPassword: string;
@@ -3028,7 +3028,7 @@ describe('ursGAL v2 API (e2e)', () => {
 
   // ────────────────────────────────────────────── V4: НЭВТРЭЛТИЙН ТҮГЖЭЭ
   describe('V4: Нэвтрэлтийн хамгаалалт ⭐', () => {
-    const lockEmail = `e2e-lock-${T}@ursgal.mn`;
+    const lockEmail = `e2e-lock-${T}@ocirrf.mn`;
     let lockUserId: string;
 
     afterAll(async () => {
@@ -3106,7 +3106,7 @@ describe('ursGAL v2 API (e2e)', () => {
 
   // ────────────────────────────────────────────── V4: REFRESH ROTATION
   describe('V4: Refresh rotation + logout ⭐', () => {
-    const rtEmail = `e2e-rt-${T}@ursgal.mn`;
+    const rtEmail = `e2e-rt-${T}@ocirrf.mn`;
     let rtUserId: string;
 
     afterAll(async () => {
@@ -3627,7 +3627,7 @@ describe('ursGAL v2 API (e2e)', () => {
         .post('/api/users')
         .set(auth(tok.admin))
         .send({
-          email: `e2e-zone-${T}@ursgal.mn`,
+          email: `e2e-zone-${T}@ocirrf.mn`,
           name: `Э2Э Бүс ${T}`,
           password: 'e2epass123',
           role: 'DRIVER',
@@ -3834,7 +3834,7 @@ describe('ursGAL v2 API (e2e)', () => {
         .post('/api/users')
         .set(auth(tok.admin))
         .send({
-          email: `e2e-keeper-${T}@ursgal.mn`,
+          email: `e2e-keeper-${T}@ocirrf.mn`,
           password: 'keeper123',
           name: `Э2Э Нярав ${T}`,
           role: 'WAREHOUSE',
@@ -3844,7 +3844,7 @@ describe('ursGAL v2 API (e2e)', () => {
 
       const login = await api()
         .post('/api/auth/login')
-        .send({ email: `e2e-keeper-${T}@ursgal.mn`, password: 'keeper123' })
+        .send({ email: `e2e-keeper-${T}@ocirrf.mn`, password: 'keeper123' })
         .expect(200);
       keeperToken = login.body.accessToken;
 
@@ -4039,7 +4039,7 @@ describe('ursGAL v2 API (e2e)', () => {
         .post('/api/users')
         .set(auth(tok.admin))
         .send({
-          email: `e2e-seller-${T}@ursgal.mn`,
+          email: `e2e-seller-${T}@ocirrf.mn`,
           password: 'seller123',
           name: `Э2Э Борлуулагч ${T}`,
           role: 'SELLER',
@@ -4049,7 +4049,7 @@ describe('ursGAL v2 API (e2e)', () => {
 
       const login = await api()
         .post('/api/auth/login')
-        .send({ email: `e2e-seller-${T}@ursgal.mn`, password: 'seller123' })
+        .send({ email: `e2e-seller-${T}@ocirrf.mn`, password: 'seller123' })
         .expect(200);
       sellerToken = login.body.accessToken;
 
@@ -4547,7 +4547,7 @@ describe('ursGAL v2 API (e2e)', () => {
         .post('/api/users')
         .set(auth(tok.admin))
         .send({
-          email: `e2e-partner-${T}@ursgal.mn`,
+          email: `e2e-partner-${T}@ocirrf.mn`,
           password: 'partner123',
           name: `Э2Э Харилцагч ${T}`,
           role: 'OPERATOR',
@@ -4558,7 +4558,7 @@ describe('ursGAL v2 API (e2e)', () => {
 
       const login = await api()
         .post('/api/auth/login')
-        .send({ email: `e2e-partner-${T}@ursgal.mn`, password: 'partner123' })
+        .send({ email: `e2e-partner-${T}@ocirrf.mn`, password: 'partner123' })
         .expect(200);
       partnerToken = login.body.accessToken;
 
@@ -4802,7 +4802,7 @@ describe('ursGAL v2 API (e2e)', () => {
       // 403 өгдөг байв. companyId нь ХАНДАЛТЫН биш ШҮҮЛТИЙН нөхцөл.
       const seed = await api()
         .post('/api/auth/login')
-        .send({ email: 'operator@ursgal.mn', password: 'operator123' })
+        .send({ email: 'operator@ocirrf.mn', password: 'operator123' })
         .expect(200);
       const lone = seed.body.accessToken;
       expect(seed.body.user.companyId).toBeNull();
@@ -5277,7 +5277,7 @@ describe('ursGAL v2 API (e2e)', () => {
   describe('V4-16: Edge гүйцээлт ⭐', () => {
 
     it('4 буруу оролдлого түгжихгүй — амжилттай нэвтрэлт counter-ийг 0 болгоно', async () => {
-      const email = `e2e-cnt-${T}@ursgal.mn`;
+      const email = `e2e-cnt-${T}@ocirrf.mn`;
       const created = await api()
         .post('/api/users')
         .set(auth(tok.admin))
@@ -5345,9 +5345,9 @@ describe('ursGAL v2 API (e2e)', () => {
         .get('/api/customers/partners')
         .set(auth(tok.manager))
         .expect(200);
-      // seed-ийн operator@ursgal.mn — OPERATOR эрхтэй тул жагсаалтад байна
+      // seed-ийн operator@ocirrf.mn — OPERATOR эрхтэй тул жагсаалтад байна
       const seedOp = res.body.find(
-        (c: { email: string }) => c.email === 'operator@ursgal.mn',
+        (c: { email: string }) => c.email === 'operator@ocirrf.mn',
       );
       expect(seedOp).toBeTruthy();
       expect(seedOp).toHaveProperty('orders');
@@ -5355,7 +5355,7 @@ describe('ursGAL v2 API (e2e)', () => {
       expect(seedOp.orders).toBeGreaterThanOrEqual(1); // тестүүд нь шивсэн
       // Зөвхөн OPERATOR — жолооч/менежер орохгүй
       expect(
-        res.body.some((c: { email: string }) => c.email === 'driver@ursgal.mn'),
+        res.body.some((c: { email: string }) => c.email === 'driver@ocirrf.mn'),
       ).toBe(false);
     });
 
@@ -6481,7 +6481,7 @@ describe('ursGAL v2 API (e2e)', () => {
         .post('/api/users')
         .set(auth(tok.admin))
         .send({
-          email: `e2e-zones-${T}@ursgal.mn`,
+          email: `e2e-zones-${T}@ocirrf.mn`,
           password: 'zones123',
           name: `Э2Э Бүс ${T}`,
           role: 'DRIVER',
@@ -6495,7 +6495,7 @@ describe('ursGAL v2 API (e2e)', () => {
 
 
   describe('V5: Аюулгүй байдлын мөшгилт ⭐', () => {
-    const SEC_EMAIL = `e2e-sec-${T}@ursgal.mn`;
+    const SEC_EMAIL = `e2e-sec-${T}@ocirrf.mn`;
 
     afterAll(async () => {
       await prisma.activityLog.deleteMany({ where: { entity: 'security' } });
@@ -6533,7 +6533,7 @@ describe('ursGAL v2 API (e2e)', () => {
       // сурвалж болох ёсгүй
       expect(meta.email).not.toBe(SEC_EMAIL);
       expect(meta.email).toContain('***');
-      expect(meta.email).toContain('@ursgal.mn');
+      expect(meta.email).toContain('@ocirrf.mn');
     });
 
     /**
@@ -6588,7 +6588,7 @@ describe('ursGAL v2 API (e2e)', () => {
   describe('V5: Нэвтрэлтийн түүх ⭐', () => {
     let histUserId: string;
     let histToken: string;
-    const HIST_EMAIL = `e2e-hist-${T}@ursgal.mn`;
+    const HIST_EMAIL = `e2e-hist-${T}@ocirrf.mn`;
 
     afterAll(async () => {
       if (histUserId) {

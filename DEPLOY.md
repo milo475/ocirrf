@@ -1,4 +1,4 @@
-# ursGAL — Production байршуулалт
+# ocirrf — Production байршуулалт
 
 Нэг серверт NestJS нь API + frontend-ийн статик файлыг хамт үйлчилнэ
 (нэг порт, default 3000).
@@ -11,14 +11,14 @@
 ## 2. Анхны тохиргоо
 
 ```bash
-git clone git@github.com:milo475/ursGAL.git && cd ursGAL
+git clone git@github.com:milo475/ocirrf.git && cd ocirrf
 
 # DB + хэрэглэгч (postgres superuser-ээр):
-#   CREATE DATABASE ursgal;
-#   CREATE USER ursgal_user WITH PASSWORD '<хүчтэй нууц үг>' CREATEDB;
-#   GRANT ALL PRIVILEGES ON DATABASE ursgal TO ursgal_user;
-#   \c ursgal
-#   GRANT ALL ON SCHEMA public TO ursgal_user;
+#   CREATE DATABASE ocirrf;
+#   CREATE USER ocirrf_user WITH PASSWORD '<хүчтэй нууц үг>' CREATEDB;
+#   GRANT ALL PRIVILEGES ON DATABASE ocirrf TO ocirrf_user;
+#   \c ocirrf
+#   GRANT ALL ON SCHEMA public TO ocirrf_user;
 
 cd backend
 cp .env.example .env       # бөглөнө: DB нууц үг, openssl rand -hex 32 × 2
@@ -35,7 +35,7 @@ cd ../backend
 npm run build              # → backend/dist
 ```
 
-⚠ Seed-ийн дараа admin@ursgal.mn / operator@ursgal.mn нууц үгсийг
+⚠ Seed-ийн дараа admin@ocirrf.mn / operator@ocirrf.mn нууц үгсийг
 UI-ийн Хэрэглэгчид хуудаснаас шууд соль.
 
 ## 3. Ажиллуулах
@@ -55,10 +55,10 @@ pm2 save && pm2 startup    # reboot-д автоматаар асна
 ## 4. Шинэ хувилбар гаргах
 
 ```bash
-cd ursGAL && git pull
+cd ocirrf && git pull
 cd frontend && npm ci && npm run build
 cd ../backend && npm ci && npx prisma migrate deploy && npm run build
-pm2 restart ursgal-api
+pm2 restart ocirrf-api
 ```
 
 ## 5. Backup
@@ -72,10 +72,10 @@ bash backend/scripts/backup-db.sh
 Cron-д суулгах: `crontab -e` →
 
 ```
-0 3 * * * bash /home/kali/ursGAL/backend/scripts/backup-db.sh >> $HOME/ursgal-backups/backup.log 2>&1
+0 3 * * * bash /home/kali/ocirrf/backend/scripts/backup-db.sh >> $HOME/ocirrf-backups/backup.log 2>&1
 ```
 
-Сэргээх: `gunzip -c ursgal-YYYYMMDD-HHMMSS.sql.gz | psql "$DATABASE_URL"`
+Сэргээх: `gunzip -c ocirrf-YYYYMMDD-HHMMSS.sql.gz | psql "$DATABASE_URL"`
 
 ## 6. Production-д солих утгууд (жагсаалт)
 
@@ -85,7 +85,7 @@ Cron-д суулгах: `crontab -e` →
 | JWT_SECRET | backend/.env | `openssl rand -hex 32` шинээр |
 | JWT_REFRESH_SECRET | backend/.env | `openssl rand -hex 32` шинээр (өөр утга) |
 | PORT | backend/.env | Шаардлагатай бол |
-| UPLOADS_DIR | backend/.env | Баталгаажуулах зургууд кодоос гадуур (ж: /var/lib/ursgal/uploads) |
+| UPLOADS_DIR | backend/.env | Баталгаажуулах зургууд кодоос гадуур (ж: /var/lib/ocirrf/uploads) |
 | CORS_ORIGIN | backend/.env | Зөвхөн frontend тусдаа домэйнд байвал |
 | Seed нууц үгс | UI | admin/manager/operator/driver 4 хэрэглэгчийн нууц үгийг солих |
 
@@ -123,7 +123,7 @@ v3-д нэмэгдсэн зүйлс байршуулалтад нэмэлт то
 **Android (Chrome):**
 1. Chrome-оор системийн хаягаа нээж жолоочоор нэвтэрнэ.
 2. Баруун дээд ⋮ цэс → **"Add to Home screen" / "Нүүр дэлгэцэд нэмэх"**.
-3. Нэрийг баталгаажуулаад **Add** — нүүр дэлгэц дээр ursGAL icon үүснэ.
+3. Нэрийг баталгаажуулаад **Add** — нүүр дэлгэц дээр ocirrf icon үүснэ.
 4. Icon-оос нээхэд бүтэн дэлгэцээр (standalone) ажиллана.
 
 **iPhone (Safari):** Share товч → **"Add to Home Screen"**.
@@ -146,7 +146,7 @@ Offline горим:
 
 ```bash
 # Өглөө бүр 09:00-д өнөөдрийн алдааны тоог шалгана
-0 9 * * * bash /path/to/ursGAL/backend/scripts/check-errors.sh >> /var/log/ursgal-errors.log 2>&1
+0 9 * * * bash /path/to/ocirrf/backend/scripts/check-errors.sh >> /var/log/ocirrf-errors.log 2>&1
 ```
 
 ## 10. Docker-оор байршуулах (V4-15)

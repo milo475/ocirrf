@@ -1,4 +1,4 @@
-# ursGAL
+# ocirrf
 
 Дотоод дэлгүүрийн захиалга бүртгэл, агуулах, хүргэлт, санхүүгийн удирдлагын
 систем. Нэг порт дээр NestJS API + React frontend хамт үйлчилнэ.
@@ -42,7 +42,7 @@ Permission = код доторх role default матриц
 ## Ажиллуулах (dev)
 
 ```bash
-# 1. PostgreSQL: ursgal DB + ursgal_user (DEPLOY.md §2)
+# 1. PostgreSQL: ocirrf DB + ocirrf_user (DEPLOY.md §2)
 cd backend
 cp .env.example .env && npm ci
 npx prisma migrate deploy && npx prisma generate && npx prisma db seed
@@ -55,8 +55,8 @@ cd ../backend
 node dist/main        # http://localhost:3000
 ```
 
-Нэвтрэх (seed): `admin@ursgal.mn/admin123`, `manager@ursgal.mn/manager123`,
-`operator@ursgal.mn/operator123`, `driver@ursgal.mn/driver123`.
+Нэвтрэх (seed): `admin@ocirrf.mn/admin123`, `manager@ocirrf.mn/manager123`,
+`operator@ocirrf.mn/operator123`, `driver@ocirrf.mn/driver123`.
 Харилцагч: /register хуудаснаас өөрөө бүртгүүлнэ.
 
 ## Тест

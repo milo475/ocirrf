@@ -14,18 +14,18 @@ jobs:
       postgres:
         image: postgres:16
         env:
-          POSTGRES_USER: ursgal_user
-          POSTGRES_PASSWORD: ursgal123
-          POSTGRES_DB: ursgal
+          POSTGRES_USER: ocirrf_user
+          POSTGRES_PASSWORD: ocirrf123
+          POSTGRES_DB: ocirrf
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U ursgal_user -d ursgal"
+          --health-cmd "pg_isready -U ocirrf_user -d ocirrf"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
     env:
-      DATABASE_URL: postgresql://ursgal_user:ursgal123@localhost:5432/ursgal?schema=public
+      DATABASE_URL: postgresql://ocirrf_user:ocirrf123@localhost:5432/ocirrf?schema=public
       # CI-ийн dummy secret-үүд — production-ийнхтай ямар ч холбоогүй
       JWT_SECRET: ci-dummy-access-secret
       JWT_REFRESH_SECRET: ci-dummy-refresh-secret

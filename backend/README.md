@@ -1,4 +1,4 @@
-# ursGAL — backend
+# ocirrf — backend
 
 NestJS 11 + Prisma 7 + PostgreSQL 16. Систем бүхэлдээ юу хийдэг талаар
 төслийн язгуур дахь [`../README.md`](../README.md) болон

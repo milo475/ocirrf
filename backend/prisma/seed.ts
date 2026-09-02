@@ -11,31 +11,31 @@ const prisma = new PrismaClient({ adapter });
 async function seedUsers() {
   const users = [
     {
-      username: 'admin@ursgal.mn',
+      username: 'admin@ocirrf.mn',
       password: 'admin123',
       fullName: 'Систем Админ',
       role: 'ADMIN' as const,
     },
     {
-      username: 'manager@ursgal.mn',
+      username: 'manager@ocirrf.mn',
       password: 'manager123',
       fullName: 'Агуулахын Менежер',
       role: 'MANAGER' as const,
     },
     {
-      username: 'seller@ursgal.mn',
+      username: 'seller@ocirrf.mn',
       password: 'seller123',
       fullName: 'Туршилт Борлуулагч',
       role: 'SELLER' as const,
     },
     {
-      username: 'operator@ursgal.mn',
+      username: 'operator@ocirrf.mn',
       password: 'operator123',
       fullName: 'Туршилт Харилцагч',
       role: 'OPERATOR' as const,
     },
     {
-      username: 'driver@ursgal.mn',
+      username: 'driver@ocirrf.mn',
       password: 'driver123',
       fullName: 'Хүргэлтийн Жолооч',
       role: 'DRIVER' as const,
@@ -61,7 +61,7 @@ async function seedUsers() {
 }
 
 async function seedDriverProfile(users: Map<string, string>) {
-  const driverId = users.get('driver@ursgal.mn');
+  const driverId = users.get('driver@ocirrf.mn');
   if (!driverId) throw new Error('driver хэрэглэгч олдсонгүй');
 
   await prisma.driverProfile.upsert({
@@ -113,7 +113,7 @@ async function seedProducts(
   // Эхний үлдэгдлийг үүсгэхдээ INITIAL хөдөлгөөн БИЧНЭ — эс тэгвэл
   // StockMovement-ийн нийлбэр бодит үлдэгдэлтэй хэзээ ч таарахгүй
   // (CSV импорт нь ингэж бичдэг тул түүнтэй нийцүүлэв).
-  const admin = users.get('admin@ursgal.mn');
+  const admin = users.get('admin@ocirrf.mn');
   for (const p of products) {
     const categoryId = categories.get(p.category) ?? null;
     const existed = await prisma.product.findUnique({ where: { sku: p.sku } });

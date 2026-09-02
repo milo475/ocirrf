@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ursGAL — амьд сервер дээрх суурь шалгалт.
+# ocirrf — амьд сервер дээрх суурь шалгалт.
 #
 # Гүнзгий шалгалтыг e2e хийдэг (test/api-v2.e2e-spec.ts, 170+ тест).
 # Энэ скрипт нь ӨӨР зүйл шалгана: барьсан контейнер/сервер ажиллаж,
@@ -30,7 +30,7 @@ echo "── 3. Нэвтрэлтгүй хандалт хаалттай ──"
 # Нэвтрэлтийн rate limit нь 5/мин (AUTH_RATE_LIMIT) тул сөрөг шалгалтыг
 # ЭХЭЛЖ хийгээд, дараа нь хэрэгтэй эрхүүдээр л нэвтэрнэ.
 [ "$(code $API/orders)" = "401" ] && ok "401 нэвтрэлтгүй" || fail "нэвтрэлтгүй нээлттэй"
-BAD=$(code -X POST $API/auth/login -H "$H" -d '{"email":"admin@ursgal.mn","password":"buruu"}')
+BAD=$(code -X POST $API/auth/login -H "$H" -d '{"email":"admin@ocirrf.mn","password":"buruu"}')
 case "$BAD" in
   401) ok "401 буруу нууц үг" ;;
   429) fail "429 — нэвтрэлтийн rate limit дүүрсэн. 1 минут хүлээгээд дахин ажиллуулна уу" ;;
@@ -41,7 +41,7 @@ echo "── 4. Эрх бүр нэвтэрнэ ──"
 declare -A TOK
 for U in manager seller operator driver; do
   RESP=$(curl -s -X POST $API/auth/login -H "$H" \
-    -d "{\"email\":\"$U@ursgal.mn\",\"password\":\"${U}123\"}")
+    -d "{\"email\":\"$U@ocirrf.mn\",\"password\":\"${U}123\"}")
   TOK[$U]=$(echo "$RESP" | json "['accessToken']" 2>/dev/null) \
     || fail "$U нэвтэрч чадсангүй: $(echo "$RESP" | head -c 120)"
   R=$(curl -sf $API/auth/me -H "Authorization: Bearer ${TOK[$U]}" | json "['role']")

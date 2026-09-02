@@ -1,17 +1,17 @@
-# ursGAL — нэг командаар байршуулах (V4-15): docker compose up -d
+# ocirrf — нэг командаар байршуулах (V4-15): docker compose up -d
 # Тохиргоо: cp .env.example .env → JWT нууцуудаа солино.
 services:
   db:
     image: postgres:16
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-ursgal_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ursgal123}
-      POSTGRES_DB: ${POSTGRES_DB:-ursgal}
+      POSTGRES_USER: ${POSTGRES_USER:-ocirrf_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ocirrf123}
+      POSTGRES_DB: ${POSTGRES_DB:-ocirrf}
     volumes:
       - dbdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ursgal_user} -d ${POSTGRES_DB:-ursgal}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ocirrf_user} -d ${POSTGRES_DB:-ocirrf}"]
       interval: 5s
       timeout: 5s
       retries: 12
@@ -25,7 +25,7 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-ursgal_user}:${POSTGRES_PASSWORD:-ursgal123}@db:5432/${POSTGRES_DB:-ursgal}?schema=public}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-ocirrf_user}:${POSTGRES_PASSWORD:-ocirrf123}@db:5432/${POSTGRES_DB:-ocirrf}?schema=public}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET-ээ .env-д тохируулна уу}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET-ээ .env-д тохируулна уу}
       PORT: 3000
