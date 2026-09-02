@@ -26,9 +26,15 @@ import {
 } from '../permissions/require-permission.decorator';
 import { UPLOADS_DIR } from '../uploads.config';
 import { DeliveryService } from './delivery.service';
-import { AssignDriverDto } from './dto/assign-driver.dto';
+import {
+  AssignDriverDto,
+  AutoAssignDriverDto,
+  BulkAssignDriverDto,
+  SetZonesDto,
+} from './dto/assign-driver.dto';
 import { CompleteDeliveryDto } from './dto/complete-delivery.dto';
 import { RouteOrderDto } from './dto/route-order.dto';
+import { assertRealImage } from '../uploads/image-content.util';
 
 const ALLOWED_MIME: Record<string, string> = {
   'image/jpeg': '.jpg',
@@ -59,6 +65,20 @@ export class DeliveryController {
     return this.deliveryService.assignDriver(id, dto.driverId);
   }
 
+  /** V5: олон захиалгад нэг жолоочийг зэрэг хуваарилна */
+  @Patch('orders/assign-driver/bulk')
+  @RequirePermission(PERM.ORDERS_ASSIGN_DRIVER)
+  assignDriverBulk(@Body() dto: BulkAssignDriverDto) {
+    return this.deliveryService.assignDriverBulk(dto.orderIds, dto.driverId);
+  }
+
+  /** V5: дүүрэг (жолоочийн харьяалах бүс)-ээр автоматаар хуваарилна */
+  @Patch('orders/assign-driver/auto')
+  @RequirePermission(PERM.ORDERS_ASSIGN_DRIVER)
+  autoAssign(@Body() dto: AutoAssignDriverDto) {
+    return this.deliveryService.autoAssignByZone(dto.orderIds);
+  }
+
   /**
    * Жолооч нарын жагсаалт — MANAGER гүйцэтгэл/ачааллыг харна.
    * Жолооч хуваарилах модал ч мөн ЭНЭ жагсаалтыг уншина, тиймээс
@@ -70,6 +90,19 @@ export class DeliveryController {
   @RequireAnyPermission(PERM.DRIVERS_VIEW, PERM.ORDERS_ASSIGN_DRIVER)
   driversList() {
     return this.deliveryService.driversList();
+  }
+
+  /**
+   * Жолоочийн харьяалах бүс — нярав/менежер өдөр тутам өөрчилнө.
+   * Бүтэн жагсаалт ирнэ: нэмэх ч, хасах ч энэ нэг замаар.
+   */
+  @Patch('drivers/:id/zones')
+  @RequirePermission(PERM.DRIVERS_ZONES)
+  setZones(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SetZonesDto,
+  ) {
+    return this.deliveryService.setZones(id, dto.zones);
   }
 
   /** Хүргэлтийн ops самбар — статус бүрээр бүлэглэсэн + жолоочдын ачаалал */
@@ -139,6 +172,7 @@ export class DeliveryController {
     @CurrentUser() user: AuthUser,
     @UploadedFile() file?: Express.Multer.File,
   ) {
+    if (file) assertRealImage(file.path);
     return this.deliveryService.complete(orderId, user.id, dto, file);
   }
 }

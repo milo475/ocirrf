@@ -14,6 +14,7 @@ import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../context/AuthContext'
 import { useLang } from '../context/LanguageContext'
 import { api, apiBlob, apiUpload } from '../lib/api'
+import { useRef } from 'react'
 import { formatMoney } from '../lib/format'
 
 const LIMIT = 20
@@ -43,6 +44,8 @@ export default function Products() {
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [categoryId, setCategoryId] = useState('')
+  const [companyId, setCompanyId] = useState('')
+  const [companies, setCompanies] = useState([])
   const [lowStockOnly, setLowStockOnly] = useState(false)
   // Backend-ийн default нь isActive=true тул шүүлт илгээхгүй бол
   // идэвхгүй бараа ХЭЗЭЭ Ч харагдахгүй — "Идэвхгүй" badge-ийн салаа код
@@ -74,18 +77,22 @@ export default function Products() {
     const q = new URLSearchParams({ page: String(page), limit: String(LIMIT) })
     if (search) q.set('search', search)
     if (categoryId) q.set('categoryId', categoryId)
+    if (companyId) q.set('companyId', companyId)
     if (lowStockOnly) q.set('lowStock', 'true')
     if (showInactive) q.set('isActive', 'false')
     api(`/products?${q}`)
       .then(setData)
       .catch((e) => setError(e))
-  }, [search, categoryId, lowStockOnly, showInactive, page])
+  }, [search, categoryId, companyId, lowStockOnly, showInactive, page])
 
   useEffect(() => {
     load()
   }, [load])
 
   useEffect(() => {
+    api('/companies')
+      .then(setCompanies)
+      .catch(() => setCompanies([]))
     api('/categories')
       .then(setCategories)
       .catch(() => {})
@@ -133,7 +140,19 @@ export default function Products() {
       header: 'SKU',
       render: (p) => <span className="font-mono text-ink-muted">{p.sku}</span>,
     },
+    {
+      key: 'image',
+      header: '',
+      render: (p) => <ProductImageCell product={p} onDone={load} t={t} canEdit={canEdit} />,
+    },
     { key: 'name', header: t('Нэр') },
+    {
+      key: 'company',
+      header: t('Харилцагч'),
+      render: (p) => (
+        <span className="text-sm text-ink-muted">{p.company?.name ?? '—'}</span>
+      ),
+    },
     {
       key: 'category',
       header: t('Ангилал'),
@@ -149,40 +168,6 @@ export default function Products() {
         <span className="font-mono tabular-nums">{formatMoney(p.price)}</span>
       ),
     },
-    // Өртөг + ашгийн % — зөвхөн inventory.adjustment эрхтэйд (v4)
-    ...(canEdit
-      ? [
-          {
-            key: 'costPrice',
-            header: t('Өртөг'),
-            align: 'right',
-            render: (p) => (
-              <span className="font-mono tabular-nums text-ink-muted">
-                {formatMoney(p.costPrice ?? 0)}
-              </span>
-            ),
-          },
-          {
-            key: 'margin',
-            header: t('Ашиг %'),
-            align: 'right',
-            render: (p) => {
-              const price = Number(p.price)
-              const cost = Number(p.costPrice ?? 0)
-              if (!price || !cost)
-                return <span className="text-ink-muted">—</span>
-              const margin = Math.round(((price - cost) / price) * 100)
-              return (
-                <span
-                  className={`font-mono tabular-nums ${margin < 0 ? 'text-alarm' : 'text-safe'}`}
-                >
-                  {margin}%
-                </span>
-              )
-            },
-          },
-        ]
-      : []),
     {
       key: 'stockQty',
       header: t('Үлдэгдэл'),
@@ -191,7 +176,7 @@ export default function Products() {
     },
     {
       key: 'lowStockLimit',
-      header: t('Лимит'),
+      header: t('Low stock alert'),
       align: 'right',
       render: (p) => (
         <span className="font-mono tabular-nums text-ink-muted">
@@ -296,6 +281,23 @@ export default function Products() {
             </option>
           ))}
         </Select>
+        <Select
+          id="product-company"
+          label={t('Харилцагч')}
+          value={companyId}
+          onChange={(e) => {
+            setCompanyId(e.target.value)
+            setPage(1)
+          }}
+          className="w-44"
+        >
+          <option value="">{t('Бүх харилцагч')}</option>
+          {companies.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </Select>
         <button
           type="button"
           onClick={() => {
@@ -363,6 +365,7 @@ export default function Products() {
           key={editing?.id ?? 'new'}
           initial={editing}
           categories={categories}
+          companies={companies}
           submitting={busy}
           error={formError}
           onSubmit={handleFormSubmit}
@@ -512,6 +515,72 @@ function ImportButton({ t, onDone }) {
           </div>
         </div>
       </Modal>
+    </>
+  )
+}
+
+/**
+ * Барааны зураг (V5) — нийтийн захиалгын хуудсанд бараа зурагтай
+ * харагддаг тул эндээс байршуулна. Зураг дээр дарахад солигдоно.
+ */
+function ProductImageCell({ product, onDone, t, canEdit }) {
+  const inputRef = useRef(null)
+  const toast = useToast()
+  const [busy, setBusy] = useState(false)
+
+  async function upload(e) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setBusy(true)
+    try {
+      await apiUpload(`/products/${product.id}/image`, { image: file })
+      toast.show(t('Зураг хадгалагдлаа'))
+      onDone()
+    } catch (err) {
+      toast.show(err.message, { type: 'error' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const box =
+    'w-10 h-10 rounded border border-rule object-cover bg-bg flex items-center justify-center text-ink-muted text-xs shrink-0'
+
+  if (!canEdit) {
+    return product.imageUrl ? (
+      <img src={product.imageUrl} alt={product.name} className={box} />
+    ) : (
+      <span className={box}>—</span>
+    )
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={(e) => {
+          e.stopPropagation()
+          inputRef.current?.click()
+        }}
+        title={t('Зураг солих')}
+        className="disabled:opacity-50"
+      >
+        {product.imageUrl ? (
+          <img src={product.imageUrl} alt={product.name} className={box} />
+        ) : (
+          <span className={box}>＋</span>
+        )}
+      </button>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        onChange={upload}
+        className="hidden"
+        aria-label={t('Зураг солих')}
+      />
     </>
   )
 }

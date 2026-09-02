@@ -5,12 +5,12 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { PermissionsService } from '../permissions/permissions.service';
 import { AuthService } from './auth.service';
-import { AuthThrottlerGuard } from './guards/auth-throttler.guard';
 import { AllowTempPassword } from './decorators/allow-temp-password.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
 import type { AuthUser } from './decorators/current-user.decorator';
@@ -18,13 +18,12 @@ import { Public } from './decorators/public.decorator';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
-import { RegisterDto } from './dto/register.dto';
+import type { Request } from 'express';
 
-// Rate limit (V4-07): IP тутамд login 5/мин, register 3/мин.
+// Rate limit (V4-07): IP тутамд login 5/мин.
 // Тест орчинд AUTH_RATE_LIMIT env-ээр өндөр лимит тавьдаг.
 const ENV_LIMIT = parseInt(process.env.AUTH_RATE_LIMIT ?? '', 10);
 const LOGIN_LIMIT = Number.isFinite(ENV_LIMIT) ? ENV_LIMIT : 5;
-const REGISTER_LIMIT = Number.isFinite(ENV_LIMIT) ? ENV_LIMIT : 3;
 // change-password нь ХУУЧИН нууц үгийг хязгааргүй таах суваг байсан —
 // login-тэй ижил хатуу лимиттэй болголоо.
 const CHANGE_PASSWORD_LIMIT = Number.isFinite(ENV_LIMIT) ? ENV_LIMIT : 5;
@@ -42,24 +41,21 @@ export class AuthController {
   @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(AuthThrottlerGuard)
   @Throttle({ default: { limit: LOGIN_LIMIT, ttl: 60_000 } })
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  login(@Body() dto: LoginDto, @Req() req: Request) {
+    // IP нь амжилтгүй оролдлогын бүртгэлд ордог — довтолгоо нэг эх
+    // сурвалжаас ирж буйг таних гол мэдээлэл (V5)
+    return this.authService.login(
+      dto,
+      req.ip ?? null,
+      req.get('user-agent') ?? null,
+    );
   }
 
-  @Public()
-  @Post('register')
-  @UseGuards(AuthThrottlerGuard)
-  @Throttle({ default: { limit: REGISTER_LIMIT, ttl: 60_000 } })
-  register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
-  }
 
   @Public()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(AuthThrottlerGuard)
   @Throttle({ default: { limit: REFRESH_LIMIT, ttl: 60_000 } })
   refresh(@Body() dto: RefreshDto) {
     return this.authService.refresh(dto);
@@ -77,10 +73,21 @@ export class AuthController {
   @Post('change-password')
   @AllowTempPassword()
   @HttpCode(HttpStatus.OK)
-  @UseGuards(AuthThrottlerGuard)
   @Throttle({ default: { limit: CHANGE_PASSWORD_LIMIT, ttl: 60_000 } })
   changePassword(@Body() dto: ChangePasswordDto, @CurrentUser() user: AuthUser) {
     return this.authService.changePassword(user.id, dto);
+  }
+
+  /**
+   * Өөрийн нэвтрэлтийн түүх (V5).
+   *
+   * Эрх шаардахгүй — хэрэглэгч ӨӨРИЙНХӨӨ түүхийг л харна. «Миний
+   * бүртгэлээр өөр хүн орсон уу» гэдгийг зөвхөн тухайн хүн таньж
+   * чадна, тиймээс түүнд харуулах нь хамгийн үр дүнтэй.
+   */
+  @Get('login-history')
+  loginHistory(@CurrentUser() user: AuthUser) {
+    return this.authService.loginHistory(user.id);
   }
 
   @Get('me')

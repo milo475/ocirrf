@@ -11,6 +11,7 @@ import type {
   AdminDashboard,
   ManagerDashboard,
   OperatorDashboard,
+  SellerDashboard,
 } from './dashboard.types';
 import type { ProductHealth, StockDriver } from './product-health.type';
 
@@ -26,6 +27,13 @@ function weekStart(): Date {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
   d.setDate(d.getDate() - 6);
+  return d;
+}
+
+/** Өнөөдрийн 00:00 */
+function todayStart(): Date {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
   return d;
 }
 
@@ -115,10 +123,15 @@ export class DashboardService {
       // snapshot өртөг (costAtOrder × qty)
       this.prisma.$queryRaw<
         { revenue: unknown; cost: unknown }[]
-      >`SELECT COALESCE(SUM(oi."lineTotal"), 0) AS revenue,
-               COALESCE(SUM(oi."costAtOrder" * oi.qty), 0) AS cost
+      >`SELECT COALESCE(SUM(oi."priceAtOrder" * (oi.qty - COALESCE(r.qty, 0))), 0) AS revenue,
+               COALESCE(SUM(oi."costAtOrder" * (oi.qty - COALESCE(r.qty, 0))), 0) AS cost
         FROM "OrderItem" oi
         JOIN "Order" o ON o.id = oi."orderId"
+        LEFT JOIN (
+          SELECT ri."orderItemId", SUM(ri.qty) AS qty
+          FROM "OrderReturnItem" ri
+          GROUP BY ri."orderItemId"
+        ) r ON r."orderItemId" = oi.id
         WHERE o."orderStatus" != 'CANCELLED'`,
     ]);
 
@@ -174,61 +187,171 @@ export class DashboardService {
   }
 
   /** OPERATOR самбар: өөрийн шивэлт + бага үлдэгдлийн анхааруулга */
+  /**
+   * Харилцагчийн (нийлүүлэгчийн) самбар — ЗӨВХӨН өөрийн компанийнх.
+   * Өмнө нь энэ метод бүх барааны бага үлдэгдлийг буцаадаг байсан тул
+   * гаднын түнш дотоод нөөцийг хардаг байв.
+   */
   async operator(userId: string): Promise<OperatorDashboard> {
-    const since = weekStart();
-
-    const [myOrdersTotal, myDelivered, my7, lowStockProducts] =
-      await Promise.all([
-        this.prisma.order.count({ where: { createdById: userId } }),
-        this.prisma.order.count({
-          where: {
-            createdById: userId,
-            deliveryStatus: DeliveryStatus.DELIVERED,
-          },
-        }),
-        this.prisma.order.findMany({
-          where: { createdById: userId, createdAt: { gte: since } },
-          select: { createdAt: true },
-        }),
-        this.prisma.product.findMany({
-          where: {
-            isActive: true,
-            stockQty: { lte: this.prisma.product.fields.lowStockLimit },
-          },
-          select: {
-            id: true,
-            name: true,
-            sku: true,
-            stockQty: true,
-            lowStockLimit: true,
-          },
-          orderBy: { stockQty: 'asc' },
-        }),
-      ]);
-
-    const days = new Map<string, { date: string; count: number }>();
-    for (let i = 0; i < 7; i++) {
-      const key = dayKey(new Date(since.getTime() + i * 86_400_000));
-      days.set(key, { date: key, count: 0 });
-    }
-    for (const o of my7) {
-      const row = days.get(dayKey(o.createdAt));
-      if (row) row.count += 1;
+    const me = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { company: { select: { id: true, name: true } } },
+    });
+    const company = me?.company ?? null;
+    if (!company) {
+      return {
+        company: null,
+        supplies: 0,
+        totalCost: new Prisma.Decimal(0),
+        paidAmount: new Prisma.Decimal(0),
+        dueAmount: new Prisma.Decimal(0),
+        lastSupplyAt: null,
+        lowStockProducts: [],
+        recentSupplies: [],
+      };
     }
 
+    const [agg, recent, low] = await Promise.all([
+      this.prisma.supply.aggregate({
+        where: { companyId: company.id },
+        _count: { _all: true },
+        _sum: { totalCost: true, paidAmount: true },
+        _max: { createdAt: true },
+      }),
+      this.prisma.supply.findMany({
+        where: { companyId: company.id },
+        include: { items: true },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+      }),
+      this.prisma.product.findMany({
+        where: {
+          companyId: company.id,
+          isActive: true,
+          stockQty: { lte: this.prisma.product.fields.lowStockLimit },
+        },
+        select: {
+          id: true,
+          name: true,
+          stockQty: true,
+          lowStockLimit: true,
+        },
+        orderBy: { stockQty: 'asc' },
+      }),
+    ]);
+
+    const total = agg._sum.totalCost ?? new Prisma.Decimal(0);
+    const paid = agg._sum.paidAmount ?? new Prisma.Decimal(0);
     return {
-      myOrdersTotal,
-      myDelivered,
-      myDr:
-        myOrdersTotal > 0
-          ? Math.round((myDelivered / myOrdersTotal) * 100) / 100
-          : 0,
-      last7Days: [...days.values()],
-      lowStockProducts,
+      company,
+      supplies: agg._count._all,
+      totalCost: total,
+      paidAmount: paid,
+      dueAmount: total.minus(paid),
+      lastSupplyAt: agg._max.createdAt ?? null,
+      lowStockProducts: low,
+      recentSupplies: recent.map((r) => ({
+        id: r.id,
+        number: r.number,
+        createdAt: r.createdAt,
+        totalCost: r.totalCost,
+        dueAmount: r.totalCost.minus(r.paidAmount),
+        items: r.items.map((i) => `${i.productName} ×${i.qty}`).join(', '),
+      })),
     };
   }
 
-  /** MANAGER самбар: орлого/зарлага, хуваарилалт хүлээж буй, жолоочийн ачаалал */
+  /**
+   * Борлуулагчийн самбар (V5) — гурван алхмын гацаа:
+   * 1) хүлээгдэж буй хүсэлт, 2) өнөөдөр батласан,
+   * 3) жолооч хүлээж буй захиалга, 4) өнөөдөр хүргэлтэд гаргасан.
+   */
+  async seller(): Promise<SellerDashboard> {
+    const today = todayStart();
+    const WAITING: OrderStatus[] = [
+      OrderStatus.CONFIRMED,
+      OrderStatus.PREPARING,
+      OrderStatus.READY,
+    ];
+
+    const [
+      newRequests,
+      convertedToday,
+      unassignedOrders,
+      releasedToday,
+      pending,
+      awaiting,
+      failed,
+    ] = await Promise.all([
+      this.prisma.orderRequest.count({ where: { status: 'NEW' } }),
+      this.prisma.orderRequest.count({
+        where: { status: 'CONVERTED', handledAt: { gte: today } },
+      }),
+      this.prisma.order.count({
+        where: { orderStatus: { in: WAITING }, assignedDriverId: null },
+      }),
+      this.prisma.order.count({ where: { assignedAt: { gte: today } } }),
+      this.prisma.orderRequest.findMany({
+        where: { status: 'NEW' },
+        orderBy: { createdAt: 'asc' },
+        take: 8,
+        select: {
+          id: true,
+          customerName: true,
+          phone: true,
+          socialName: true,
+          channel: true,
+          paid: true,
+          createdAt: true,
+        },
+      }),
+      this.prisma.order.findMany({
+        where: { orderStatus: { in: WAITING }, assignedDriverId: null },
+        orderBy: { createdAt: 'asc' },
+        take: 10,
+      }),
+      // Амжилтгүй хүргэлт — хэрэглэгчтэй ярьдаг нь борлуулагч тул
+      // дахин ярилцаж жолооч солих нь түүний ажил
+      this.prisma.order.findMany({
+        where: {
+          deliveryStatus: DeliveryStatus.FAILED,
+          orderStatus: { notIn: [OrderStatus.COMPLETED, OrderStatus.CANCELLED] },
+        },
+        include: { assignedDriver: { select: { fullName: true } } },
+        orderBy: { updatedAt: 'desc' },
+        take: 10,
+      }),
+    ]);
+
+    return {
+      newRequests,
+      convertedToday,
+      unassignedOrders,
+      releasedToday,
+      pendingRequests: pending,
+      awaitingDriver: awaiting.map((o) => ({
+        id: o.id,
+        orderNo: o.orderNo,
+        customerName: o.customerName,
+        phone: o.phone,
+        shortAddress: formatShortAddress(o),
+        district: o.district,
+        totalAmount: o.totalAmount,
+        createdAt: o.createdAt,
+      })),
+      failedDeliveries: failed.map((o) => ({
+        id: o.id,
+        orderNo: o.orderNo,
+        customerName: o.customerName,
+        phone: o.phone,
+        shortAddress: formatShortAddress(o),
+        driverName: o.assignedDriver?.fullName ?? null,
+        deliveryNote: o.deliveryNote,
+        totalAmount: o.totalAmount,
+      })),
+    };
+  }
+
   async manager(): Promise<ManagerDashboard> {
     const [stockLast7Days, awaitingAssignment, drivers, loadGroups] =
       await Promise.all([

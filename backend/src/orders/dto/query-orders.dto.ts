@@ -6,10 +6,12 @@ import {
   IsString,
   IsUUID,
   Max,
+  MaxLength,
   Min,
 } from 'class-validator';
 import {
   DeliveryStatus,
+  OrderChannel,
   OrderStatus,
   PaymentStatus,
 } from '../../generated/prisma/client';
@@ -27,6 +29,16 @@ export class QueryOrdersDto {
   @IsEnum(PaymentStatus, { message: 'Төлбөрийн статус буруу' })
   paymentStatus?: PaymentStatus;
 
+  @IsOptional()
+  @IsEnum(OrderChannel, { message: 'Суваг буруу' })
+  channel?: OrderChannel;
+
+  /** УБ-ын дүүргээр шүүх (жишээ: ХУД) */
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  district?: string;
+
   /** Тухайн жолоочид хуваарилагдсан захиалгууд */
   @IsOptional()
   @IsUUID('4', { message: 'driverId буруу форматтай' })
@@ -35,6 +47,7 @@ export class QueryOrdersDto {
   /** orderNo / customerName / phone дээр хайна */
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   search?: string;
 
   @IsOptional()

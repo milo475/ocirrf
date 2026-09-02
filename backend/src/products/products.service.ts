@@ -44,6 +44,7 @@ export class ProductsService {
     const {
       search,
       categoryId,
+      companyId,
       isActive = true,
       lowStock,
       page = 1,
@@ -53,6 +54,7 @@ export class ProductsService {
     const where: Prisma.ProductWhereInput = {
       isActive,
       ...(categoryId ? { categoryId } : {}),
+      ...(companyId ? { companyId } : {}),
       // stockQty <= lowStockLimit — багана хоорондын харьцуулалт (field reference)
       ...(lowStock
         ? { stockQty: { lte: this.prisma.product.fields.lowStockLimit } }
@@ -72,7 +74,7 @@ export class ProductsService {
     const [items, total] = await Promise.all([
       this.prisma.product.findMany({
         where,
-        include: { category: true },
+        include: { category: true, company: true },
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
         take: limit,
@@ -89,7 +91,7 @@ export class ProductsService {
   async findOne(id: string, user?: AuthUser) {
     const product = await this.prisma.product.findUnique({
       where: { id },
-      include: { category: true },
+      include: { category: true, company: true },
     });
     if (!product) {
       throw new NotFoundException('Бараа олдсонгүй');
@@ -110,7 +112,9 @@ export class ProductsService {
           price: dto.price, // string → Decimal, float-гүй
           costPrice: dto.costPrice ?? '0',
           lowStockLimit: dto.lowStockLimit,
+          daysSupply: dto.daysSupply,
           categoryId: dto.categoryId,
+          companyId: dto.companyId,
           unit: dto.unit,
           imageUrl: dto.imageUrl,
           isActive: dto.isActive,
@@ -140,6 +144,19 @@ export class ProductsService {
       }
       throw e;
     }
+  }
+
+  /** Байршуулсан зургийг барааны imageUrl-д холбоно (V5) */
+  async setImage(id: string, filename?: string) {
+    if (!filename) {
+      throw new BadRequestException('Зураг илгээнэ үү (jpg/png/webp, 3MB хүртэл)');
+    }
+    await this.findOne(id);
+    return this.prisma.product.update({
+      where: { id },
+      data: { imageUrl: `/api/uploads/${filename}` },
+      include: { category: true, company: true },
+    });
   }
 
   /** Жинхэнэ устгал биш — isActive=false (хуучин захиалгууд холбоотой) */

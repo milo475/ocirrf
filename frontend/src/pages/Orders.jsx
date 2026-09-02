@@ -4,9 +4,12 @@ import PaymentBadge from '../components/orders/PaymentBadge'
 import ReturnBadge from '../components/orders/ReturnBadge'
 import RegionBadge from '../components/orders/RegionBadge'
 import Badge, { STATUS_LABELS } from '../components/ui/Badge'
+import DriverOptions from '../components/orders/DriverOptions'
 import Button from '../components/ui/Button'
 import EmptyState from '../components/ui/EmptyState'
 import Input from '../components/ui/Input'
+import Modal from '../components/ui/Modal'
+import Select from '../components/ui/Select'
 import Spinner from '../components/ui/Spinner'
 import Table from '../components/ui/Table'
 import { useAuth } from '../context/AuthContext'
@@ -16,6 +19,8 @@ import { useToast } from '../components/ui/Toast'
 import { api } from '../lib/api'
 import { formatDateTime, formatMoney } from '../lib/format'
 import { openPickingSheet } from '../lib/pickingSheet'
+import { CHANNELS, channelLabel, channelStyle } from '../lib/channels'
+import { DISTRICTS } from '../data/aimags'
 
 const LIMIT = 20
 const DELIVERY_LABELS = {
@@ -30,6 +35,8 @@ const STATUS_TABS = ['', 'NEW', 'CONFIRMED', 'PREPARING', 'READY', 'COMPLETED', 
 
 /** Бэлтгэх хуудсанд сонгож болох статусууд (V4-11) */
 const PICKABLE = ['CONFIRMED', 'PREPARING']
+/** Жолооч хуваарилж болох статусууд (V5 — олноор хуваарилахад) */
+const ASSIGNABLE = ['CONFIRMED', 'PREPARING', 'READY']
 
 export default function Orders() {
   const navigate = useNavigate()
@@ -44,6 +51,8 @@ export default function Orders() {
   const [status, setStatus] = useState('')
   const [deliveryStatus, setDeliveryStatus] = useState('')
   const [paymentStatus, setPaymentStatus] = useState('')
+  const [channel, setChannel] = useState('')
+  const [district, setDistrict] = useState('')
   const [page, setPage] = useState(1)
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
@@ -63,10 +72,12 @@ export default function Orders() {
     if (status) q.set('status', status)
     if (deliveryStatus) q.set('deliveryStatus', deliveryStatus)
     if (paymentStatus) q.set('paymentStatus', paymentStatus)
+    if (channel) q.set('channel', channel)
+    if (district) q.set('district', district)
     api(`/orders?${q}`)
       .then(setData)
       .catch((e) => setError(e))
-  }, [search, status, deliveryStatus, paymentStatus, page])
+  }, [search, status, deliveryStatus, paymentStatus, channel, district, page])
 
   useEffect(() => {
     load()
@@ -121,6 +132,81 @@ export default function Orders() {
     }
   }
 
+  // ── Олноор жолооч хуваарилах (V5) ──
+  const [bulkOpen, setBulkOpen] = useState(false)
+  const [keeperOpen, setKeeperOpen] = useState(false)
+
+  const [autoBusy, setAutoBusy] = useState(false)
+
+  /**
+   * Дүүргээр автоматаар: жолоочийн харьяалах бүсээр сонгож, ачааллыг
+   * тэнцвэржүүлнэ. Аль хэдийн жолоочтой захиалгыг хөндөхгүй.
+   */
+  async function autoAssign() {
+    setAutoBusy(true)
+    try {
+      const res = await api('/orders/assign-driver/auto', {
+        method: 'PATCH',
+        body: { orderIds: [...selected] },
+      })
+      setSelected(new Set())
+      if (res.assigned.length > 0) {
+        toast.show(
+          t('{n} захиалга бүсээр нь хуваарилагдлаа', {
+            n: res.assigned.length,
+          }),
+        )
+      }
+      if (res.skipped.length > 0) {
+        toast.show(
+          `${t('Үлдсэн')} ${res.skipped.length}: ${res.skipped
+            .slice(0, 3)
+            .map((x) => `${x.orderNo} — ${x.reason}`)
+            .join('; ')}`,
+          { type: 'error' },
+        )
+      }
+      load()
+    } catch (e) {
+      toast.show(e.message, { type: 'error' })
+    } finally {
+      setAutoBusy(false)
+    }
+  }
+
+  /** Сонгосон захиалгуудыг няравт өгнө — түүний бэлтгэлийн самбарт гарна */
+  async function bulkAssignKeeper(warehouseId) {
+    const res = await api('/warehouse/assign', {
+      method: 'POST',
+      body: { warehouseId, orderIds: [...selected] },
+    })
+    setKeeperOpen(false)
+    setSelected(new Set())
+    toast.show(t('{n} захиалга няравт өглөө', { n: res.assigned }))
+    load()
+  }
+
+  async function bulkAssign(driverId) {
+    const res = await api('/orders/assign-driver/bulk', {
+      method: 'PATCH',
+      body: { driverId, orderIds: [...selected] },
+    })
+    setBulkOpen(false)
+    setSelected(new Set())
+    if (res.assigned > 0) {
+      toast.show(t('{n} захиалга хуваарилагдлаа', { n: res.assigned }))
+    }
+    if (res.failed.length > 0) {
+      toast.show(
+        t('Хуваарилж чадсангүй: {list}', {
+          list: res.failed.map((f) => f.orderNo).join(', '),
+        }),
+        { type: 'error' },
+      )
+    }
+    load()
+  }
+
   async function markPreparing() {
     setPreparing(true)
     let ok = 0
@@ -154,7 +240,7 @@ export default function Orders() {
       key: '_pick',
       header: '',
       render: (o) =>
-        PICKABLE.includes(o.orderStatus) ? (
+        [...PICKABLE, ...ASSIGNABLE].includes(o.orderStatus) ? (
           <input
             type="checkbox"
             checked={selected.has(o.id)}
@@ -171,6 +257,17 @@ export default function Orders() {
       render: (o) => <span className="font-mono">{o.orderNo}</span>,
     },
     { key: 'customerName', header: t('Хүлээн авагч') },
+    {
+      key: 'channel',
+      header: t('Суваг'),
+      render: (o) => (
+        <span
+          className={`inline-flex font-mono text-[10px] uppercase tracking-wide border rounded px-1 py-0.5 ${channelStyle(o.channel)}`}
+        >
+          {t(channelLabel(o.channel))}
+        </span>
+      ),
+    },
     {
       key: 'phone',
       header: t('Утас'),
@@ -217,6 +314,13 @@ export default function Orders() {
       ),
     },
     {
+      key: 'warehouse',
+      header: t('Нярав'),
+      render: (o) => (
+        <span className="text-ink-muted">{o.warehouse?.fullName ?? '—'}</span>
+      ),
+    },
+    {
       key: 'assignedDriver',
       header: t('Жолооч'),
       render: (o) => (
@@ -248,6 +352,26 @@ export default function Orders() {
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <h1 className="font-serif text-4xl font-medium">{t('Захиалга')}</h1>
         <span className="flex items-center gap-2">
+          {selected.size > 0 && hasPerm('orders.assign_driver') && (
+            <Button
+              variant="ghost"
+              loading={autoBusy}
+              onClick={autoAssign}
+              title={t('Жолоочийн харьяалах бүсээр сонгож, ачааллыг тэнцвэржүүлнэ')}
+            >
+              🎯 {t('Дүүргээр автоматаар')} ({selected.size})
+            </Button>
+          )}
+          {selected.size > 0 && hasPerm('orders.assign_driver') && (
+            <Button variant="ghost" onClick={() => setBulkOpen(true)}>
+              🚚 {t('Жолооч хуваарилах')} ({selected.size})
+            </Button>
+          )}
+          {selected.size > 0 && hasPerm('orders.assign_warehouse') && (
+            <Button variant="ghost" onClick={() => setKeeperOpen(true)}>
+              📦 {t('Нярав хуваарилах')} ({selected.size})
+            </Button>
+          )}
           {selected.size > 0 && (
             <Button
               variant="ghost"
@@ -284,7 +408,37 @@ export default function Orders() {
             {s ? t(STATUS_LABELS[s]) : t('Бүгд')}
           </button>
         ))}
-        <div className="ml-auto flex items-end gap-2">
+        <div className="w-full sm:w-auto sm:ml-auto grid grid-cols-2 gap-2 sm:flex sm:items-end">
+          <select
+            value={district}
+            onChange={(e) => {
+              setDistrict(e.target.value)
+              setPage(1)
+            }}
+            className="bg-bg border border-rule rounded px-2 py-2 text-sm focus:outline-none focus:border-ink-muted"
+          >
+            <option value="">{t('Дүүрэг')}: {t('Бүгд')}</option>
+            {DISTRICTS.map((d) => (
+              <option key={d} value={d}>
+                {d}
+              </option>
+            ))}
+          </select>
+          <select
+            value={channel}
+            onChange={(e) => {
+              setChannel(e.target.value)
+              setPage(1)
+            }}
+            className="bg-bg border border-rule rounded px-2 py-2 text-sm focus:outline-none focus:border-ink-muted"
+          >
+            <option value="">{t('Суваг')}: {t('Бүгд')}</option>
+            {CHANNELS.map(([value, label]) => (
+              <option key={value} value={value}>
+                {t(label)}
+              </option>
+            ))}
+          </select>
           <select
             value={paymentStatus}
             onChange={(e) => {
@@ -318,7 +472,7 @@ export default function Orders() {
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder={t('№, нэр, утас…')}
-            className="w-56"
+            className="col-span-2 sm:col-span-1 w-full sm:w-56"
           />
         </div>
       </div>
@@ -348,6 +502,27 @@ export default function Orders() {
         )}
       </div>
 
+      {bulkOpen && (
+        <BulkAssignModal
+          count={selected.size}
+          districts={(data?.items ?? [])
+            .filter((o) => selected.has(o.id))
+            .map((o) => o.district)}
+          onClose={() => setBulkOpen(false)}
+          onAssign={bulkAssign}
+          t={t}
+        />
+      )}
+
+      {keeperOpen && (
+        <BulkKeeperModal
+          count={selected.size}
+          onClose={() => setKeeperOpen(false)}
+          onAssign={bulkAssignKeeper}
+          t={t}
+        />
+      )}
+
       {/* Хэвлэсний дараах шилжүүлэлт (V4-11) */}
       <ConfirmDialog
         open={!!prepareAsk}
@@ -362,5 +537,125 @@ export default function Orders() {
         onCancel={() => setPrepareAsk(null)}
       />
     </div>
+  )
+}
+
+/** Олноор няравт хуваарилах цонх (V5) */
+function BulkKeeperModal({ count, onClose, onAssign, t }) {
+  const [keepers, setKeepers] = useState(null)
+  const [warehouseId, setWarehouseId] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    api('/warehouse/keepers')
+      .then(setKeepers)
+      .catch(() => setKeepers([]))
+  }, [])
+
+  async function submit(e) {
+    e.preventDefault()
+    if (!warehouseId) return
+    setBusy(true)
+    try {
+      await onAssign(warehouseId)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} title={t('Нярав хуваарилах')}>
+      <form onSubmit={submit} className="space-y-4">
+        <p className="text-sm text-ink-muted">
+          {t('Сонгосон {n} захиалга тухайн няравын бэлтгэлийн самбарт орно.', {
+            n: count,
+          })}
+        </p>
+        {keepers === null ? (
+          <p className="text-sm text-ink-muted">…</p>
+        ) : keepers.length === 0 ? (
+          <p className="text-sm text-ink-muted">
+            {t('Идэвхтэй нярав алга — User хэсэгт нэмнэ үү')}
+          </p>
+        ) : (
+          <Select
+            id="bulk-keeper"
+            label={t('Нярав')}
+            value={warehouseId}
+            onChange={(e) => setWarehouseId(e.target.value)}
+          >
+            <option value="">—</option>
+            {keepers.map((k) => (
+              <option key={k.id} value={k.id}>
+                {k.fullName}
+              </option>
+            ))}
+          </Select>
+        )}
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="ghost" onClick={onClose} disabled={busy}>
+            {t('Болих')}
+          </Button>
+          <Button type="submit" loading={busy} disabled={!warehouseId}>
+            {t('Хуваарилах')}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+/** Олноор жолооч хуваарилах цонх (V5) */
+function BulkAssignModal({ count, districts = [], onClose, onAssign, t }) {
+  const [drivers, setDrivers] = useState(null)
+  const [driverId, setDriverId] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    api('/drivers')
+      .then((list) => setDrivers(list.filter((d) => d.isActive)))
+      .catch(() => setDrivers([]))
+  }, [])
+
+  async function submit(e) {
+    e.preventDefault()
+    if (!driverId) return
+    setBusy(true)
+    try {
+      await onAssign(driverId)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} title={t('Жолооч хуваарилах')}>
+      <form onSubmit={submit} className="space-y-4">
+        <p className="text-sm text-ink-muted">
+          {t('Сонгосон {n} захиалгыг нэг жолоочид хуваарилна.', { n: count })}
+        </p>
+        {drivers === null ? (
+          <p className="text-sm text-ink-muted">…</p>
+        ) : (
+          <Select
+            id="bulk-driver"
+            label={t('Жолооч')}
+            value={driverId}
+            onChange={(e) => setDriverId(e.target.value)}
+          >
+            <option value="">—</option>
+            <DriverOptions drivers={drivers} districts={districts} />
+          </Select>
+        )}
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="ghost" onClick={onClose} disabled={busy}>
+            {t('Болих')}
+          </Button>
+          <Button type="submit" loading={busy} disabled={!driverId}>
+            {t('Хуваарилах')}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   )
 }

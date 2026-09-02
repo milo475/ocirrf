@@ -45,7 +45,7 @@ jobs:
         run: npx prisma migrate deploy
       - name: Prisma generate
         run: npx prisma generate
-      - name: Seed (e2e-ийн 4 хэрэглэгч + тариф)
+      - name: Seed (e2e-ийн хэрэглэгчид + бараа)
         run: npx prisma db seed
       - name: Build
         run: npm run build
@@ -70,7 +70,7 @@ jobs:
       - name: Build
         run: npm run build
 
-  # V4-15: цэвэр орчинд docker compose up → health OK → smoke-v3 ногоон
+  # V4-15: цэвэр орчинд docker compose up → health OK → smoke ногоон
   docker:
     name: Docker compose (smoke)
     runs-on: ubuntu-latest
@@ -92,7 +92,7 @@ jobs:
           docker compose logs app
           exit 1
       - name: Smoke test v3
-        run: bash backend/scripts/smoke-test-v3.sh
+        run: bash backend/scripts/smoke-test.sh
       - name: Down
         if: always()
         run: docker compose down -v

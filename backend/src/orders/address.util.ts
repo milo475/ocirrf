@@ -1,5 +1,22 @@
 import type { DeliveryRegion } from '../generated/prisma/client';
 
+/**
+ * Улаанбаатарын дүүргийн товчлолууд (V5) — frontend-ийн
+ * `data/aimags.js` дэх жагсаалттай ижил байх ёстой. Жолоочийн
+ * харьяалах бүсийг шалгахад ашиглана.
+ */
+export const DISTRICTS = [
+  'БГД',
+  'БЗД',
+  'ХУД',
+  'СБД',
+  'ЧД',
+  'СХД',
+  'НД',
+  'БНД',
+  'БХД',
+] as const;
+
 type AddressFields = {
   region: DeliveryRegion;
   district?: string | null;

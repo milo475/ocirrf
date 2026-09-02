@@ -6,12 +6,13 @@ import EmptyState from '../components/ui/EmptyState'
 import Input from '../components/ui/Input'
 import Select from '../components/ui/Select'
 import { useToast } from '../components/ui/Toast'
-import { useAuth } from '../context/AuthContext'
 import { useLang } from '../context/LanguageContext'
 import { AIMAGS, DISTRICTS } from '../data/aimags'
+import { khorooList } from '../data/khoroo'
 import { formatFullAddress } from '../lib/address'
 import { api } from '../lib/api'
 import { formatMoney } from '../lib/format'
+import { CHANNELS } from '../lib/channels'
 
 const PHONE_RE = /^\d{8}$/
 
@@ -91,31 +92,30 @@ function Stepper({ step, onBack, t }) {
   )
 }
 
-export default function OrderNew({ portal = false }) {
+export default function OrderNew() {
   const navigate = useNavigate()
   const toast = useToast()
   const { t } = useLang()
-  const { user } = useAuth()
 
   const [step, setStep] = useState(1)
-  // Нэг state — алхам хооронд болон горим солиход утга алдагдахгүй.
-  // Portal горимд хүлээн авагч профайлаас урьдчилан бөглөгдөнө.
-  const [form, setForm] = useState(() => ({
-    ...EMPTY_FORM,
-    ...(portal
-      ? { customerName: user?.name ?? '', customerPhone: user?.phone ?? '' }
-      : {}),
-  }))
+  // Нэг state — алхам хооронд болон горим солиход утга алдагдахгүй
+  const [form, setForm] = useState(() => ({ ...EMPTY_FORM }))
   const [errors, setErrors] = useState({})
   const [items, setItems] = useState([])
   const [submitting, setSubmitting] = useState(false)
   // Төлбөр төлсөн эсэх — "Төлсөн" бол бүтэн төлбөр захиалгатай хамт бүртгэгдэнэ
+  const [channel, setChannel] = useState('INSTAGRAM')
   const [paid, setPaid] = useState(false)
-  const [payMethod, setPayMethod] = useState('CASH')
 
   const isUB = form.region === 'ULAANBAATAR'
   const set = (key) => (e) => {
-    setForm((f) => ({ ...f, [key]: e.target.value }))
+    const value = e.target.value
+    setForm((f) => ({
+      ...f,
+      [key]: value,
+      // Дүүрэг солигдвол хуучин дүүргийн хороо утгагүй болно
+      ...(key === 'district' ? { khoroo: '' } : {}),
+    }))
     setErrors((er) => ({ ...er, [key]: undefined }))
   }
 
@@ -206,7 +206,8 @@ export default function OrderNew({ portal = false }) {
           ...(form.note.trim() ? { note: form.note.trim() } : {}),
           ...addr,
           // "Төлсөн" сонгосон бол бүтэн төлбөр хамт бүртгэгдэнэ (staff л)
-          ...(!portal && paid ? { paid: true, paymentMethod: payMethod } : {}),
+          channel,
+          ...(paid ? { paid: true } : {}),
           items: items.map((i) => ({
             productId: i.product.id,
             qty: Number(i.qty),
@@ -214,7 +215,7 @@ export default function OrderNew({ portal = false }) {
         },
       })
       toast.show(t('Захиалга {no} үүслээ', { no: order.orderNo }))
-      navigate(portal ? `/portal/orders/${order.id}` : `/orders/${order.id}`)
+      navigate(`/orders/${order.id}`)
     } catch (err) {
       toast.show(err.message, { type: 'error' })
       setStep(stepForError(err.message))
@@ -269,16 +270,23 @@ export default function OrderNew({ portal = false }) {
                     </option>
                   ))}
                 </Select>
-                <Input
+                <Select
                   id="a-khoroo"
                   label={t('Хороо')}
-                  type="number"
-                  min="1"
                   value={form.khoroo}
                   onChange={set('khoroo')}
                   error={errors.khoroo}
-                  className="font-mono"
-                />
+                  disabled={!form.district}
+                >
+                  <option value="">
+                    {form.district ? '—' : t('Эхлээд дүүргээ сонгоно уу')}
+                  </option>
+                  {khorooList(form.district).map((k) => (
+                    <option key={k} value={k}>
+                      {k}-р хороо
+                    </option>
+                  ))}
+                </Select>
               </div>
               <Input
                 id="a-building"
@@ -407,6 +415,29 @@ export default function OrderNew({ portal = false }) {
             </div>
           </div>
 
+          {/* Захиалга аль сувгаас ирсэн бэ (V5) */}
+          <div className="mt-8 border-t border-rule pt-6">
+            <p className="text-xs uppercase tracking-wide text-ink-muted mb-3">
+              {t('Захиалга ирсэн суваг')}
+            </p>
+            <div className="inline-flex border border-rule rounded overflow-hidden flex-wrap">
+              {CHANNELS.map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setChannel(value)}
+                  className={`px-4 py-2 text-sm font-medium transition-colors ${
+                    channel === value
+                      ? 'bg-accent/15 text-accent'
+                      : 'text-ink-muted hover:text-ink'
+                  }`}
+                >
+                  {t(label)}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="mt-8 flex justify-end">
             <Button onClick={goStep2} className="px-8">
               {t('Үргэлжлүүлэх')} →
@@ -420,7 +451,6 @@ export default function OrderNew({ portal = false }) {
           <ProductCatalog
             onPick={addProduct}
             excludeIds={items.map((i) => i.product.id)}
-            endpoint={portal ? '/portal/products' : '/products'}
           />
 
           {items.length === 0 ? (
@@ -508,8 +538,8 @@ export default function OrderNew({ portal = false }) {
               </p>
             </div>
 
-            {/* Төлбөр төлсөн эсэх — staff-д л (portal-д харагдахгүй) */}
-            {!portal && (
+            {/* Төлбөр төлсөн эсэх */}
+            {(
               <div className="mt-6 flex items-center justify-end gap-3 flex-wrap">
                 <span className="text-xs uppercase tracking-wide text-ink-muted">
                   {t('Төлбөр')}
@@ -535,16 +565,9 @@ export default function OrderNew({ portal = false }) {
                   </button>
                 </div>
                 {paid && (
-                  <select
-                    value={payMethod}
-                    onChange={(e) => setPayMethod(e.target.value)}
-                    aria-label={t('Хэлбэр')}
-                    className="bg-bg border border-rule rounded px-2 py-2 text-sm focus:outline-none focus:border-ink-muted"
-                  >
-                    <option value="CASH">{t('pay.cash')}</option>
-                    <option value="TRANSFER">{t('pay.transfer')}</option>
-                    <option value="CARD">{t('pay.card')}</option>
-                  </select>
+                  <span className="text-sm text-ink-muted self-center">
+                    {t('pay.transfer')}
+                  </span>
                 )}
               </div>
             )}

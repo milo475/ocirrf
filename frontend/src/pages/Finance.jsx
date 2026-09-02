@@ -15,10 +15,11 @@ import { api } from '../lib/api'
 import { formatDateTime, formatMoney, formatMoneyRound } from '../lib/format'
 
 const LIMIT = 20
-const CATEGORIES = {
-  INCOME: ['Борлуулалт', 'Урьдчилгаа', 'Бусад орлого'],
-  EXPENSE: ['Түрээс', 'Тээвэр', 'Хангамж', 'Цалин', 'Бусад зарлага'],
-}
+/**
+ * Ангиллууд одоо BACKEND-ээс ирнэ (GET /finance/categories).
+ * Өмнө нь энд монгол текст байсан тул DB-д «Түрээс» гэж бичигдэж,
+ * тайлан бүлэглэхэд тогтворгүй байв — одоо КОД хадгалагдана.
+ */
 /** Системийн авто ангиллуудын харагдах нэр */
 /**
  * Backend-ийн автомат ангилалууд. Эдгээр нь FinanceService/PaymentsService/
@@ -28,8 +29,20 @@ const CATEGORIES = {
  */
 const AUTO_CATEGORY = {
   PAYMENT: 'Захиалгын төлбөр',
-  REFUND: 'Буцаалт',
+  ORDER: 'Захиалгын төлбөр',
+  REFUND: 'Үйлчлүүлэгчид буцаалт',
   DRIVER_PAYROLL: 'Жолоочийн цалин',
+  SUPPLY: 'Бараа худалдан авалт',
+  SALARY: 'Ажилтны цалин',
+  RENT: 'Түрээс',
+  PACKAGING: 'Савлагаа, баглаа боодол',
+  TRANSPORT: 'Тээвэр, шатахуун',
+  MARKETING: 'Маркетинг, сурталчилгаа',
+  UTILITIES: 'Цахилгаан, ус, интернэт',
+  BANK_FEE: 'Банкны шимтгэл',
+  TAX: 'Татвар, хураамж',
+  OTHER_INCOME: 'Бусад орлого',
+  OTHER_EXPENSE: 'Бусад зарлага',
 }
 
 /** 30 хоногийн орлого/зарлагын хос багана */
@@ -109,6 +122,7 @@ export default function Finance() {
   ]
   const [tab, setTab] = useState(tabs[0])
   const [summary, setSummary] = useState(null)
+  const [position, setPosition] = useState(null)
   const [data, setData] = useState(null)
   const [page, setPage] = useState(1)
   const [error, setError] = useState(null)
@@ -125,6 +139,7 @@ export default function Finance() {
   const loadSummary = useCallback(() => {
     if (!canViewBoth) return
     api('/finance/summary?days=30').then(setSummary).catch(() => {})
+    api('/finance/position').then(setPosition).catch(() => {})
   }, [canViewBoth])
 
   const loadEntries = useCallback(() => {
@@ -222,6 +237,13 @@ export default function Finance() {
     <div>
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <h1 className="font-serif text-4xl font-medium">{t('Санхүү')}</h1>
+        <span className="flex items-center gap-4">
+          <Link
+            to="/finance/report"
+            className="text-sm text-accent hover:underline underline-offset-2"
+          >
+            {t('Орлого тайлан')} →
+          </Link>
         {hasPerm('finance.driver_payroll') && (
           <Link
             to="/finance/payroll"
@@ -230,13 +252,14 @@ export default function Finance() {
             {t('Жолоочийн цалин')} →
           </Link>
         )}
+        </span>
       </div>
 
       {/* 30 хоногийн тойм */}
       {canViewBoth && summary && (
         <section className="mt-8 border-t border-rule pt-6">
           <div className="grid md:grid-cols-[auto_1fr] gap-8 items-start">
-            <div className="flex [&>*]:basis-44 [&>*]:shrink-0 [&>*]:min-w-0 md:divide-x divide-rule">
+            <div className="grid grid-cols-2 gap-y-6 md:flex md:gap-y-0 [&>*]:min-w-0 md:[&>*]:basis-44 md:[&>*]:shrink-0 md:divide-x divide-rule">
               <MetricCard
                 label={t('Нийт орлого')}
                 value={formatMoneyRound(summary.income)}
@@ -254,6 +277,53 @@ export default function Finance() {
               <DualBars byDay={summary.byDay} t={t} />
             </div>
           </div>
+        </section>
+      )}
+
+      {/* САНХҮҮГИЙН БАЙРЛАЛ (V5) — мөнгөн урсгал «хэд орж гарсныг»
+          хэлдэг ч «хэн бидэнд өртэй, агуулахад хэдийн бараа байгааг»
+          хэлдэггүй. Нягтланд хэрэгтэй нөгөө тал нь энэ. */}
+      {position && (
+        <section className="mt-8 border-t border-rule pt-6">
+          <p className="text-xs uppercase tracking-wide text-ink-muted mb-4">
+            {t('Санхүүгийн байрлал')}
+          </p>
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            {[
+              ['Мөнгө', position.cash, null],
+              ['Авлага', position.receivable, 'Үйлчлүүлэгч бидэнд өртэй'],
+              ['Бараа материал', position.inventory, 'Агуулахын өртөг'],
+              ['Өглөг', position.payable, 'Бид нийлүүлэгчид өртэй'],
+            ].map(([label, value, note]) => (
+              <div
+                key={label}
+                className="border border-rule rounded-lg px-4 py-3 min-w-0"
+              >
+                <p className="text-sm text-ink-muted">{t(label)}</p>
+                <p className="mt-1 font-mono tabular-nums text-lg truncate">
+                  {formatMoneyRound(value)}
+                </p>
+                {note && (
+                  <p className="mt-0.5 text-xs text-ink-muted">{t(note)}</p>
+                )}
+              </div>
+            ))}
+            <div className="border border-ink rounded-lg px-4 py-3 min-w-0">
+              <p className="text-sm text-ink-muted">{t('Цэвэр байрлал')}</p>
+              <p className="mt-1 font-mono tabular-nums text-lg truncate">
+                {formatMoneyRound(position.net)}
+              </p>
+              <p className="mt-0.5 text-xs text-ink-muted">
+                {t('мөнгө + авлага + бараа − өглөг')}
+              </p>
+            </div>
+          </div>
+          {position.productsWithoutCost > 0 && (
+            <p className="mt-3 text-sm text-alarm">
+              ⚠ {position.productsWithoutCost}{' '}
+              {t('бараа өртөггүй тул бараа материал ба ашиг дутуу гарна')}
+            </p>
+          )}
         </section>
       )}
 
@@ -393,7 +463,7 @@ function Receivables({ data, t }) {
   ]
   return (
     <div>
-      <div className="mb-5 flex [&>*]:basis-44 [&>*]:shrink-0 [&>*]:min-w-0 md:divide-x divide-rule">
+      <div className="mb-5 grid grid-cols-2 gap-y-6 md:flex md:gap-y-0 [&>*]:min-w-0 md:[&>*]:basis-44 md:[&>*]:shrink-0 md:divide-x divide-rule">
         <MetricCard
           label={t('Нийт авлага')}
           value={formatMoneyRound(data.totalRemaining)}
@@ -412,15 +482,22 @@ function Receivables({ data, t }) {
 
 /** Гараар гүйлгээ бүртгэх modal */
 function EntryForm({ type, onClose, onDone, t, toast }) {
-  const [category, setCategory] = useState(CATEGORIES[type][0])
-  const [customCategory, setCustomCategory] = useState('')
+  const [cats, setCats] = useState(null)
+  const [category, setCategory] = useState('')
   const [amount, setAmount] = useState('')
   const [entryDate, setEntryDate] = useState('')
   const [note, setNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
 
-  const isOther = category === '__other'
+  useEffect(() => {
+    api('/finance/categories')
+      .then((c) => {
+        setCats(c[type])
+        setCategory(c[type][0]?.code ?? '')
+      })
+      .catch(() => setCats([]))
+  }, [type])
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -431,7 +508,7 @@ function EntryForm({ type, onClose, onDone, t, toast }) {
         method: 'POST',
         body: {
           type,
-          category: isOther ? customCategory.trim() : category,
+          category,
           amount: amount.trim(),
           ...(note.trim() ? { note: note.trim() } : {}),
           ...(entryDate ? { entryDate: new Date(entryDate).toISOString() } : {}),
@@ -459,22 +536,12 @@ function EntryForm({ type, onClose, onDone, t, toast }) {
           value={category}
           onChange={(e) => setCategory(e.target.value)}
         >
-          {CATEGORIES[type].map((c) => (
-            <option key={c} value={c}>
-              {t(c)}
+          {(cats ?? []).map((c) => (
+            <option key={c.code} value={c.code}>
+              {t(c.label)}
             </option>
           ))}
-          <option value="__other">{t('Өөр ангилал…')}</option>
         </Select>
-        {isOther && (
-          <Input
-            id="fe-custom"
-            label={t('Ангиллын нэр')}
-            required
-            value={customCategory}
-            onChange={(e) => setCustomCategory(e.target.value)}
-          />
-        )}
         <Input
           id="fe-amount"
           label={t('Дүн')}

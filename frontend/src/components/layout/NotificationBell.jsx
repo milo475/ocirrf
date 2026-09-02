@@ -8,10 +8,15 @@ import { formatDateTime } from '../../lib/format'
 
 /** Мэдэгдэл дарахад очих хуудас — refType/refId + эрхээс хамаарна */
 export function notifTarget(n, role) {
+  // Харилцагч (нийлүүлэгч) дотоод хуудсанд хүрэхгүй — бага үлдэгдлийн
+  // мэдэгдэл нь өөрийнх нь самбар руу очно
+  if (role === 'OPERATOR') return '/'
   if (n.refType === 'order' && n.refId) {
     return role === 'DRIVER' ? '/deliveries' : `/orders/${n.refId}`
   }
+  if (n.refType === 'order-request') return '/order-requests'
   if (n.refType === 'product') return '/products'
+  if (n.refType === 'supply') return '/supplies'
   if (n.refType === 'payout') return '/finance/payroll'
   return '/notifications'
 }
@@ -40,11 +45,28 @@ export default function NotificationBell({ unread }) {
     return () => document.removeEventListener('mousedown', onDown)
   }, [])
 
+  /**
+   * Хонх дарж НЭЭХЭД мэдэгдлүүд уншсан болно (V5).
+   *
+   * Өмнө нь мэдэгдлээ хараад ч хонхны улаан тоо хэвээр үлдэж,
+   * шинэ зүйл ирсэн эсэхийг ялгах боломжгүй болдог байв.
+   *
+   * Жагсаалт нь ЭНЭ УДААД шинэ тэмдэглэгээгээ хадгална (дахин
+   * ачаалахгүй) — хэрэглэгч юу шинэ болохыг харсаар байна, зөвхөн
+   * тоо нь тэглэгдэнэ.
+   */
   function toggle() {
     if (!open) {
       setItems(null)
       api('/notifications?limit=10')
-        .then((d) => setItems(d.items))
+        .then((d) => {
+          setItems(d.items)
+          if (d.items.some((n) => !n.isRead)) {
+            api('/notifications/read-all', { method: 'POST' })
+              .then(() => window.dispatchEvent(new Event('notif:refresh')))
+              .catch(() => {})
+          }
+        })
         .catch(() => setItems([]))
     }
     setOpen((o) => !o)
@@ -107,7 +129,9 @@ export default function NotificationBell({ unread }) {
                       </span>
                       {n.body && (
                         <span className="block text-xs text-ink-muted truncate">
-                          {n.body}
+                          {/* Олон мөрт биетэй мэдэгдэлд (ORDER_RELEASED)
+                              хонх дээр эхний мөр нь л багтана */}
+                          {n.body.split('\n')[0]}
                         </span>
                       )}
                       <span className="block font-mono text-[10px] text-ink-muted tabular-nums mt-0.5">

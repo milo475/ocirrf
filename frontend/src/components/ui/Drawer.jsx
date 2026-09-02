@@ -25,7 +25,7 @@ export default function Drawer({ open, onClose, title, children, width = 420 }) 
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-40">
+    <div className="fixed inset-0 z-50">
       <button
         type="button"
         aria-label="Хаах"
@@ -40,7 +40,7 @@ export default function Drawer({ open, onClose, title, children, width = 420 }) 
           shown ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-rule">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-rule">
           <h2 className="font-serif text-lg font-medium">{title}</h2>
           <button
             type="button"
@@ -51,7 +51,9 @@ export default function Drawer({ open, onClose, title, children, width = 420 }) 
             ×
           </button>
         </div>
-        <div className="p-6">{children}</div>
+        {/* Утсан дээр доод tab bar-ын өндөрийг нөхнө — эс тэгвэл
+            төгсгөлийн товчнууд түүний ард дарагдана */}
+        <div className="p-4 sm:p-6 pb-24 md:pb-6">{children}</div>
       </aside>
     </div>
   )

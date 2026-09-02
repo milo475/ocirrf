@@ -38,6 +38,13 @@ export class DashboardController {
     return this.dashboardService.operator(user.id);
   }
 
+  /** Борлуулагчийн самбар (V5) */
+  @Get('seller')
+  @Roles(Role.SELLER, Role.ADMIN)
+  seller() {
+    return this.dashboardService.seller();
+  }
+
   @Get('manager')
   @Roles(Role.MANAGER, Role.ADMIN)
   manager() {

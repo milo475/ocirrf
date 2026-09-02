@@ -14,10 +14,9 @@ import {
 import { lockOrderForUpdate } from '../prisma/lock.util';
 import { PrismaService } from '../prisma/prisma.service';
 
+/** Хэлбэр нь зөвхөн шилжүүлэг — бэлэн мөнгө системд байхгүй (V5) */
 const METHOD_MN: Record<PaymentMethod, string> = {
-  CASH: 'Бэлэн',
   TRANSFER: 'Шилжүүлэг',
-  CARD: 'Карт',
 };
 
 /** paidAmount-аас төлбөрийн статус тооцно */

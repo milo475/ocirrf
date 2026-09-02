@@ -15,6 +15,7 @@ import { RequirePermission } from '../permissions/require-permission.decorator';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { CreateReturnDto } from './dto/create-return.dto';
 import { QueryOrdersDto } from './dto/query-orders.dto';
+import { UpdateOrderDto } from './dto/update-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { OrdersService } from './orders.service';
 import { ReturnsService } from './returns.service';
@@ -27,10 +28,6 @@ export class OrdersController {
   ) {}
 
   /** Захиалга шивэх — зөвхөн ADMIN, OPERATOR (эрхийн матриц v2) */
-  /**
-   * Permission статик биш: CUSTOMER role-оороо зөвшөөрөгдөнө, бусад нь
-   * orders.create — OrdersService дотор динамикаар шалгагдана.
-   */
   @Post()
   create(@Body() dto: CreateOrderDto, @CurrentUser() user: AuthUser) {
     return this.ordersService.create(dto, user);
@@ -47,6 +44,20 @@ export class OrdersController {
   @RequirePermission(PERM.ORDERS_VIEW)
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.ordersService.findOne(id);
+  }
+
+  /**
+   * Захиалга засах (V5) — хаяг, хүлээн авагч, бараа.
+   * Дууссан/цуцалсан захиалга хөшинө (service дотор шалгана).
+   */
+  @Patch(':id')
+  @RequirePermission(PERM.ORDERS_EDIT)
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateOrderDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.ordersService.update(id, dto, user);
   }
 
   /** V4: буцаалт бүртгэх — зөвхөн COMPLETED/DELIVERED захиалгад */

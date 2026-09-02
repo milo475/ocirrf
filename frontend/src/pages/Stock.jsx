@@ -15,10 +15,13 @@ const LIMIT = 20
 const REASONS = {
   ORDER: { label: 'reason.order', cls: 'text-status-new border-status-new/40 bg-status-new/12' },
   ORDER_CANCEL: { label: 'Цуцлалт', cls: 'text-status-cancelled border-status-cancelled/40 bg-status-cancelled/12' },
+  SUPPLY: { label: 'Нийлүүлэлт', cls: 'text-safe border-safe/40 bg-safe/12' },
+  ORDER_EDIT: { label: 'Захиалга засвар', cls: 'text-status-preparing border-status-preparing/40 bg-status-preparing/12' },
   PURCHASE_IN: { label: 'Орлого', cls: 'text-status-ready border-status-ready/40 bg-status-ready/12' },
   MANUAL_OUT: { label: 'Зарлага', cls: 'text-status-preparing border-status-preparing/40 bg-status-preparing/12' },
   CORRECTION: { label: 'Залруулга', cls: 'text-status-confirmed border-status-confirmed/40 bg-status-confirmed/12' },
   INITIAL: { label: 'Эхний орлого', cls: 'text-status-ready border-status-ready/40 bg-status-ready/12' },
+  EXPIRED: { label: 'Хугацаа дууссан', cls: 'text-alarm border-alarm/40 bg-alarm/12' },
   MANUAL: { label: 'Гар тохируулга', cls: 'text-ink-muted border-rule bg-surface' },
 }
 

@@ -14,6 +14,7 @@ import {
 import { lockOrderForUpdate } from '../prisma/lock.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateReturnDto } from './dto/create-return.dto';
+import { applyBatchDelta } from '../stock/batch.util';
 
 /** paidAmount-аас төлбөрийн статус тооцно (payments.service-тэй ижил дүрэм) */
 function statusFor(paid: Prisma.Decimal, total: Prisma.Decimal): PaymentStatus {
@@ -154,6 +155,7 @@ export class ReturnsService {
               userId: user.id,
             },
           });
+          await applyBatchDelta(tx, l.item.productId, l.qty);
         }
       }
 

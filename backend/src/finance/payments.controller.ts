@@ -27,7 +27,7 @@ class CreatePaymentDto {
   })
   amount: string;
 
-  @IsEnum(PaymentMethod, { message: 'Хэлбэр буруу (CASH/TRANSFER/CARD)' })
+  @IsEnum(PaymentMethod, { message: 'Хэлбэр буруу — зөвхөн TRANSFER (бэлэн мөнгө байхгүй)' })
   method: PaymentMethod;
 
   @IsOptional()

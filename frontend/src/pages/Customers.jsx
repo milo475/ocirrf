@@ -1,35 +1,31 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
+import CustomerHistoryModal from '../components/customers/CustomerHistoryModal'
 import Button from '../components/ui/Button'
 import EmptyState from '../components/ui/EmptyState'
 import Spinner from '../components/ui/Spinner'
 import Table from '../components/ui/Table'
-import { useToast } from '../components/ui/Toast'
-import { useAuth } from '../context/AuthContext'
 import { useLang } from '../context/LanguageContext'
 import { api } from '../lib/api'
 import { formatDateTime, formatMoney } from '../lib/format'
 
 export default function Customers() {
   const { t } = useLang()
-  const { hasPerm } = useAuth()
-  const toast = useToast()
   const navigate = useNavigate()
 
   // Харилцагч = бараа нийлүүлдэг түнш (системд OPERATOR эрхтэй) — default таб
-  const [tab, setTab] = useState('partners')
+  const [tab, setTab] = useState('companies')
+  const [companies, setCompanies] = useState(null)
   const [partners, setPartners] = useState(null)
-  const [registered, setRegistered] = useState(null)
   const [byPhone, setByPhone] = useState(null)
+  const [history, setHistory] = useState(null)
   const [error, setError] = useState(null)
-  const [togglingId, setTogglingId] = useState(null)
 
-  const canEdit = hasPerm('customers.edit')
 
   const load = useCallback(() => {
     setError(null)
+    api('/companies').then(setCompanies).catch((e) => setError(e))
     api('/customers/partners').then(setPartners).catch((e) => setError(e))
-    api('/customers/registered').then(setRegistered).catch((e) => setError(e))
     api('/customers/by-phone').then(setByPhone).catch((e) => setError(e))
   }, [])
 
@@ -37,23 +33,51 @@ export default function Customers() {
     load()
   }, [load])
 
-  async function toggleActive(c) {
-    setTogglingId(c.id)
-    try {
-      await api(`/customers/${c.id}/active`, {
-        method: 'PATCH',
-        body: { isActive: !c.isActive },
-      })
-      toast.show(t(c.isActive ? 'Идэвхгүй болголоо' : 'Идэвхжүүллээ'))
-      load()
-    } catch (e) {
-      toast.show(e.message, { type: 'error' })
-    } finally {
-      setTogglingId(null)
-    }
-  }
 
   const goOrders = (phone) => navigate(`/orders?search=${phone}`)
+
+  /** Харилцагч компани — оператор ба барааны тоотой */
+  const companyColumns = [
+    { key: 'name', header: t('Компани') },
+    {
+      key: 'phone',
+      header: t('Утас'),
+      render: (c) => (
+        <span className="font-mono tabular-nums">{c.phone ?? '—'}</span>
+      ),
+    },
+    {
+      key: 'operators',
+      header: t('Оператор'),
+      align: 'right',
+      render: (c) => (
+        <span className="font-mono tabular-nums">{c.operators}</span>
+      ),
+    },
+    {
+      key: 'products',
+      header: t('Бараа'),
+      align: 'right',
+      render: (c) => (
+        <span className="font-mono tabular-nums">{c.products}</span>
+      ),
+    },
+    {
+      key: 'active',
+      header: t('Идэвхтэй'),
+      render: (c) => (
+        <span
+          className={`inline-flex font-mono text-[10px] uppercase tracking-wide border rounded px-1 py-0.5 ${
+            c.isActive
+              ? 'text-safe border-safe/40 bg-safe/12'
+              : 'text-alarm border-alarm/40 bg-alarm/10'
+          }`}
+        >
+          {t(c.isActive ? 'Идэвхтэй' : 'Идэвхгүй')}
+        </span>
+      ),
+    },
+  ]
 
   /** Харилцагч (түнш) — нэр, холбоо, захиалгын статистик */
   const partnerColumns = [
@@ -115,58 +139,6 @@ export default function Customers() {
     },
   ]
 
-  const registeredColumns = [
-    { key: 'name', header: t('Нэр') },
-    {
-      key: 'email',
-      header: t('Имэйл'),
-      render: (c) => <span className="font-mono text-sm">{c.email}</span>,
-    },
-    {
-      key: 'phone',
-      header: t('Утас'),
-      render: (c) => (
-        <span className="font-mono tabular-nums">{c.phone ?? '—'}</span>
-      ),
-    },
-    {
-      key: 'orders',
-      header: t('Захиалга'),
-      align: 'right',
-      render: (c) => <span className="font-mono tabular-nums">{c.orders}</span>,
-    },
-    {
-      key: 'total',
-      header: t('Нийт дүн'),
-      align: 'right',
-      render: (c) => (
-        <span className="font-mono tabular-nums">
-          {formatMoney(c.totalAmount)}
-        </span>
-      ),
-    },
-    ...(canEdit
-      ? [
-          {
-            key: '_active',
-            header: '',
-            render: (c) => (
-              <Button
-                variant="ghost"
-                loading={togglingId === c.id}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  toggleActive(c)
-                }}
-                className="text-xs px-2 py-1"
-              >
-                {t(c.isActive ? 'Идэвхгүй болгох' : 'Идэвхжүүлэх')}
-              </Button>
-            ),
-          },
-        ]
-      : []),
-  ]
 
   const phoneColumns = [
     {
@@ -214,9 +186,9 @@ export default function Customers() {
 
       <div className="mt-8 flex gap-1 border-b border-rule pb-3 flex-wrap">
         {[
+          ['companies', 'Компаниуд', companies],
           ['partners', 'Харилцагчид', partners],
           ['phone', 'Захиалгын хүлээн авагчид', byPhone],
-          ['registered', 'Портал хэрэглэгчид', registered],
         ].map(([key, label, list]) => (
           <button
             key={key}
@@ -243,6 +215,18 @@ export default function Customers() {
             note={error.message}
             action={<Button onClick={load}>{t('Дахин оролдох')}</Button>}
           />
+        ) : tab === 'companies' ? (
+          !companies ? (
+            <div className="py-16 text-center">
+              <Spinner size={22} />
+            </div>
+          ) : (
+            <Table
+              columns={companyColumns}
+              rows={companies}
+              empty={t('Компани алга')}
+            />
+          )
         ) : tab === 'partners' ? (
           !partners ? (
             <div className="py-16 text-center">
@@ -255,19 +239,6 @@ export default function Customers() {
               empty={t('Харилцагч алга — Хэрэглэгчид хуудаснаас «Харилцагч» эрхтэйгээр бүртгэнэ')}
             />
           )
-        ) : tab === 'registered' ? (
-          !registered ? (
-            <div className="py-16 text-center">
-              <Spinner size={22} />
-            </div>
-          ) : (
-            <Table
-              columns={registeredColumns}
-              rows={registered}
-              onRowClick={(c) => c.phone && goOrders(c.phone)}
-              empty={t('Бүртгэлтэй харилцагч алга — portal-аар бүртгүүлсэн хэрэглэгчид энд гарна')}
-            />
-          )
         ) : !byPhone ? (
           <div className="py-16 text-center">
             <Spinner size={22} />
@@ -276,11 +247,20 @@ export default function Customers() {
           <Table
             columns={phoneColumns}
             rows={byPhone}
-            onRowClick={(c) => goOrders(c.phone)}
+            onRowClick={(c) =>
+              setHistory({ phone: c.phone, name: c.names?.[0] })
+            }
             empty={t('Захиалга алга')}
           />
         )}
       </div>
+      {history && (
+        <CustomerHistoryModal
+          phone={history.phone}
+          name={history.name}
+          onClose={() => setHistory(null)}
+        />
+      )}
     </div>
   )
 }

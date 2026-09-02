@@ -4,8 +4,10 @@
  */
 export const TRANSITIONS = {
   NEW: ['CONFIRMED', 'CANCELLED'],
-  CONFIRMED: ['PREPARING', 'CANCELLED'],
-  PREPARING: ['READY', 'CANCELLED'],
+  // CONFIRMED/PREPARING-ээс шууд COMPLETED руу явж болно (V5) — бэлтгэлийн
+  // хоёр алхам нь няравын ажил, түүнгүй ажиллах ч боломжтой
+  CONFIRMED: ['PREPARING', 'COMPLETED', 'CANCELLED'],
+  PREPARING: ['READY', 'COMPLETED', 'CANCELLED'],
   READY: ['COMPLETED'],
   COMPLETED: [],
   CANCELLED: [],

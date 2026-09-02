@@ -16,24 +16,25 @@ import Reports from './pages/Reports'
 import DeliveryOps from './pages/DeliveryOps'
 import Drivers from './pages/Drivers'
 import Finance from './pages/Finance'
+import FinanceReport from './pages/FinanceReport'
 import Login from './pages/Login'
+import PublicOrder from './pages/PublicOrder'
 import Notifications from './pages/Notifications'
 import Payroll from './pages/Payroll'
-import PortalHome from './pages/portal/PortalHome'
-import PortalNew from './pages/portal/PortalNew'
-import PortalOrderDetail from './pages/portal/PortalOrderDetail'
-import PortalOrders from './pages/portal/PortalOrders'
-import PortalProfile from './pages/portal/PortalProfile'
-import Register from './pages/Register'
 import MyDeliveries from './pages/MyDeliveries'
 import OrderDetail from './pages/OrderDetail'
 import OrderNew from './pages/OrderNew'
+import OrderRequests from './pages/OrderRequests'
 import Orders from './pages/Orders'
 import Products from './pages/Products'
 import Settings from './pages/Settings'
+import Expiry from './pages/Expiry'
+import Reorders from './pages/Reorders'
 import Stock from './pages/Stock'
+import Supplies from './pages/Supplies'
 import UserPermissions from './pages/UserPermissions'
 import Users from './pages/Users'
+import Warehouse from './pages/Warehouse'
 
 function App() {
   return (
@@ -45,7 +46,8 @@ function App() {
               <Routes>
                 {/* Login — nav-гүй, хамгаалалтгүй */}
                 <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
+                {/* Нийтийн захиалгын линк — нэвтрэлтгүй (V5) */}
+                <Route path="/z/:token" element={<PublicOrder />} />
                 {/* Түр нууц үг солих — ProtectedRoute-ийн ГАДНА (V4-06) */}
                 <Route path="/change-password" element={<ChangePassword />} />
 
@@ -63,14 +65,22 @@ function App() {
                      */}
                     <Route element={<PermRoute perm="orders.view" />}>
                       <Route path="/orders" element={<Orders />} />
+                      <Route path="/order-requests" element={<OrderRequests />} />
                       <Route path="/orders/:id" element={<OrderDetail />} />
                     </Route>
                     <Route element={<PermRoute perm="orders.create" />}>
                       <Route path="/orders/new" element={<OrderNew />} />
                     </Route>
+                    <Route element={<PermRoute perm="warehouse.handover" />}>
+                      <Route path="/warehouse" element={<Warehouse />} />
+                    </Route>
+                    <Route element={<PermRoute perm="supplies.view" />}>
+                      <Route path="/supplies" element={<Supplies />} />
+                    </Route>
                     <Route element={<PermRoute perm="inventory.view" />}>
                       <Route path="/products" element={<Products />} />
                       <Route path="/stock" element={<Stock />} />
+                      <Route path="/expiry" element={<Expiry />} />
                     </Route>
                     <Route
                       element={
@@ -84,6 +94,10 @@ function App() {
                       }
                     >
                       <Route path="/finance" element={<Finance />} />
+                      <Route
+                        path="/finance/report"
+                        element={<FinanceReport />}
+                      />
                     </Route>
                     <Route
                       element={<PermRoute perm="finance.driver_payroll" />}
@@ -112,6 +126,7 @@ function App() {
                     </Route>
                     <Route element={<PermRoute perm="customers.view" />}>
                       <Route path="/customers" element={<Customers />} />
+                      <Route path="/reorders" element={<Reorders />} />
                     </Route>
                     <Route element={<PermRoute perm="users.manage" />}>
                       <Route path="/users" element={<Users />} />
@@ -133,20 +148,6 @@ function App() {
                     </Route>
 
                     {/* Хүргэлт — зөвхөн DRIVER */}
-                    {/* CUSTOMER portal */}
-                    <Route element={<RoleRoute roles={['CUSTOMER']} />}>
-                      <Route path="/portal" element={<PortalHome />} />
-                      <Route path="/portal/new" element={<PortalNew />} />
-                      <Route path="/portal/orders" element={<PortalOrders />} />
-                      <Route
-                        path="/portal/orders/:id"
-                        element={<PortalOrderDetail />}
-                      />
-                      <Route
-                        path="/portal/profile"
-                        element={<PortalProfile />}
-                      />
-                    </Route>
 
                     <Route element={<RoleRoute roles={['DRIVER']} />}>
                       <Route path="/deliveries" element={<MyDeliveries />} />

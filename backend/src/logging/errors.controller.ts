@@ -22,6 +22,26 @@ export class ErrorsController {
       throw new BadRequestException('Огноо YYYY-MM-DD хэлбэртэй байна');
     }
     const items = await this.errorLog.read(date);
+
+    /**
+     * PRODUCTION-Д STACK TRACE-ЫГ НУУНА (V5).
+     *
+     * Stack нь дотоод файлын зам, кодын бүтцийг ил гаргадаг —
+     * халдагчид газрын зураг өгнө. Энэ хуудсыг зөвхөн ADMIN хардаг
+     * ч эрхийг нь хожим өргөтгөвөл шууд задарна.
+     *
+     * Файлд бүтнээрээ бичигдсэн хэвээр — серверт нэвтэрсэн хүн
+     * шаардлагатай үед бүтнээр нь харна.
+     */
+    if (process.env.NODE_ENV === 'production') {
+      return {
+        items: items.map(({ stack, ...rest }) => ({
+          ...rest,
+          stack: stack ? stack.split('\n')[0] : null,
+        })),
+        count: items.length,
+      };
+    }
     return { items, count: items.length };
   }
 

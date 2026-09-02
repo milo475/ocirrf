@@ -100,6 +100,50 @@ export default function Drivers() {
       ),
     },
     {
+      key: 'dr',
+      header: t('DR%'),
+      align: 'right',
+      render: (d) =>
+        d.dr === null ? (
+          <span className="text-ink-muted">—</span>
+        ) : (
+          <span
+            className={`font-mono tabular-nums ${d.dr >= 90 ? 'text-safe' : d.dr >= 70 ? '' : 'text-alarm'}`}
+            title={`${d.totalDelivered}/${d.assigned}`}
+          >
+            {d.dr}%
+          </span>
+        ),
+    },
+    {
+      key: 'zones',
+      header: t('Харьяалах бүс'),
+      render: (d) =>
+        d.zones?.length ? (
+          <span className="flex flex-wrap gap-1">
+            {d.zones.map((z) => (
+              <span
+                key={z}
+                className="font-mono text-[10px] border border-rule rounded px-1 py-0.5 text-ink-muted"
+              >
+                {z}
+              </span>
+            ))}
+          </span>
+        ) : (
+          <span className="text-ink-muted">—</span>
+        ),
+    },
+    {
+      key: 'employment',
+      header: t('Ажлын төрөл'),
+      render: (d) => (
+        <span className="text-sm text-ink-muted">
+          {d.employmentType === 'HOURLY' ? t('Цагийн') : t('Үндсэн')}
+        </span>
+      ),
+    },
+    {
       key: 'fee',
       header: t('Хөлс'),
       align: 'right',

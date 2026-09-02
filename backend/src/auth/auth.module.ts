@@ -4,11 +4,12 @@ import { PassportModule } from '@nestjs/passport';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { ActivityLogModule } from '../activity-log/activity-log.module';
 
 @Module({
   // Secret-үүдийг token бүрийн sign/verify дээр тусад нь өгдөг тул
   // JwtModule-ийг default тохиргоогүй бүртгэнэ.
-  imports: [PassportModule, JwtModule.register({})],
+  imports: [ActivityLogModule, PassportModule, JwtModule.register({})],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],
   exports: [AuthService],

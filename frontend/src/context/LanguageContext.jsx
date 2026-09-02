@@ -14,9 +14,7 @@ const DICT = {
     'table.range': '{from}–{to} / нийт {total}',
     'finance.income': 'Орлого',
     'finance.expense': 'Зарлага',
-    'pay.cash': 'Бэлэн',
     'pay.transfer': 'Шилжүүлэг',
-    'pay.card': 'Карт',
     'pay.remaining': 'Үлдэгдэл',
     'ret.partial': 'Хэсэгчлэн буцаасан',
     'ret.full': 'Буцаасан',
@@ -142,9 +140,7 @@ const DICT = {
     'Жагсаалт ачаалж чадсангүй': 'Failed to load list',
 
     // — Үлдэгдэл тохируулга —
-    'Үлдэгдэл тохируулах': 'Adjust stock',
     'Одоогийн үлдэгдэл:': 'Current stock:',
-    'Өөрчлөлт (+ орлого / − зарлага)': 'Change (+ in / − out)',
     'Жишээ: агуулахын тооллого': 'e.g. inventory count',
     '«{name}» үлдэгдэл: {qty} {unit}': '“{name}” stock: {qty} {unit}',
 
@@ -185,12 +181,7 @@ const DICT = {
 
     // — Шинэ захиалга —
     'Шинэ захиалга': 'New order',
-    'Хүргэлтийн заавар г.м. (заавал биш)': 'Delivery notes etc. (optional)',
-    'Бараа хайх — нэр эсвэл SKU…': 'Search items — name or SKU…',
     'Олдсонгүй': 'Not found',
-    '— нэмэгдсэн': '— added',
-    'Бараа сонгогдоогүй': 'No items selected',
-    'Дээрх хайлтаар бараа нэмнэ үү': 'Add items using the search above',
     '⚠ Үлдэгдэл: {n}': '⚠ In stock: {n}',
     'Мөр устгах': 'Remove row',
     'Захиалга үүсгэх': 'Create order',
@@ -272,7 +263,6 @@ const DICT = {
     'Ангиллын нэр': 'Category name',
     'Гүйлгээ нэмэгдлээ': 'Entry added',
     'Гүйлгээ олдсонгүй': 'No entries found',
-    'Захиалга (авто)': 'Order (auto)',
     'Тооцоо харах': 'View payroll',
     'Борлуулалт': 'Sales',
     'Урьдчилгаа': 'Advance payment',
@@ -320,12 +310,9 @@ const DICT = {
     'Өртөг': 'Cost',
     'Өртөг (₮)': 'Cost (₮)',
     'Ашиг': 'Profit',
-    'Ашиг %': 'Margin %',
     'Нийт ашиг': 'Total profit',
     'Нэгжийн өртөг (₮)': 'Unit cost (₮)',
-    'pay.cash': 'Cash',
     'pay.transfer': 'Transfer',
-    'pay.card': 'Card',
     'pay.remaining': 'Remaining',
 
     // — Буцаалт (V4-04) —
@@ -345,13 +332,6 @@ const DICT = {
 
     // — Хүргэлтийн тариф (V4-05) —
     'Хүргэлтийн хөлс': 'Delivery fee',
-    'Хүргэлтийн тариф': 'Delivery tariffs',
-    'Дүүрэггүй мөр нь тухайн бүсийн үндсэн тариф':
-      'Rows without a district are the default tariff for that region',
-    'Тариф хадгалагдлаа': 'Tariffs saved',
-    'Тариф давхардаж байна': 'Duplicate tariff',
-    'Дүүргийн тусгай тариф (УБ)': 'District-specific tariff (UB)',
-    'Тариф': 'Tariff',
 
     // — Нууц үг сэргээх (V4-06) —
     'Нууц үг сэргээх': 'Reset password',
@@ -376,26 +356,224 @@ const DICT = {
     'Түр (хуучин) нууц үг': 'Temporary (old) password',
     'Хадгалж байна…': 'Saving…',
     'Нууц үг солих': 'Change password',
-    'Одоогийн нууц үг': 'Current password',
-    'Нууц үг солигдлоо': 'Password changed',
     'Замд гарлаа': 'On my way',
 
     // — Нэршил: Харилцагч = бараа нийлүүлэгч түнш (OPERATOR эрх) —
     'Хүлээн авагч': 'Recipient',
     'Нийт хүлээн авагч': 'Total recipients',
     'Захиалгын хүлээн авагчид': 'Order recipients',
-    'Портал хэрэглэгчид': 'Portal users',
-    'Портал хэрэглэгч': 'Portal user',
     'Харилцагч алга — Хэрэглэгчид хуудаснаас «Харилцагч» эрхтэйгээр бүртгэнэ':
       'No partners yet — register them on the Users page with the "Partner" role',
-    'Шинэ хэрэглэгч үү?': 'New user?',
-    'Хэрэглэгчийн бүртгэл': 'User sign-up',
+
+    // — Олноор хуваарилах (V5) —
+    'Жолооч хуваарилах': 'Assign driver',
+    'Сонгосон {n} захиалгыг нэг жолоочид хуваарилна.':
+      'Assign the {n} selected orders to one driver.',
+    'Хуваарилах': 'Assign',
+    'идэвхтэй': 'active',
+    '{n} захиалга хуваарилагдлаа': '{n} orders assigned',
+    'Хуваарилж чадсангүй: {list}': 'Could not assign: {list}',
+    'DR%': 'DR%',
+
+    'Амжилтгүй хүргэлт': 'Failed deliveries',
+    'Хэрэглэгчтэй ярилцаад дахин жолооч хуваарилна':
+      'Call the customer, then assign a driver again',
+
+    // — Жолоочийн бүс (V5) —
+    'Жолоочийн бүс': 'Driver zones',
+    'Дүүрэг бүрт хэн явахыг эндээс тохируулна. «Дүүргээр автоматаар хуваарилах» энэ жагсаалтаар ажиллана.':
+      'Set who covers each district here. "Auto by district" runs off this list.',
+    'жолоочгүй': 'no driver',
+    'жолооч': 'drivers',
+    'Жолооч нэмэх': 'Add driver',
+    'хасах': 'remove',
+    'жолооч нэмэх': 'add driver',
+    'Бүсгүй жолооч': 'Drivers with no zone',
+    'Бүсгүй жолооч автомат хуваарилалтад орохгүй — гараар л өгнө':
+      'Drivers with no zone are skipped by auto-assign — assign them by hand',
+
+    'Цэс': 'Menu',
+
+    'Шинэ компани үүсгэх': 'Create a new company',
+    'Шинэ нийлүүлэгч компани': 'New supplier company',
+    'Үүсгэх': 'Create',
+    '{name} нэмэгдлээ': '{name} added',
+    '{name} аль хэдийн бүртгэлтэй — сонголоо':
+      '{name} already exists — selected it',
+
+    // — Эрхийн панелын нэршил: customers.* нь нийлүүлэгч компанийнх —
+    'Нийлүүлэгч компани': 'Supplier company',
+    'Захиалга цуцлах': 'Cancel orders',
+    'Маршрутын дараалал тавих': 'Set route order',
+    'Нийлүүлэгч компани харах': 'View supplier companies',
+    'Нийлүүлэгч компани засах': 'Edit supplier companies',
+
+    'Харилцагчаар шүүх': 'Filter by partner',
+
+    // — Нийлүүлэгчийн самбар (V5) —
+    'Нийлүүлэгч': 'Supplier',
+    'Танай компани бүртгэгдээгүй байна': 'Your company is not registered yet',
+    'Админ таныг харилцагч компанид холбосны дараа нийлүүлэлт, тооцоо энд харагдана':
+      'Once an admin links you to a partner company, your supplies and balance appear here',
+    'Таны нийлүүлсэн бараа ба тооцоо': 'Goods you supplied and your balance',
+    'Танд төлөх': 'We owe you',
+    'Төлөгдөөгүй үлдэгдэл байна': 'There is an unpaid balance',
+    'Дуусч буй таны бараа': 'Your goods running low',
+    'Бүх бараа хангалттай': 'All goods are in stock',
+    'Сүүлийн нийлүүлэлт': 'Recent supplies',
+    'Хандах эрх байхгүй': 'No access',
+
+    // — Нийлүүлэлт (V5) —
+    'Нийлүүлэлт': 'Supplies',
+    'Харилцагчаас хүлээж авсан бараа ба тооцоо':
+      'Goods received from partners and their balances',
+    '+ Бараа хүлээж авах': '+ Receive goods',
+    'Бараа хүлээж авах': 'Receive goods',
+    'Нийлүүлэлтүүд': 'Supplies',
+    'Харилцагчийн тооцоо': 'Partner balances',
+    'Нийлүүлэлт алга': 'No supplies yet',
+    'Харилцагчаас бараа хүлээж авахад энд бүртгэгдэнэ':
+      'Goods received from a partner are recorded here',
+    'Харилцагч алга': 'No partners',
+    'Нийт өртөг': 'Total cost',
+    'Өр': 'Owed',
+    'Нийт өр': 'Total owed',
+    'Сүүлд': 'Last',
+    'Төлбөр хийх': 'Make a payment',
+    'Үлдсэн өр': 'Remaining',
+    'Төлөх': 'Pay',
+    'Төлбөр бүртгэгдлээ': 'Payment recorded',
+    'Хүлээж авах': 'Receive',
+    '{no} бүртгэгдлээ': '{no} recorded',
+    'Өртөг': 'Cost',
+
+    // — Захиалга засах (V5) —
+    'Захиалга зассан': 'Order updated',
+    'Бараа нэмэх': 'Add product',
+    'Нэмэлт утас': 'Extra phone',
+    'Хүргэлтийн хаяг': 'Delivery address',
+    'Бүс': 'Region',
+    'Улаанбаатар': 'Ulaanbaatar',
+    'Нэмэлт хаяг': 'Address detail',
+    'Захиалгад дор хаяж 1 бараа байна': 'An order needs at least 1 product',
+    'Төлсөн дүн {paid} — дүн өөрчлөгдвөл төлбөрийн төлөв дагаж шинэчлэгдэнэ':
+      'Paid {paid} — the payment status follows the new total',
+
+    // — Борлуулагч (V5) —
+    'Борлуулагч': 'Seller',
+    'Борлуулагчийн самбар': 'Seller board',
+    'Хүсэлт шалгах → захиалга болгох → хүргэлтэд гаргах':
+      'Check request → convert to order → release to delivery',
+    'Хүлээгдэж буй хүсэлт': 'Pending requests',
+    'Өнөөдөр батласан': 'Confirmed today',
+    'Жолооч хүлээж буй': 'Awaiting driver',
+    'Өнөөдөр хүргэлтэд гарсан': 'Released today',
+    'Шалгах хүсэлтүүд': 'Requests to check',
+    'Бүгдийг харах': 'View all',
+    'Жолооч хүлээж буй захиалга': 'Orders awaiting a driver',
+    'Бүгд хуваарилагдсан': 'All assigned',
+
+    // — Худалдан авалтын түүх (V5) —
+    'Худалдан авалтын түүх': 'Purchase history',
+    'Анхны худалдан авалт — өмнөх захиалга алга':
+      'First purchase — no previous orders',
+    'Бусад нэр': 'Other names',
+    'цуцалсан': 'cancelled',
+    'Нийт дүн': 'Total',
+    'Авлага': 'Due',
+    'Анх': 'First',
+    'Ихэвчлэн авдаг': 'Usually buys',
+    'Захиалгууд': 'Orders',
+
+    // — Бүсээр хуваарилалт (V5) —
+    'Дүүргээр автоматаар': 'Auto by district',
+    'Жолоочийн харьяалах бүсээр сонгож, ачааллыг тэнцвэржүүлнэ':
+      'Picks by the driver’s assigned zone and balances the load',
+    '{n} захиалга бүсээр нь хуваарилагдлаа': '{n} orders assigned by zone',
+    'Үлдсэн': 'Skipped',
+    'бүсэд нь харьяалагдах': 'covered by their zone',
+    'Бусад жолооч — бүс нь таарахгүй': 'Other drivers — zone does not match',
+    'бүсгүй': 'no zone',
+    'Энэ жолоочийн харьяалах бүсэд {d} ороогүй байна':
+      '{d} is not in this driver’s assigned zones',
+
+    'Хуваарилаагүй {n} захиалга': '{n} unassigned orders',
+
+    // — Нярав (V5) —
+    'Нярав': 'Keeper',
+    'Нярав хуваарилах': 'Assign keeper',
+    'Сонгосон {n} захиалга тухайн няравын бэлтгэлийн самбарт орно.':
+      'The {n} selected orders go to that keeper’s prep board.',
+    'Идэвхтэй нярав алга — User хэсэгт нэмнэ үү':
+      'No active keeper — add one on the User page',
+    '{n} захиалга няравт өглөө': '{n} orders handed to the keeper',
+    'Бэлтгэл, жолоочид хүлээлгэн өгөх, хуудасны түүх':
+      'Preparation, driver handover and sheet history',
+    'Бэлтгэл': 'Preparation',
+    'Хүлээлгэсэн хуудсууд': 'Handover sheets',
+    'Надад хуваарилаагүйг ч харах': 'Show orders not assigned to me',
+    'Бэлтгэх захиалга алга': 'Nothing to prepare',
+    'Менежер захиалга хуваарилахад энд гарч ирнэ':
+      'Orders appear here once a manager assigns them',
+    'захиалга': 'orders',
+    'бэлэн': 'ready',
+    'Бэлэн': 'Ready',
+    'Нийт түүх бараа': 'Total goods to pick',
+    'Хүлээлгэн өгөх': 'Hand over',
+    'Баталгаажуулж хэвлэх': 'Confirm and print',
+    'Тэмдэглэл (заавал биш)': 'Note (optional)',
+    '{no} хуудас үүслээ': 'Sheet {no} created',
+    'Хуудас алга': 'No sheets yet',
+    'Хэвлэх цонхыг зөвшөөрнө үү': 'Please allow the print window',
+    'Бараа хүлээлгэн өгсөн хуудас': 'Goods handover sheet',
+    'Нийт хүлээлгэн өгсөн бараа': 'Total goods handed over',
+    'Захиалга тус бүр': 'Per order',
+    'Хүлээлгэн өгсөн (нярав)': 'Handed over by (keeper)',
+    'Хүлээн авсан (жолооч)': 'Received by (driver)',
+    'Баталгаажуулахад хуудас хэвлэгдэнэ — гарын үсгээ цаасан дээр нь зурна':
+      'Confirming prints the sheet — sign it on paper',
+
+    'Зураг солих': 'Change image',
+    'Зураг хадгалагдлаа': 'Image saved',
+
+    // — Захиалгын хүсэлт (V5) —
+    'Хүсэлтүүд': 'Requests',
+    'Хүсэлт алга': 'No requests',
+    'Захиалга болгох': 'Convert to order',
+    'Захиалга болсон': 'Converted',
+    'Хаасан': 'Closed',
+    'Хүсэлт хаах': 'Close request',
+    'Энэ хүсэлтийг хаах уу? Захиалга үүсэхгүй.':
+      'Close this request? No order will be created.',
+    'Хүсэлт хаагдлаа': 'Request closed',
+    'Гүйлгээний баримт': 'Payment receipt',
+    'Төлсөн гэсэн': 'Marked paid',
+    'Захиалгын линк хуулах': 'Copy order link',
+    'Линк хуулагдлаа': 'Link copied',
+
+    // — Компани / бүс (V5) —
+    'Харилцагч компани': 'Partner company',
+    'Компаниуд': 'Companies',
+    'Компани': 'Company',
+    'Оператор': 'Operators',
+    'Компани алга': 'No companies',
+    'Сонгоогүй': 'Not selected',
+    'Бүх харилцагч': 'All partners',
+    'Харьяалах бүс': 'Assigned zones',
+    'Эхлээд дүүргээ сонгоно уу': 'Select a district first',
+
+    // — Жолооч (V5) —
+    'Ажлын төрөл': 'Employment type',
+    'Үндсэн': 'Full-time',
+    'Цагийн': 'Hourly',
+
+    // — Суваг (V5) —
+    'Суваг': 'Channel',
+    'Захиалга ирсэн суваг': 'Order channel',
+    'Бусад': 'Other',
+    'захиалга': 'orders',
 
     // — Харилцагчид —
-    'Захиалгын харилцагчид': 'Order customers',
-    'Бүртгэлтэй (portal)': 'Registered (portal)',
-    'Бүртгэлтэй харилцагч алга — portal-аар бүртгүүлсэн хэрэглэгчид энд гарна':
-      'No registered customers — users who sign up via the portal appear here',
 
     // — Барааны каталог (сагс) —
     'Бараа шүүх — нэр, SKU, barcode…': 'Filter products — name, SKU, barcode…',
@@ -452,27 +630,11 @@ const DICT = {
     '«{name}»-ийн түгжээ тайлагдлаа': '"{name}" has been unlocked',
 
     // — Customer portal (V3-14) —
-    'Шинэ харилцагч уу?': 'New customer?',
-    'Бүртгүүлэх': 'Sign up',
-    'Бүртгэлтэй юу?': 'Already have an account?',
-    'Харилцагчийн бүртгэл': 'Customer sign-up',
     'Нууц үг давтах': 'Repeat password',
     'Нууц үг таарахгүй байна': 'Passwords do not match',
-    'Бүртгэж байна…': 'Signing up…',
-    'Миний самбар': 'My dashboard',
-    'Миний захиалгууд': 'My orders',
     'Профайл': 'Profile',
-    'Нийт {n} захиалга · {m} идэвхтэй': '{n} orders total · {m} active',
-    'Сүүлийн захиалгууд': 'Recent orders',
     'Захиалга алга': 'No orders yet',
-    'Эхний захиалгаа өгөөрэй!': 'Place your first order!',
-    'Профайл хадгалагдлаа': 'Profile saved',
     'Шинэ нууц үг': 'New password',
-    '(солих бол)': '(if changing)',
-    '(солих бол шинэ дугаар)': '(new number if changing)',
-    '← Миний захиалгууд': '← My orders',
-    'Нэхэмжлэх харах': 'View invoice',
-    'Нэхэмжлэх': 'Invoice',
     'Хэвлэх': 'Print',
 
     // — Аналитик, Тайлан, Харилцагчид, Тохиргоо (V3-17) —
@@ -504,20 +666,13 @@ const DICT = {
     'Тайлан татагдлаа': 'Report downloaded',
     'CSV файлууд Excel-д кирилл үсгээрээ зөв нээгдэнэ (UTF-8 BOM)':
       'CSV files open in Excel with Cyrillic intact (UTF-8 BOM)',
-    'Бүртгэлтэй': 'Registered',
     'Утасны захиалгаас': 'From phone orders',
     'Нэр(үүд)': 'Name(s)',
     'Сүүлийн захиалга': 'Last order',
     'Идэвхгүй болгох': 'Deactivate',
-    'Идэвхжүүлэх': 'Activate',
-    'Идэвхгүй болголоо': 'Deactivated',
-    'Идэвхжүүллээ': 'Activated',
-    'Бүртгэлтэй харилцагч алга': 'No registered customers',
     'Системийн тохиргоо': 'System settings',
     'Компанийн нэр': 'Company name',
     'Компанийн утас': 'Company phone',
-    'Харилцагч шинэ захиалгаа цуцлах боломжтой':
-      'Customers may cancel their new orders',
     'Тохиргоо хадгалагдлаа': 'Settings saved',
     'Төлөв': 'Status',
     'Идэвхтэй хүргэлт': 'Active deliveries',
@@ -601,7 +756,6 @@ const DICT = {
     // — Эрхийн самбарууд —
     'Удирдлагын самбар': 'Admin overview',
     'Нийт хүргэлт': 'Total deliveries',
-    'Нийт харилцагч': 'Total customers',
     'Нийт жолооч': 'Total drivers',
     'Хүргэлтэд гарсан': 'Out for delivery',
     'Амжилттай хүргэсэн': 'Delivered',
@@ -612,12 +766,6 @@ const DICT = {
     'хуваарилагдсан': 'assigned',
     'хүргэсэн': 'delivered',
 
-    'Операторын самбар': 'Operator overview',
-    'Миний шивсэн захиалга': 'My orders entered',
-    'Биелсэн': 'Fulfilled',
-    '7 хоногийн шивэлт': '7-day order entry',
-    'Бага үлдэгдэлтэй бараа': 'Low stock items',
-    'Бүх үлдэгдэл хэвийн': 'All stock levels healthy',
 
     'Менежерийн самбар': 'Manager overview',
     'Орлого / зарлага (7 хоног)': 'Stock in / out (7 days)',
@@ -630,7 +778,6 @@ const DICT = {
     'Завгүй': 'Busy',
     'Жолоочийн самбар': 'Driver overview',
     'Өнөөдрийн хүргэлт': "Today's deliveries",
-    'Авах цалин': 'Earnings',
     'Нийт хүргэсэн': 'Total delivered',
     'Хүргэлтээ эхлэх': 'Start deliveries',
     '7 хоног': '7 days',

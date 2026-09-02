@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { Link, useLocation, useParams } from 'react-router'
 import AssignDriverModal from '../components/orders/AssignDriverModal'
 import PaymentBadge from '../components/orders/PaymentBadge'
 import RegionBadge from '../components/orders/RegionBadge'
@@ -7,6 +7,7 @@ import ReturnBadge from '../components/orders/ReturnBadge'
 import Input from '../components/ui/Input'
 import Select from '../components/ui/Select'
 import Badge from '../components/ui/Badge'
+import DmReplyModal from '../components/orders/DmReplyModal'
 import Button from '../components/ui/Button'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import EmptyState from '../components/ui/EmptyState'
@@ -14,10 +15,13 @@ import Spinner from '../components/ui/Spinner'
 import Modal from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { useLang } from '../context/LanguageContext'
+import CustomerHistoryModal from '../components/customers/CustomerHistoryModal'
+import EditOrderDrawer from '../components/orders/EditOrderDrawer'
 import { useAuth } from '../context/AuthContext'
 import { api } from '../lib/api'
 import { formatDateTime, formatMoney } from '../lib/format'
 import { openPickingSheet } from '../lib/pickingSheet'
+import { channelLabel, channelStyle } from '../lib/channels'
 import { TRANSITIONS, TRANSITION_LABELS } from '../lib/orderStatus'
 
 function InfoItem({ label, value }) {
@@ -40,7 +44,12 @@ export default function OrderDetail() {
   const [busy, setBusy] = useState(false)
   const [cancelOpen, setCancelOpen] = useState(false)
   const [assignOpen, setAssignOpen] = useState(false)
+  // Хүсэлтийг батласны дараа шууд хуваарилах цонхтой ирнэ (V5)
+  const { state: navState } = useLocation()
   const [proofOpen, setProofOpen] = useState(false)
+  const [history, setHistory] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
+  const [dmOpen, setDmOpen] = useState(false)
 
   const load = useCallback(() => {
     setError(null)
@@ -52,6 +61,14 @@ export default function OrderDetail() {
   useEffect(() => {
     load()
   }, [load])
+
+  // Батласны дараа ирсэн бол хуваарилах цонхыг өөрөө нээнэ — гэхдээ
+  // захиалга ачаалагдаж, жолоочгүй нь тодорхой болсны дараа
+  useEffect(() => {
+    if (navState?.assign && order && !order.assignedDriver) {
+      setAssignOpen(true)
+    }
+  }, [navState, order])
 
   /**
    * Бэлтгэх хуудас хэвлэх. Orders.jsx-тэй ижил: SKU-г бараануудаас
@@ -127,11 +144,33 @@ export default function OrderDetail() {
     hasPerm('orders.change_status') &&
     (user?.role !== 'OPERATOR' || order.createdBy?.id === user?.id)
   const nextStatuses = canManage ? (TRANSITIONS[order.orderStatus] ?? []) : []
-  const forward = nextStatuses.filter((s) => s !== 'CANCELLED')
-  const canCancel = nextStatuses.includes('CANCELLED')
+  // Цуцлах нь тусдаа эрх (V5) — нярав төлөв ахиулна, цуцлахгүй
+  const canCancel =
+    nextStatuses.includes('CANCELLED') && hasPerm('orders.cancel')
   const canAssign =
     hasPerm('orders.assign_driver') &&
     (order.orderStatus === 'CONFIRMED' || order.orderStatus === 'PREPARING')
+
+  /**
+   * Товчны хэт олон сонголтыг цэгцлэв (V5):
+   * 1) Жолоочгүй байхад хийх ганц зүйл нь ЖОЛООЧ ХУВААРИЛАХ — бэлтгэлийн
+   *    товчнууд түүнээс өмнө утгагүй тул нуугдана.
+   * 2) «Бэлтгэж эхлэх»/«Бэлэн болсон» нь НЯРАВЫН алхмууд — тэднийхээ
+   *    самбар дээр байдаг. Няравын эрхгүй хүнд эндээс харагдахгүй,
+   *    оронд нь шууд «Дуусгах».
+   */
+  const isKeeper = hasPerm('warehouse.handover')
+  /** Дууссан/цуцалсан захиалга хөшинө — backend-тэй ижил жагсаалт */
+  const canEdit =
+    hasPerm('orders.edit') &&
+    ['NEW', 'CONFIRMED', 'PREPARING', 'READY'].includes(order.orderStatus)
+  const needsDriver = canAssign && !order.assignedDriver
+  const forward = nextStatuses.filter((s) => {
+    if (s === 'CANCELLED') return false
+    if (needsDriver) return false
+    if (!isKeeper && (s === 'PREPARING' || s === 'READY')) return false
+    return true
+  })
 
   return (
     <div className="max-w-3xl">
@@ -145,6 +184,19 @@ export default function OrderDetail() {
           <Badge status={order.orderStatus} />
           <Badge status={order.deliveryStatus} />
           <ReturnBadge state={order.returnState} />
+          <span
+            className={`inline-flex font-mono text-[10px] uppercase tracking-wide border rounded px-1 py-0.5 ${channelStyle(order.channel)}`}
+          >
+            {t(channelLabel(order.channel))}
+          </span>
+          {/* Үйлчлүүлэгч рүү илгээх хариу (V5).
+              NEW дээр харагдахгүй — хараахан баталгаажаагүй захиалгыг
+              «баталгаажлаа» гэж бичих нь худал болно. */}
+          {!['NEW', 'CANCELLED'].includes(order.orderStatus) && (
+            <Button variant="ghost" onClick={() => setDmOpen(true)}>
+              💬 {t('Хариу хуулах')}
+            </Button>
+          )}
           {/* Бэлтгэх хуудас (V4-11) — нэг захиалгаар */}
           {['CONFIRMED', 'PREPARING'].includes(order.orderStatus) && (
             <Button
@@ -163,7 +215,20 @@ export default function OrderDetail() {
         <InfoItem label={t('Хүлээн авагч')} value={order.customerName} />
         <InfoItem
           label={t('Утас')}
-          value={<span className="font-mono tabular-nums">{order.phone}</span>}
+          value={
+            hasPerm('customers.view') ? (
+              <button
+                type="button"
+                onClick={() => setHistory(true)}
+                title={t('Худалдан авалтын түүх')}
+                className="font-mono tabular-nums text-accent underline underline-offset-2"
+              >
+                {order.phone}
+              </button>
+            ) : (
+              <span className="font-mono tabular-nums">{order.phone}</span>
+            )
+          }
         />
         <InfoItem
           label={t('Огноо')}
@@ -345,7 +410,7 @@ export default function OrderDetail() {
       )}
 
       {/* Статусын шилжилтийн товчнууд */}
-      {(forward.length > 0 || canCancel || canAssign) && (
+      {(forward.length > 0 || canCancel || canAssign || canEdit) && (
         <section className="mt-10 border-t border-rule pt-6 flex items-center gap-3">
           {forward.map((s) => (
             <Button key={s} loading={busy} onClick={() => transition(s)}>
@@ -353,11 +418,19 @@ export default function OrderDetail() {
             </Button>
           ))}
           {canAssign && (
-            <Button variant="ghost" onClick={() => setAssignOpen(true)}>
+            <Button
+              variant={needsDriver ? 'primary' : 'ghost'}
+              onClick={() => setAssignOpen(true)}
+            >
               {/* ОН-д ачааны тээврээр явдаг тул текст өөр, үйлдэл адилхан */}
               {order.region === 'ORON_NUTAG'
                 ? t('Тээвэрт гаргах')
                 : t('Жолооч хуваарилах')}
+            </Button>
+          )}
+          {canEdit && (
+            <Button variant="ghost" onClick={() => setEditOpen(true)}>
+              ✎ {t('Засах')}
             </Button>
           )}
           {canCancel && (
@@ -371,6 +444,10 @@ export default function OrderDetail() {
             </Button>
           )}
         </section>
+      )}
+
+      {dmOpen && (
+        <DmReplyModal order={order} onClose={() => setDmOpen(false)} />
       )}
 
       {assignOpen && (
@@ -408,23 +485,38 @@ export default function OrderDetail() {
         onConfirm={() => transition('CANCELLED')}
         onCancel={() => setCancelOpen(false)}
       />
+      {editOpen && (
+        <EditOrderDrawer
+          order={order}
+          onClose={() => setEditOpen(false)}
+          onSaved={() => {
+            setEditOpen(false)
+            load()
+          }}
+        />
+      )}
+
+      {history && (
+        <CustomerHistoryModal
+          phone={order.phone}
+          name={order.customerName}
+          onClose={() => setHistory(false)}
+        />
+      )}
     </div>
   )
 }
 
-const PAY_METHODS = [
-  ['CASH', 'pay.cash'],
-  ['TRANSFER', 'pay.transfer'],
-  ['CARD', 'pay.card'],
-]
-const methodLabel = (m) =>
-  PAY_METHODS.find(([k]) => k === m)?.[1] ?? m
+/**
+ * Төлбөр зөвхөн ШИЛЖҮҮЛЭГ (V5) — компани бэлэн мөнгөөр үйлчлэхгүй.
+ * Сонголт байхгүй тул алдаа гарах, зөрчих ч боломжгүй.
+ */
+const methodLabel = (m) => (m === 'TRANSFER' ? 'pay.transfer' : m)
 
 /** Төлбөрийн хэсэг: статус, дүнгүүд, түүх, бүртгэх/устгах */
 function PaymentSection({ order, onChanged, t, toast, hasPerm }) {
   const [formOpen, setFormOpen] = useState(false)
   const [amount, setAmount] = useState('')
-  const [method, setMethod] = useState('CASH')
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
@@ -436,7 +528,6 @@ function PaymentSection({ order, onChanged, t, toast, hasPerm }) {
 
   function openForm() {
     setAmount(String(remaining))
-    setMethod('CASH')
     setNote('')
     setError(null)
     setFormOpen(true)
@@ -451,7 +542,7 @@ function PaymentSection({ order, onChanged, t, toast, hasPerm }) {
         method: 'POST',
         body: {
           amount: amount.trim(),
-          method,
+          method: 'TRANSFER', // бэлэн мөнгө системд байхгүй (V5)
           ...(note.trim() ? { note: note.trim() } : {}),
         },
       })
@@ -571,18 +662,9 @@ function PaymentSection({ order, onChanged, t, toast, hasPerm }) {
             onChange={(e) => setAmount(e.target.value)}
             className="font-mono"
           />
-          <Select
-            id="pay-method"
-            label={t('Хэлбэр')}
-            value={method}
-            onChange={(e) => setMethod(e.target.value)}
-          >
-            {PAY_METHODS.map(([value, label]) => (
-              <option key={value} value={value}>
-                {t(label)}
-              </option>
-            ))}
-          </Select>
+          <p className="text-sm text-ink-muted">
+            {t('Хэлбэр')}: {t('pay.transfer')}
+          </p>
           <Input
             id="pay-note"
             label={t('Тэмдэглэл')}

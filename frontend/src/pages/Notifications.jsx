@@ -22,7 +22,6 @@ export default function Notifications() {
   const [data, setData] = useState(null)
   const [page, setPage] = useState(1)
   const [error, setError] = useState(null)
-  const [busy, setBusy] = useState(false)
 
   const load = useCallback(() => {
     setError(null)
@@ -35,16 +34,31 @@ export default function Notifications() {
     load()
   }, [load])
 
-  async function readAll() {
-    setBusy(true)
-    try {
-      await api('/notifications/read-all', { method: 'POST' })
-      window.dispatchEvent(new Event('notif:refresh'))
-      load()
-    } finally {
-      setBusy(false)
+  /**
+   * Хуудсыг НЭЭХЭД мэдэгдлүүд уншсан болно (V5).
+   *
+   * Өмнө нь «Бүгдийг уншсан болгох» товч дарж байж хонхны тоо
+   * арилдаг байв — хэрэглэгч мэдэгдлээ уншчихаад ч тоо хэвээр үлдэж,
+   * шинэ зүйл ирсэн эсэхийг ялгах боломжгүй болдог.
+   *
+   * Жагсаалтыг ДАХИН АЧААЛЛАХГҮЙ: ингэснээр аль нь шинэ байсныг
+   * харуулсан тэмдэглэгээ энэ удаад хэвээр үлдэж, хэрэглэгч юу
+   * шинэ болохыг харсаар байна. Дараагийн удаа нээхэд арилна.
+   */
+  useEffect(() => {
+    if (!data?.items?.some((n) => !n.isRead)) return
+    let cancelled = false
+    api('/notifications/read-all', { method: 'POST' })
+      .then(() => {
+        if (cancelled) return
+        window.dispatchEvent(new Event('notif:refresh'))
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
     }
-  }
+  }, [data])
+
 
   function onPick(n) {
     void markReadAndRefresh(n)
@@ -76,9 +90,9 @@ export default function Notifications() {
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <h1 className="font-serif text-4xl font-medium">{t('Мэдэгдэл')}</h1>
         {hasUnread && (
-          <Button variant="ghost" loading={busy} onClick={readAll}>
-            {t('Бүгдийг уншсан болгох')}
-          </Button>
+          <span className="text-xs text-ink-muted">
+            {t('Уншсанаар тэмдэглэгдлээ')}
+          </span>
         )}
       </div>
 
@@ -107,7 +121,7 @@ export default function Notifications() {
                     {n.title}
                   </span>
                   {n.body && (
-                    <span className="block text-sm text-ink-muted mt-0.5">
+                    <span className="block text-sm text-ink-muted mt-0.5 whitespace-pre-line">
                       {n.body}
                     </span>
                   )}

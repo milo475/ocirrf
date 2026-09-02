@@ -1,5 +1,10 @@
 import { Transform } from 'class-transformer';
-import { IsBoolean, IsOptional, IsString } from 'class-validator';
+import {
+  IsBoolean,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 
 export class CompleteDeliveryDto {
   /** multipart талбарууд string ирдэг тул 'true'/'false'-ыг хөрвүүлнэ */
@@ -10,5 +15,6 @@ export class CompleteDeliveryDto {
   /** Амжилтгүй үед заавал (шалтгаан) */
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   note?: string;
 }

@@ -10,12 +10,17 @@ import {
   IsString,
   IsUUID,
   Matches,
+  MaxLength,
   Min,
   MinLength,
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
-import { DeliveryRegion, PaymentMethod } from '../../generated/prisma/client';
+import {
+  DeliveryRegion,
+  OrderChannel,
+  PaymentMethod,
+} from '../../generated/prisma/client';
 
 export class OrderItemInput {
   @IsUUID('4', { message: 'productId буруу форматтай' })
@@ -36,11 +41,11 @@ export class CreateOrderDto {
   @IsOptional()
   @IsString()
   @MinLength(2, { message: 'Хүлээн авагчийн нэр хамгийн багадаа 2 тэмдэгт' })
+  @MaxLength(120)
   customerName?: string;
 
   /**
-   * Хүлээн авагчийн утас, 8 оронтой. CUSTOMER орхивол профайлын утас
-   * default болно; staff-д заавал (service дотор шалгана).
+   * Хүлээн авагчийн утас, 8 оронтой — заавал (service дотор шалгана).
    */
   @IsOptional()
   @Matches(/^\d{8}$/, { message: 'Утасны дугаар 8 оронтой тоо байна' })
@@ -60,83 +65,82 @@ export class CreateOrderDto {
   @ValidateIf(ifUB)
   @IsString()
   @IsNotEmpty({ message: 'Дүүрэг заавал' })
+  @MaxLength(60)
   district?: string;
 
   @ValidateIf(ifUB)
   @IsString()
   @IsNotEmpty({ message: 'Хороо заавал' })
+  @MaxLength(60)
   khoroo?: string;
 
   @ValidateIf(ifUB)
   @IsString()
   @IsNotEmpty({ message: 'Барилга/Хороолол/Хашаа заавал' })
+  @MaxLength(120)
   building?: string;
 
   @ValidateIf(ifUB)
   @IsString()
   @IsNotEmpty({ message: 'Орц заавал' })
+  @MaxLength(20)
   entrance?: string;
 
   @ValidateIf(ifUB)
   @IsString()
   @IsNotEmpty({ message: 'Давхар заавал' })
+  @MaxLength(20)
   floor?: string;
 
   @ValidateIf(ifUB)
   @IsString()
   @IsNotEmpty({ message: 'Хаалга заавал' })
+  @MaxLength(20)
   door?: string;
 
   // ── Орон нутгийн горим: заавал ──
   @ValidateIf(ifON)
   @IsString()
   @IsNotEmpty({ message: 'Аймаг заавал' })
+  @MaxLength(60)
   province?: string;
 
   @ValidateIf(ifON)
   @IsString()
   @IsNotEmpty({ message: 'Сум/Суурин газар заавал' })
+  @MaxLength(60)
   soum?: string;
 
   @ValidateIf(ifON)
   @IsString()
   @IsNotEmpty({ message: 'Ачаа явах тээвэр заавал' })
+  @MaxLength(120)
   transport?: string;
 
   /** Хаягийн дэлгэрэнгүй (орон нутгийн нэмэлт, чөлөөт текст) */
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   addressDetail?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   note?: string;
 
-  /**
-   * Хүргэлтийн хөлс (V4-05) — staff-ийн ГАР оруулга. Орхивол 0 болно:
-   * шинэ захиалгад хөлс автоматаар НЭМЭГДЭХГҮЙ (9a97f4b-ийн шийдвэр),
-   * DeliveryTariff хүснэгт нь Settings дэх ЛАВЛАГАА болж үлдсэн.
-   * CUSTOMER-ийн илгээснийг service үл тоомсорлоно.
-   */
+  /** Захиалга ирсэн суваг (V5) — Instagram/Facebook/Утас; орхивол OTHER */
   @IsOptional()
-  @Matches(/^\d{1,10}(\.\d{1,2})?$/, {
-    message: 'Хүргэлтийн хөлс буруу форматтай',
-  })
-  deliveryFee?: string;
+  @IsEnum(OrderChannel, { message: 'Суваг буруу' })
+  channel?: OrderChannel;
+
 
   /**
    * "Төлсөн" гэж үүсгэх — бүтэн төлбөр нь захиалгатай нэг transaction-д
-   * бүртгэгдэнэ (Payment + INCOME). Зөвхөн staff; customer-ийнхийг
-   * service үл тоомсорлоно.
+   * бүртгэгдэнэ (Payment + INCOME entry).
    */
   @IsOptional()
   @IsBoolean()
   paid?: boolean;
-
-  /** Төлсөн үеийн хэлбэр (default CASH) */
-  @IsOptional()
-  @IsEnum(PaymentMethod, { message: 'Төлбөрийн хэлбэр буруу' })
-  paymentMethod?: PaymentMethod;
 
   @IsArray()
   @ArrayMinSize(1, { message: 'Дор хаяж 1 бараа сонгоно' })

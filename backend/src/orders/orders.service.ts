@@ -16,20 +16,39 @@ import {
 import { NotificationsService } from '../notifications/notifications.service';
 import { PERM } from '../permissions/permission-keys';
 import { PermissionsService } from '../permissions/permissions.service';
+import { lockOrderForUpdate } from '../prisma/lock.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { formatFullAddress, formatShortAddress } from './address.util';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { UpdateOrderDto } from './dto/update-order.dto';
 import { QueryOrdersDto } from './dto/query-orders.dto';
+import { applyBatchDelta } from '../stock/batch.util';
 
 /**
  * Зөвшөөрөгдсөн статус шилжилтүүд.
  * NEW → CONFIRMED → PREPARING (бэлтгэж буй) → READY (гарахад бэлэн) → COMPLETED.
  * COMPLETED болон CANCELLED — эцсийн, цааш шилжихгүй.
  */
+/**
+ * Захиалгын төлөвийн шилжилтүүд.
+ *
+ * PREPARING/READY нь НЯРАВЫН бэлтгэлийн үе шат. Нярав ажилладаггүй
+ * жижиг ачаалалд борлуулагч жолооч хуваарилаад шууд дуусгах хэрэгтэй
+ * болдог тул CONFIRMED/PREPARING-ээс COMPLETED руу шууд явж болно —
+ * бэлтгэлийн хоёр товчийг заавал дарах шаардлагагүй.
+ */
 const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   NEW: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
-  CONFIRMED: [OrderStatus.PREPARING, OrderStatus.CANCELLED],
-  PREPARING: [OrderStatus.READY, OrderStatus.CANCELLED],
+  CONFIRMED: [
+    OrderStatus.PREPARING,
+    OrderStatus.COMPLETED,
+    OrderStatus.CANCELLED,
+  ],
+  PREPARING: [
+    OrderStatus.READY,
+    OrderStatus.COMPLETED,
+    OrderStatus.CANCELLED,
+  ],
   READY: [OrderStatus.COMPLETED],
   COMPLETED: [],
   CANCELLED: [],
@@ -66,31 +85,17 @@ export class OrdersService {
    * зөв байдлыг нь DB-ийн constraint өөрөө баталгаажуулдаг тул энэ аргыг сонгосон.
    */
   async create(dto: CreateOrderDto, user: AuthUser) {
-    // CUSTOMER тусгай зам: permission биш role-оор зөвшөөрөгдөнө,
-    // бусад нь orders.create permission шаардана
-    const isCustomer = user.role === 'CUSTOMER';
-    if (!isCustomer) {
-      const allowed = await this.permissions.has(
-        user.id,
-        user.role,
-        PERM.ORDERS_CREATE,
-      );
-      if (!allowed) {
-        throw new ForbiddenException('Хандах эрх байхгүй');
-      }
+    const allowed = await this.permissions.has(
+      user.id,
+      user.role,
+      PERM.ORDERS_CREATE,
+    );
+    if (!allowed) {
+      throw new ForbiddenException('Хандах эрх байхгүй');
     }
 
-    // Утас: customer орхивол профайлын утас default
-    let phone = dto.customerPhone ?? null;
-    let customerName = dto.customerName ?? null;
-    if (isCustomer && (!phone || !customerName)) {
-      const profile = await this.prisma.user.findUnique({
-        where: { id: user.id },
-        select: { phone: true, fullName: true },
-      });
-      phone = phone ?? profile?.phone ?? null;
-      customerName = customerName ?? profile?.fullName ?? null;
-    }
+    const phone = dto.customerPhone ?? null;
+    const customerName = dto.customerName ?? null;
     if (!phone) {
       throw new BadRequestException('Утасны дугаар заавал');
     }
@@ -100,13 +105,6 @@ export class OrdersService {
       throw new BadRequestException('Нэг бараа давхардаж орсон байна');
     }
 
-    // Хүргэлтийн хөлс: хэрэглэгчийн хүсэлтээр шинэ захиалгад автоматаар
-    // НЭМЭГДЭХГҮЙ (default 0). Staff dto.deliveryFee-ээр гараар өгч болно;
-    // тарифын хүснэгт (V4-05) лавлагаа болж үлдсэн.
-    const deliveryFee =
-      !isCustomer && dto.deliveryFee !== undefined
-        ? new Prisma.Decimal(dto.deliveryFee)
-        : new Prisma.Decimal(0);
 
     const MAX_ATTEMPTS = 3;
     for (let attempt = 1; ; attempt++) {
@@ -117,17 +115,11 @@ export class OrdersService {
           ids,
           phone,
           customerName,
-          isCustomer ? user.id : null,
-          deliveryFee,
-          // "Төлсөн" флаг зөвхөн staff-д — customer өөрөө тэмдэглэхгүй
-          !isCustomer && dto.paid === true,
+          dto.paid === true,
         );
         // Transaction амжилттай болсны ДАРАА мэдэгдэнэ (rollback-д илгээхгүй)
         for (const p of lowStockCrossed) {
           await this.notifications.notifyLowStock(p);
-        }
-        if (isCustomer) {
-          await this.notifications.notifyCustomerOrder(order);
         }
         return order;
       } catch (e) {
@@ -145,8 +137,6 @@ export class OrdersService {
     ids: string[],
     phone: string,
     customerName: string | null,
-    customerId: string | null,
-    deliveryFee: Prisma.Decimal,
     markPaid: boolean,
   ) {
     const lowStockCrossed: {
@@ -202,9 +192,8 @@ export class OrdersService {
       const nextNum = maxNum + 1;
       const orderNo = prefix + String(nextNum).padStart(4, '0');
 
-      // 3–4. Snapshot + нийт дүн (Decimal — float хэрэглэхгүй).
-      // V4-05: нийт дүн = барааны нийлбэр + хүргэлтийн хөлс
-      let totalAmount = deliveryFee;
+      // 3–4. Snapshot + нийт дүн (Decimal — float хэрэглэхгүй)
+      let totalAmount = new Prisma.Decimal(0);
       const itemsData = dto.items.map((item) => {
         const product = byId.get(item.productId)!;
         const lineTotal = product.price.mul(item.qty);
@@ -227,7 +216,6 @@ export class OrdersService {
           orderNo,
           customerName,
           phone,
-          customerId,
           extraPhone: dto.extraPhone ?? null,
           region: dto.region,
           district: isUB ? dto.district : null,
@@ -241,8 +229,8 @@ export class OrdersService {
           transport: isUB ? null : dto.transport,
           addressDetail: isUB ? null : (dto.addressDetail ?? null),
           note: dto.note,
+          channel: dto.channel ?? 'OTHER',
           totalAmount,
-          deliveryFee,
           createdById: userId,
           items: { create: itemsData },
         },
@@ -279,18 +267,15 @@ export class OrdersService {
             userId,
           },
         });
+        await applyBatchDelta(tx, item.productId, -item.qty);
       }
 
       // 8. "Төлсөн" гэж бүртгэсэн бол бүтэн төлбөрийг ЭНД шууд бүртгэнэ —
       // ОРЛОГО = ТӨЛБӨР зарчмаар Payment + INCOME entry нэг transaction-д.
       // (customer-ийн илгээсэн paid флагийг create() дээр хаясан байдаг.)
       if (markPaid && totalAmount.gt(0)) {
-        const METHOD_MN: Record<string, string> = {
-          CASH: 'Бэлэн',
-          TRANSFER: 'Шилжүүлэг',
-          CARD: 'Карт',
-        };
-        const method = dto.paymentMethod ?? PaymentMethod.CASH;
+        // Бэлэн мөнгө системд байхгүй (V5) — бүх төлбөр шилжүүлэг
+        const method = PaymentMethod.TRANSFER;
         const payment = await tx.payment.create({
           data: {
             orderId: order.id,
@@ -305,7 +290,7 @@ export class OrdersService {
             type: FinanceType.INCOME,
             category: 'PAYMENT',
             amount: totalAmount,
-            note: `Төлбөр ${orderNo} (${METHOD_MN[method]})`,
+            note: `Төлбөр ${orderNo} (Шилжүүлэг)`,
             refOrderId: order.id,
             refPaymentId: payment.id,
             createdById: userId,
@@ -324,6 +309,221 @@ export class OrdersService {
     return { order, lowStockCrossed };
   }
 
+  /** Засвар зөвшөөрөгдөх төлөвүүд — дууссан/цуцалсан захиалга хөшинө */
+  private static readonly EDITABLE: OrderStatus[] = [
+    OrderStatus.NEW,
+    OrderStatus.CONFIRMED,
+    OrderStatus.PREPARING,
+    OrderStatus.READY,
+  ];
+
+  /**
+   * Захиалга засах (V5) — хаяг, хүлээн авагч, бараа.
+   *
+   * DM-ээр ажилладаг тул «хаягаа буруу хэлсэн», «нэгийг нэмээд өгөөч»
+   * гэдэг өдөр тутмын явдал. Өмнө нь баталгаажсаны дараа засах арга
+   * байхгүй тул цуцлаад дахин шивдэг байв — дугаар үсэрч, түүх тасардаг.
+   *
+   * Бараа солиход ҮЛДЭГДЭЛ ЗӨРҮҮГЭЭР нь тохируулагдана (нэмсэн нь
+   * хасагдаж, хассан нь буцаж орно). Үнэ нь ХУУЧИН мөрүүд дээр
+   * snapshot-оороо үлдэнэ — засвар нь өнөөдрийн үнээр дахин үнэлэхгүй.
+   */
+  async update(id: string, dto: UpdateOrderDto, user: AuthUser) {
+    if (dto.items) {
+      const ids = dto.items.map((i) => i.productId);
+      if (new Set(ids).size !== ids.length) {
+        throw new BadRequestException('Нэг бараа давхардаж орсон байна');
+      }
+    }
+
+    const lowStockCrossed: {
+      id: string;
+      name: string;
+      stockQty: number;
+      lowStockLimit: number;
+    }[] = [];
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      // Төлбөр/буцаалттай зэрэг орохоос хамгаална (paidAmount уншиж бичнэ)
+      const exists = await lockOrderForUpdate(tx, id);
+      if (!exists) {
+        throw new NotFoundException('Захиалга олдсонгүй');
+      }
+      const order = await tx.order.findUniqueOrThrow({
+        where: { id },
+        include: { items: true, returns: { select: { id: true } } },
+      });
+
+      if (!OrdersService.EDITABLE.includes(order.orderStatus)) {
+        throw new BadRequestException(
+          `${order.orderStatus} төлөвтэй захиалгыг засах боломжгүй`,
+        );
+      }
+
+      let totalAmount = order.totalAmount;
+
+      if (dto.items) {
+        if (order.returns.length > 0) {
+          throw new BadRequestException(
+            'Буцаалт бүртгэгдсэн захиалгын барааг засах боломжгүй',
+          );
+        }
+
+        const wanted = new Map(dto.items.map((i) => [i.productId, i.qty]));
+        const current = new Map(order.items.map((i) => [i.productId, i]));
+        const touched = [...new Set([...wanted.keys(), ...current.keys()])];
+
+        const products = await tx.product.findMany({
+          where: { id: { in: touched } },
+        });
+        const byId = new Map(products.map((p) => [p.id, p]));
+
+        // 1. Зөрүүг бүрэн шалгана — нэг нь ч бүтэхгүй бол юу ч хөдлөхгүй
+        for (const productId of touched) {
+          const want = wanted.get(productId) ?? 0;
+          const have = current.get(productId)?.qty ?? 0;
+          const delta = want - have; // + нэмсэн, − хассан
+          if (delta === 0) continue;
+          const product = byId.get(productId);
+          if (!product) {
+            throw new BadRequestException(`Бараа олдсонгүй (id: ${productId})`);
+          }
+          if (delta > 0 && !product.isActive) {
+            throw new BadRequestException(`«${product.name}» идэвхгүй байна`);
+          }
+          if (delta > product.stockQty) {
+            throw new BadRequestException(
+              `«${product.name}» үлдэгдэл хүрэлцэхгүй (байгаа: ${product.stockQty}, нэмэх: ${delta})`,
+            );
+          }
+        }
+
+        // 2. Мөрүүдийг тааруулж, үлдэгдлийг зөрүүгээр нь хөдөлгөнө
+        totalAmount = new Prisma.Decimal(0);
+        for (const productId of touched) {
+          const want = wanted.get(productId) ?? 0;
+          const line = current.get(productId);
+          const product = byId.get(productId)!;
+          // Хуучин мөрийн үнэ snapshot-оороо үлдэнэ; шинэ мөр өнөөдрийнхөөр
+          const price = line?.priceAtOrder ?? product.price;
+          const delta = want - (line?.qty ?? 0);
+
+          if (want === 0) {
+            await tx.orderItem.delete({ where: { id: line!.id } });
+          } else if (line) {
+            await tx.orderItem.update({
+              where: { id: line.id },
+              data: { qty: want, lineTotal: price.mul(want) },
+            });
+          } else {
+            await tx.orderItem.create({
+              data: {
+                orderId: id,
+                productId,
+                productName: product.name,
+                qty: want,
+                priceAtOrder: price,
+                costAtOrder: product.costPrice,
+                lineTotal: price.mul(want),
+              },
+            });
+          }
+          if (want > 0) totalAmount = totalAmount.add(price.mul(want));
+
+          if (delta !== 0) {
+            const updated = await tx.product.update({
+              where: { id: productId },
+              data: { stockQty: { decrement: delta } },
+            });
+            if (updated.stockQty < 0) {
+              throw new BadRequestException(
+                `«${updated.name}» үлдэгдэл хүрэлцэхгүй`,
+              );
+            }
+            if (
+              delta > 0 &&
+              updated.stockQty <= updated.lowStockLimit &&
+              updated.stockQty + delta > updated.lowStockLimit
+            ) {
+              lowStockCrossed.push(updated);
+            }
+            await tx.stockMovement.create({
+              data: {
+                productId,
+                qtyChange: -delta,
+                reason: 'ORDER_EDIT',
+                note: `Захиалга ${order.orderNo} засварлав`,
+                refId: id,
+                userId: user.id,
+              },
+            });
+            await applyBatchDelta(tx, productId, -delta);
+          }
+        }
+      }
+
+      // 3. Хаяг — region илгээвэл эсрэг горимынхыг цэвэрлэнэ
+      const address: Prisma.OrderUpdateInput = {};
+      if (dto.region) {
+        const isUB = dto.region === 'ULAANBAATAR';
+        Object.assign(address, {
+          region: dto.region,
+          district: isUB ? dto.district : null,
+          khoroo: isUB ? dto.khoroo : null,
+          building: isUB ? dto.building : null,
+          entrance: isUB ? (dto.entrance ?? null) : null,
+          floor: isUB ? (dto.floor ?? null) : null,
+          door: isUB ? (dto.door ?? null) : null,
+          province: isUB ? null : dto.province,
+          soum: isUB ? null : dto.soum,
+          transport: isUB ? null : (dto.transport ?? null),
+          addressDetail: isUB ? null : (dto.addressDetail ?? null),
+        });
+      }
+
+      return tx.order.update({
+        where: { id },
+        data: {
+          ...address,
+          ...(dto.customerName !== undefined
+            ? { customerName: dto.customerName }
+            : {}),
+          ...(dto.customerPhone !== undefined
+            ? { phone: dto.customerPhone }
+            : {}),
+          ...(dto.extraPhone !== undefined
+            ? { extraPhone: dto.extraPhone || null }
+            : {}),
+          ...(dto.note !== undefined ? { note: dto.note || null } : {}),
+          ...(dto.channel !== undefined ? { channel: dto.channel } : {}),
+          ...(dto.items
+            ? {
+                totalAmount,
+                // Дүн өөрчлөгдвөл төлбөрийн төлөв дагаж шинэчлэгдэнэ:
+                // 20,000-ийн PAID захиалга 30,000 болбол PARTIAL болно
+                paymentStatus: order.paidAmount.gte(totalAmount)
+                  ? PaymentStatus.PAID
+                  : order.paidAmount.gt(0)
+                    ? PaymentStatus.PARTIAL
+                    : PaymentStatus.UNPAID,
+              }
+            : {}),
+        },
+        include: {
+          items: true,
+          createdBy: CREATED_BY_SELECT,
+          assignedDriver: CREATED_BY_SELECT,
+          warehouse: { select: { id: true, fullName: true } },
+        },
+      });
+    });
+
+    for (const p of lowStockCrossed) {
+      await this.notifications.notifyLowStock(p);
+    }
+    return { ...result, fullAddress: formatFullAddress(result) };
+  }
+
   async updateStatus(id: string, status: OrderStatus, user: AuthUser) {
     const order = await this.prisma.order.findUnique({
       where: { id },
@@ -337,6 +537,37 @@ export class OrdersService {
     if (user.role === 'OPERATOR' && order.createdById !== user.id) {
       throw new ForbiddenException(
         'Зөвхөн өөрийн үүсгэсэн захиалгын статусыг өөрчлөх боломжтой',
+      );
+    }
+
+    // Цуцлах нь тусдаа эрх (V5) — бэлтгэл хийдэг нярав арилжааны
+    // шийдвэр гаргахгүй. Төлөвийн шилжилтийн шалгалтаас ӨМНӨ.
+    if (status === OrderStatus.CANCELLED) {
+      const canCancel = await this.permissions.has(
+        user.id,
+        user.role,
+        PERM.ORDERS_CANCEL,
+      );
+      if (!canCancel) {
+        throw new ForbiddenException('Захиалга цуцлах эрх байхгүй');
+      }
+    }
+
+    /**
+     * Төлбөртэй захиалгыг шууд цуцлахыг хориглоно (V5).
+     *
+     * Цуцлалт нь үлдэгдлийг буцаадаг ч МӨНГИЙГ хөнддөггүй байсан тул
+     * бараа агуулахад ирчихээд, төлбөр нь ОРЛОГО болж номд үлддэг байв
+     * (paidAmount, PAID төлөв, INCOME бичилт бүгд хэвээр). Улмаас
+     * борлуулалт цуцлагдсаныг хасдаг атал орлого нь хасдаггүй байсан.
+     *
+     * PaymentsService нь цуцлагдсан захиалгад төлбөр НЭМЭХИЙГ аль
+     * хэдийн хориглодог — энэ нь тэрхүү дүрмийн нөгөө тал.
+     */
+    if (status === OrderStatus.CANCELLED && order.paidAmount.gt(0)) {
+      throw new BadRequestException(
+        'Төлбөртэй захиалгыг цуцлах боломжгүй. Эхлээд төлбөрийн бүртгэлийг ' +
+          'устгаж мөнгийг буцаана уу (захиалгын дэлгэрэнгүй → төлбөрийн мөр → ×)',
       );
     }
 
@@ -379,11 +610,11 @@ export class OrdersService {
               userId: user.id,
             },
           });
+          await applyBatchDelta(tx, item.productId, item.qty);
         }
 
         return cancelled;
       });
-      await this.notifyCustomerStatus(order.customerId, cancelled);
       return cancelled;
     }
 
@@ -396,17 +627,7 @@ export class OrdersService {
       data: { orderStatus: status },
       include: { items: true, createdBy: CREATED_BY_SELECT },
     });
-    await this.notifyCustomerStatus(order.customerId, updated);
     return updated;
-  }
-
-  /** Онлайн захиалагчид статусын өөрчлөлтөө мэдэгдэнэ */
-  private async notifyCustomerStatus(
-    customerId: string | null,
-    order: { id: string; orderNo: string; orderStatus: OrderStatus },
-  ) {
-    if (!customerId) return;
-    await this.notifications.notifyOrderStatus(customerId, order);
   }
 
   async findOne(id: string) {
@@ -443,6 +664,8 @@ export class OrdersService {
       status,
       deliveryStatus,
       paymentStatus,
+      channel,
+      district,
       driverId,
       search,
       page = 1,
@@ -453,6 +676,8 @@ export class OrdersService {
       ...(status ? { orderStatus: status } : {}),
       ...(deliveryStatus ? { deliveryStatus } : {}),
       ...(paymentStatus ? { paymentStatus } : {}),
+      ...(channel ? { channel } : {}),
+      ...(district ? { district } : {}),
       ...(driverId ? { assignedDriverId: driverId } : {}),
       ...(search
         ? {
@@ -472,6 +697,7 @@ export class OrdersService {
           _count: { select: { items: true } },
           createdBy: CREATED_BY_SELECT,
           assignedDriver: CREATED_BY_SELECT,
+          warehouse: { select: { id: true, fullName: true } },
         },
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,

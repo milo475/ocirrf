@@ -1,22 +1,9 @@
-import {
-  Body,
-  Controller,
-  Get,
-  NotFoundException,
-  Param,
-  ParseUUIDPipe,
-  Patch,
-} from '@nestjs/common';
-import { IsBoolean } from 'class-validator';
+import { BadRequestException, Controller, Get, Query } from '@nestjs/common';
 import { Prisma, Role } from '../generated/prisma/client';
 import { PERM } from '../permissions/permission-keys';
 import { RequirePermission } from '../permissions/require-permission.decorator';
 import { PrismaService } from '../prisma/prisma.service';
 
-class SetActiveDto {
-  @IsBoolean({ message: 'isActive нь boolean байна' })
-  isActive: boolean;
-}
 
 @Controller('customers')
 export class CustomersController {
@@ -67,41 +54,79 @@ export class CustomersController {
     });
   }
 
-  /** Бүртгэлтэй (portal) харилцагчид — захиалгын тоо/нийт дүнтэй */
-  @Get('registered')
+
+  /**
+   * Нэг хэрэглэгчийн ХУДАЛДАН АВАЛТЫН ТҮҮХ утсаар нь (V5).
+   *
+   * Борлуулагч хүсэлт батлахаасаа өмнө «энэ хүн өмнө нь юу авч байсан,
+   * төлбөрөө төлдөг үү» гэдгийг шалгана. Нярав тооцоо гаргахад, менежер
+   * хяналтдаа ашиглана.
+   */
+  @Get('history')
   @RequirePermission(PERM.CUSTOMERS_VIEW)
-  async registered() {
-    const [users, sums] = await Promise.all([
-      this.prisma.user.findMany({
-        where: { role: Role.CUSTOMER },
-        select: {
-          id: true,
-          username: true,
-          fullName: true,
-          phone: true,
-          isActive: true,
-          createdAt: true,
-          _count: { select: { customerOrders: true } },
-        },
-        orderBy: { createdAt: 'desc' },
-      }),
-      this.prisma.order.groupBy({
-        by: ['customerId'],
-        where: { customerId: { not: null } },
-        _sum: { totalAmount: true },
-      }),
-    ]);
-    const sumById = new Map(sums.map((s) => [s.customerId, s._sum.totalAmount]));
-    return users.map((u) => ({
-      id: u.id,
-      email: u.username,
-      name: u.fullName,
-      phone: u.phone,
-      isActive: u.isActive,
-      createdAt: u.createdAt,
-      orders: u._count.customerOrders,
-      totalAmount: sumById.get(u.id) ?? 0,
-    }));
+  async history(@Query('phone') phone?: string) {
+    const value = phone?.trim();
+    if (!value) {
+      throw new BadRequestException('phone заавал');
+    }
+    const orders = await this.prisma.order.findMany({
+      where: { phone: value },
+      include: { items: true, assignedDriver: { select: { fullName: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+
+    // Хамгийн их авдаг бараанууд — давтан захиалгыг шууд харуулна
+    const byProduct = new Map<string, { name: string; qty: number }>();
+    let paidTotal = new Prisma.Decimal(0);
+    let liveTotal = new Prisma.Decimal(0);
+    let cancelled = 0;
+    for (const o of orders) {
+      if (o.orderStatus === 'CANCELLED') {
+        cancelled++;
+        continue;
+      }
+      liveTotal = liveTotal.plus(o.totalAmount);
+      paidTotal = paidTotal.plus(o.paidAmount);
+      for (const i of o.items) {
+        const cur = byProduct.get(i.productId) ?? { name: i.productName, qty: 0 };
+        cur.qty += i.qty;
+        byProduct.set(i.productId, cur);
+      }
+    }
+
+    return {
+      phone: value,
+      names: [
+        ...new Set(orders.map((o) => o.customerName).filter(Boolean)),
+      ],
+      orders: orders.map((o) => ({
+        id: o.id,
+        orderNo: o.orderNo,
+        createdAt: o.createdAt,
+        orderStatus: o.orderStatus,
+        deliveryStatus: o.deliveryStatus,
+        paymentStatus: o.paymentStatus,
+        channel: o.channel,
+        totalAmount: o.totalAmount,
+        paidAmount: o.paidAmount,
+        driverName: o.assignedDriver?.fullName ?? null,
+        items: o.items.map((i) => ({ productName: i.productName, qty: i.qty })),
+      })),
+      summary: {
+        orders: orders.length - cancelled,
+        cancelled,
+        totalAmount: liveTotal,
+        paidAmount: paidTotal,
+        // Авлага — хяналтын гол тоо
+        dueAmount: liveTotal.minus(paidTotal),
+        firstOrderAt: orders.at(-1)?.createdAt ?? null,
+        lastOrderAt: orders[0]?.createdAt ?? null,
+        topProducts: [...byProduct.values()]
+          .sort((a, b) => b.qty - a.qty)
+          .slice(0, 5),
+      },
+    };
   }
 
   /** Утасны захиалгаас бүлэглэсэн харилцагчид */
@@ -137,22 +162,4 @@ export class CustomersController {
     }));
   }
 
-  /** Portal харилцагчийг идэвхгүй/идэвхтэй болгох */
-  @Patch(':id/active')
-  @RequirePermission(PERM.CUSTOMERS_EDIT)
-  async setActive(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: SetActiveDto,
-  ) {
-    const user = await this.prisma.user.findUnique({ where: { id } });
-    if (!user || user.role !== Role.CUSTOMER) {
-      throw new NotFoundException('Харилцагч олдсонгүй');
-    }
-    const updated = await this.prisma.user.update({
-      where: { id },
-      data: { isActive: dto.isActive },
-      select: { id: true, isActive: true },
-    });
-    return updated;
-  }
 }

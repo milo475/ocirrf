@@ -8,6 +8,8 @@ import {
   DeliveryStatus,
   OrderStatus,
   Prisma,
+  DeliveryRegion,
+  Role,
 } from '../generated/prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
 import { formatFullAddress, formatShortAddress } from '../orders/address.util';
@@ -73,6 +75,10 @@ export class DeliveryService {
       );
     }
 
+    // Анх удаа жолоочтой болж байна уу — «хүргэлтэд гарсан» мөч нь энэ.
+    // Дахин хуваарилалт нь шинэ үйл явдал биш тул мэдэгдэл давхардуулахгүй.
+    const firstRelease = order.assignedDriverId === null;
+
     const assigned = await this.prisma.order.update({
       where: { id: orderId },
       data: {
@@ -83,7 +89,61 @@ export class DeliveryService {
       include: { assignedDriver: DRIVER_SELECT },
     });
     await this.notifications.notifyDriverAssigned(driverId, assigned);
+    if (firstRelease) {
+      await this.notifyRelease(assigned, driver.fullName);
+    }
     return assigned;
+  }
+
+  /**
+   * Захиалга хүргэлтэд гарахад нярав + менежерүүдэд мэдэгдэнэ (V5).
+   * Хэрэглэгчийн ӨМНӨХ худалдан авалтыг утсаар нь хамт тоолж явуулна —
+   * нярав тооцоо гаргах, менежер хяналт тавихад хэрэгтэй.
+   */
+  private async notifyRelease(
+    order: {
+      id: string;
+      orderNo: string;
+      customerName: string | null;
+      phone: string;
+      totalAmount: Prisma.Decimal;
+    },
+    driverName: string,
+  ) {
+    const [full, prior] = await Promise.all([
+      this.prisma.order.findUnique({
+        where: { id: order.id },
+        include: { items: true },
+      }),
+      this.prisma.order.aggregate({
+        where: {
+          phone: order.phone,
+          id: { not: order.id },
+          orderStatus: { not: OrderStatus.CANCELLED },
+        },
+        _count: { _all: true },
+        _sum: { totalAmount: true },
+      }),
+    ]);
+    if (!full) return;
+
+    const money = (v: Prisma.Decimal | null) =>
+      `${Number(v ?? 0).toLocaleString('en-US')}₮`;
+
+    await this.notifications.notifyReleasedToDelivery({
+      orderId: full.id,
+      orderNo: full.orderNo,
+      customerName: full.customerName,
+      phone: full.phone,
+      address: formatShortAddress(full),
+      items: full.items
+        .map((i) => `${i.productName} ×${i.qty}`)
+        .join(', '),
+      total: money(full.totalAmount),
+      driverName,
+      priorOrders: prior._count._all,
+      priorAmount: money(prior._sum.totalAmount),
+    });
   }
 
   /** Жолоочийн өөрийн дуусаагүй хүргэлтүүд — маршрутын дарааллаар */
@@ -263,7 +323,8 @@ export class DeliveryService {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const [users, activeGroups, todayGroups, totalGroups] = await Promise.all([
+    const [users, activeGroups, todayGroups, totalGroups, assignedGroups] =
+      await Promise.all([
       this.prisma.user.findMany({
         where: { role: 'DRIVER' },
         select: {
@@ -277,6 +338,8 @@ export class DeliveryService {
               feePerDelivery: true,
               vehicleInfo: true,
               isAvailable: true,
+              employmentType: true,
+              zones: true,
             },
           },
         },
@@ -309,6 +372,12 @@ export class DeliveryService {
         },
         _count: { _all: true },
       }),
+      // Хуваарилагдсан нийт (DR% = хүргэсэн ÷ хуваарилагдсан)
+      this.prisma.order.groupBy({
+        by: ['assignedDriverId'],
+        where: { assignedDriverId: { not: null } },
+        _count: { _all: true },
+      }),
     ]);
 
     const countBy = (groups: { assignedDriverId: string | null; _count: { _all: number } }[]) =>
@@ -316,6 +385,7 @@ export class DeliveryService {
     const activeBy = countBy(activeGroups);
     const todayBy = countBy(todayGroups);
     const totalBy = countBy(totalGroups);
+    const assignedBy = countBy(assignedGroups);
 
     return users.map((u) => ({
       id: u.id,
@@ -325,10 +395,187 @@ export class DeliveryService {
       isAvailable: u.driverProfile?.isAvailable ?? null,
       feePerDelivery: u.driverProfile?.feePerDelivery ?? null,
       vehicleInfo: u.driverProfile?.vehicleInfo ?? null,
+      employmentType: u.driverProfile?.employmentType ?? null,
+      zones: u.driverProfile?.zones ?? [],
       active: activeBy.get(u.id) ?? 0,
       deliveredToday: todayBy.get(u.id) ?? 0,
       totalDelivered: totalBy.get(u.id) ?? 0,
+      assigned: assignedBy.get(u.id) ?? 0,
+      // Хүргэлтийн гүйцэтгэл: хүргэсэн ÷ хуваарилагдсан (хувиар)
+      dr:
+        (assignedBy.get(u.id) ?? 0) > 0
+          ? Math.round(
+              ((totalBy.get(u.id) ?? 0) / (assignedBy.get(u.id) ?? 1)) * 100,
+            )
+          : null,
     }));
+  }
+
+  /**
+   * Олон захиалгад нэг жолоочийг зэрэг хуваарилна (V5). Захиалга бүрийг
+   * тусад нь боловсруулж, амжилтгүй болсныг нь orderNo-той нь тайлагнана
+   * — нэг захиалга буруу төлөвтэй байснаас бусад нь хуваарилагдахгүй
+   * үлдэх нь ажилтанд ойлгомжгүй байдаг.
+   */
+  async assignDriverBulk(orderIds: string[], driverId: string) {
+    let assigned = 0;
+    const failed: { orderNo: string; reason: string }[] = [];
+    for (const id of orderIds) {
+      try {
+        await this.assignDriver(id, driverId);
+        assigned++;
+      } catch (e) {
+        const order = await this.prisma.order.findUnique({
+          where: { id },
+          select: { orderNo: true },
+        });
+        failed.push({
+          orderNo: order?.orderNo ?? id.slice(0, 8),
+          reason: e instanceof Error ? e.message : 'Тодорхойгүй алдаа',
+        });
+      }
+    }
+    return { assigned, failed };
+  }
+
+  /**
+   * Дүүргээр автоматаар хуваарилах (V5).
+   *
+   * Жолооч бүрийн «харьяалах бүс» (DriverProfile.zones) хүртэл нь зөвхөн
+   * шошго байсан — хуваарилалтад огт оролцдоггүй байв. Энэ метод түүнийг
+   * ажиллуулна: захиалгын дүүргийг хамардаг жолоочдоос ОДООГИЙН АЧААЛАЛ
+   * хамгийн бага нэгийг сонгоно. Нэг дуудлагын дотор сонгосон бүрдээ
+   * ачааллыг нэмж тоолдог тул 10 захиалга нэг хүн дээр овоорохгүй.
+   *
+   * Аль хэдийн жолоочтой захиалгыг ХӨНДӨХГҮЙ — гараар хийсэн шийдвэрийг
+   * автомат дарж бичих нь ажилтанд гэнэтийн байдаг.
+   */
+  async autoAssignByZone(orderIds: string[]) {
+    const orders = await this.prisma.order.findMany({
+      where: { id: { in: orderIds } },
+      select: {
+        id: true,
+        orderNo: true,
+        district: true,
+        region: true,
+        assignedDriverId: true,
+      },
+      orderBy: { orderNo: 'asc' },
+    });
+
+    const drivers = await this.prisma.user.findMany({
+      where: {
+        role: Role.DRIVER,
+        isActive: true,
+        driverProfile: { isAvailable: true },
+      },
+      select: {
+        id: true,
+        fullName: true,
+        driverProfile: { select: { zones: true } },
+      },
+    });
+
+    // Одоогийн ачаалал — дуусаагүй хүргэлтийн тоо
+    const loadGroups = await this.prisma.order.groupBy({
+      by: ['assignedDriverId'],
+      where: {
+        assignedDriverId: { not: null },
+        deliveryStatus: {
+          in: [DeliveryStatus.ASSIGNED, DeliveryStatus.ON_THE_WAY],
+        },
+      },
+      _count: { _all: true },
+    });
+    const load = new Map<string, number>(
+      loadGroups
+        .filter((g): g is typeof g & { assignedDriverId: string } =>
+          Boolean(g.assignedDriverId),
+        )
+        .map((g) => [g.assignedDriverId, g._count._all]),
+    );
+
+    const assigned: {
+      orderNo: string;
+      district: string;
+      driverName: string;
+    }[] = [];
+    const skipped: { orderNo: string; reason: string }[] = [];
+
+    for (const o of orders) {
+      if (o.assignedDriverId) {
+        skipped.push({ orderNo: o.orderNo, reason: 'Аль хэдийн жолоочтой' });
+        continue;
+      }
+      if (o.region !== DeliveryRegion.ULAANBAATAR || !o.district) {
+        skipped.push({
+          orderNo: o.orderNo,
+          reason: 'Орон нутгийн захиалга — бүсээр хуваарилахгүй',
+        });
+        continue;
+      }
+      const district = o.district;
+      const candidates = drivers.filter((d) =>
+        d.driverProfile?.zones.includes(district),
+      );
+      if (candidates.length === 0) {
+        skipped.push({
+          orderNo: o.orderNo,
+          reason: `${district}-ыг хамардаг сул жолооч алга`,
+        });
+        continue;
+      }
+      candidates.sort(
+        (a, b) => (load.get(a.id) ?? 0) - (load.get(b.id) ?? 0),
+      );
+      const pick = candidates[0];
+      try {
+        await this.assignDriver(o.id, pick.id);
+        load.set(pick.id, (load.get(pick.id) ?? 0) + 1);
+        assigned.push({
+          orderNo: o.orderNo,
+          district,
+          driverName: pick.fullName,
+        });
+      } catch (e) {
+        skipped.push({
+          orderNo: o.orderNo,
+          reason: e instanceof Error ? e.message : 'Тодорхойгүй алдаа',
+        });
+      }
+    }
+
+    return { assigned, skipped };
+  }
+
+  /**
+   * Жолоочийн харьяалах бүсийг тохируулах (V5).
+   *
+   * Өмнө нь зөвхөн Хэрэглэгч хуудсаар (users.manage — админ) засагддаг
+   * тул аль жолооч аль дүүрэгт явахыг ӨДӨР БҮР мэддэг НЯРАВ өөрөө
+   * өөрчилж чаддаггүй байв. Бүтэн жагсаалтыг солино (нэмэх/хасах хоёул).
+   */
+  async setZones(driverId: string, zones: string[]) {
+    const driver = await this.prisma.user.findUnique({
+      where: { id: driverId },
+      include: { driverProfile: true },
+    });
+    if (!driver || driver.role !== Role.DRIVER) {
+      throw new NotFoundException('Жолооч олдсонгүй');
+    }
+    if (!driver.driverProfile) {
+      throw new BadRequestException('Жолоочийн профайл бүрдээгүй байна');
+    }
+    const unique = [...new Set(zones)];
+    const profile = await this.prisma.driverProfile.update({
+      where: { userId: driverId },
+      data: { zones: unique },
+    });
+    return {
+      id: driver.id,
+      name: driver.fullName,
+      zones: profile.zones,
+    };
   }
 
   /** Жолоочийн маршрутын дараалал тавих: orderIds[i] → routeOrder i+1 */
@@ -435,12 +682,6 @@ export class DeliveryService {
           deliveryNote: dto.note?.trim() || null,
         },
       });
-      if (delivered.customerId) {
-        await this.notifications.notifyOrderStatus(
-          delivered.customerId,
-          delivered,
-        );
-      }
       return delivered;
     }
 

@@ -8,6 +8,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AdjustStockDto } from './dto/adjust-stock.dto';
 import { QueryMovementsDto } from './dto/query-movements.dto';
+import { applyBatchDelta } from './batch.util';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -69,6 +70,8 @@ export class StockService {
           userId,
         },
       });
+
+      await applyBatchDelta(tx, dto.productId, dto.qtyChange);
 
       return { product, movement };
     });

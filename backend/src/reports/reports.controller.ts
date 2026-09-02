@@ -1,6 +1,8 @@
 import { Controller, Get, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { IsDateString, IsOptional } from 'class-validator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { AuthUser } from '../auth/decorators/current-user.decorator';
 import { PERM } from '../permissions/permission-keys';
 import { RequirePermission } from '../permissions/require-permission.decorator';
 import { ReportsService } from './reports.service';
@@ -48,5 +50,16 @@ export class ReportsController {
   @RequirePermission(PERM.REPORTS_FINANCE)
   async finance(@Query() q: RangeDto, @Res() res: Response) {
     sendCsv(res, 'finance', await this.reportsService.financeCsv(q.from, q.to));
+  }
+
+  /** Орлого тайлан — нягтлан руу өгөх файл */
+  @Get('pnl.csv')
+  @RequirePermission(PERM.REPORTS_FINANCE)
+  async pnl(
+    @Query() q: RangeDto,
+    @CurrentUser() user: AuthUser,
+    @Res() res: Response,
+  ) {
+    sendCsv(res, 'orlogo-tailan', await this.reportsService.pnlCsv(q.from, q.to, user));
   }
 }

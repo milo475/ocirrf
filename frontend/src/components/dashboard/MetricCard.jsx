@@ -58,7 +58,7 @@ export default function MetricCard({ label, value, delta, sub }) {
   return (
     // min-w-0 — grid/flex item-ийн default `min-width:auto` нь агуулгаараа
     // тэлж хөршөө шахдаг тул заавал хэрэгтэй
-    <div className="min-w-0 px-3 sm:px-4 first:pl-0 last:pr-0">
+    <div className="min-w-0 md:px-4 md:first:pl-0 md:last:pr-0">
       <p className="text-xs uppercase tracking-wide text-ink-muted truncate">
         {label}
       </p>

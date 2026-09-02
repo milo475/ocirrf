@@ -37,8 +37,12 @@ API нь `http://localhost:3000/api` дээр. Production-д `frontend/dist`
 транзакцийн rollback, төлбөрийн уралдаан, SSE, CSV импорт, түгжилт,
 refresh rotation, буцаалт). Дэлгэрэнгүйг [`../TESTING.md`](../TESTING.md).
 
-`scripts/smoke-test*.sh` — амьд сервер дээр ажиллах гар шалгалтууд
-(CI нь `smoke-test-v3.sh`-ыг docker compose дээр гүйцэтгэдэг).
+`scripts/smoke-test.sh` — амьд сервер дээрх суурь шалгалт
+(CI нь үүнийг docker compose дээр гүйцэтгэдэг).
+
+`.agents/`, `.claude/`, `.windsurf/` — Prisma-ийн AI туслахад зориулсан
+лавлагаа. Төслийн код тэднийг дуудахгүй, git-д хөтлөхгүй (gitignore).
+Хэрэгтэй бол `prisma init` суулгадаг; `--no-skills`-ээр алгасна.
 
 ## Бүтэц
 

@@ -21,6 +21,8 @@ import { UPLOADS_DIR } from '../src/uploads.config';
 
 const T = Date.now().toString().slice(-7); // давхардахгүй суффикс
 const SKU = `E2E-${T}`;
+/** Борлуулагчийн тестийн хүлээн авагч — бусад тесттэй давхцахгүй 8 орон */
+const SELLER_PHONE = `1${T}`;
 
 /** УБ горимын жишиг хаяг (fullAddress-ийн хүлээгдэх утгатай хослоно) */
 const UB_ADDR = {
@@ -31,9 +33,6 @@ const UB_ADDR = {
   entrance: '2',
   floor: '5',
   door: '501',
-  // V4-05: staff override 0 — хуучин тестүүдийн дүн тарифгүй хэвээр.
-  // (CUSTOMER-ийн захиалгад service үл тоомсорлож автомат тариф тавина.)
-  deliveryFee: '0',
 };
 const UB_FULL =
   'ХУД, 11-р хороо, Гоёо хотхон 45-р байр, 2-р орц, 5 давхар, 501 тоот';
@@ -106,10 +105,23 @@ describe('ursGAL v2 API (e2e)', () => {
   let retOrderId: string; // буцаалтын тест (V4-04)
   let retItemId: string; // буцаалтын тест захиалгын мөр
   const feeOrderIds: string[] = []; // тарифын тест захиалгууд (V4-05)
-  let custUserId: string; // portal-ын тест харилцагч
-  let custToken: string;
-  let custOrderId: string;
-  let custOrder2Id: string;
+  /** Тестийн үүсгэсэн хүсэлтүүд — мэдэгдэл нь эдгээрийг заадаг */
+  const requestIds: string[] = [];
+  /** Засварын тестийн нэмэлт бараанууд */
+  const editProductIds: string[] = [];
+  /** Уртын хязгаарын тестийн захиалга */
+  let lengthOrderId: string;
+  /** Хугацаа/цувралын тестийн бараа */
+  let batchProductId: string;
+  /** Нийлүүлэлтийн тест — компани/нийлүүлэлт/харилцагч */
+  let supCompanyId: string;
+  let supPartnerId: string;
+  const supplyIds: string[] = [];
+  let sellerId: string; // борлуулагчийн тест хэрэглэгч (V5)
+  let sellerToken: string;
+  let keeperId: string; // няравын тест хэрэглэгч (V5)
+  let keeperToken: string;
+  let handoverId: string;
   const testStartedAt = new Date(); // ActivityLog цэвэрлэгээнд
   const proofFiles: string[] = [];
 
@@ -127,7 +139,7 @@ describe('ursGAL v2 API (e2e)', () => {
     http = app.getHttpServer();
     prisma = app.get(PrismaService);
 
-    for (const u of ['admin', 'manager', 'operator', 'driver']) {
+    for (const u of ['admin', 'manager', 'operator', 'driver', 'seller']) {
       const res = await api()
         .post('/api/auth/login')
         .send({ email: `${u}@ursgal.mn`, password: `${u}123` })
@@ -147,12 +159,11 @@ describe('ursGAL v2 API (e2e)', () => {
       readyOrderId,
       roA,
       roB,
-      custOrderId,
-      custOrder2Id,
       noPhotoOrderId,
       costOrderId,
       retOrderId,
       ...feeOrderIds,
+      lengthOrderId,
     ].filter(Boolean);
     await prisma.financeEntry.deleteMany({
       where: {
@@ -171,17 +182,43 @@ describe('ursGAL v2 API (e2e)', () => {
     await prisma.orderReturn.deleteMany({
       where: { orderId: { in: orderIds } },
     });
+    // Нийлүүлэлт — SupplyItem нь Product руу RESTRICT-ээр заадаг тул
+    // барааг устгахаас ӨМНӨ салгана. (Энэ дараалал буруу байхад afterAll
+    // унаж, бүх тестийн ул мөр DB-д үлддэг байв.)
+    if (supplyIds.length) {
+      await prisma.stockMovement.deleteMany({
+        where: { refId: { in: supplyIds } },
+      });
+      await prisma.notification.deleteMany({
+        where: { refId: { in: supplyIds } },
+      });
+      await prisma.supply.deleteMany({ where: { id: { in: supplyIds } } });
+    }
+
     const productIds = [
       productId,
       raceProductId,
       lowStockProductId,
       readyProductId,
+      ...editProductIds,
     ].filter(Boolean);
+    // Цуврал нь бараа руу RESTRICT-ээр заадаг тул бараанаас ӨМНӨ устна
+    await prisma.productBatch.deleteMany({
+      where: { productId: { in: productIds } },
+    });
     await prisma.stockMovement.deleteMany({
       where: {
         OR: [{ productId: { in: productIds } }, { refId: { in: orderIds } }],
       },
     });
+    // Хүлээлгэн өгсөн хуудас — захиалгууд түүн рүү заадаг тул эхлээд салгана
+    if (handoverId) {
+      await prisma.order.updateMany({
+        where: { handoverId },
+        data: { handoverId: null },
+      });
+      await prisma.driverHandover.deleteMany({ where: { id: handoverId } });
+    }
     await prisma.order.deleteMany({ where: { id: { in: orderIds } } });
     if (productIds.length) {
       await prisma.product.deleteMany({ where: { id: { in: productIds } } });
@@ -194,8 +231,11 @@ describe('ursGAL v2 API (e2e)', () => {
       await prisma.driverPayout.deleteMany({ where: { id: payoutId } });
     }
     // Тестийн үеэр үүссэн мэдэгдэл (бодит admin/manager-т очсон) + үйлдлийн түүх
+    // Мэдэгдэл — захиалга/бараанаас гадна ХҮСЭЛТИЙГ заасан нь ч бий
+    // (ORDER_REQUEST). Цэвэрлэхгүй бол бодит ажилтны хонх дээр тестийн
+    // мөр үлдэнэ.
     await prisma.notification.deleteMany({
-      where: { refId: { in: [...orderIds, ...productIds] } },
+      where: { refId: { in: [...orderIds, ...productIds, ...requestIds] } },
     });
     await prisma.activityLog.deleteMany({
       where: { createdAt: { gte: testStartedAt } },
@@ -218,9 +258,17 @@ describe('ursGAL v2 API (e2e)', () => {
       // UserPermission-ууд cascade-аар устна
       await prisma.user.deleteMany({ where: { id: permUserId } });
     }
-    if (custUserId) {
-      // Захиалгууд нь дээр устсан, мэдэгдэл cascade-аар устна
-      await prisma.user.deleteMany({ where: { id: custUserId } });
+    if (keeperId) {
+      await prisma.user.deleteMany({ where: { id: keeperId } });
+    }
+    if (sellerId) {
+      await prisma.user.deleteMany({ where: { id: sellerId } });
+    }
+    if (supPartnerId) {
+      await prisma.user.deleteMany({ where: { id: supPartnerId } });
+    }
+    if (supCompanyId) {
+      await prisma.company.deleteMany({ where: { id: supCompanyId } });
     }
     if (e2eMgrId) {
       await prisma.user.deleteMany({ where: { id: e2eMgrId } });
@@ -396,7 +444,7 @@ describe('ursGAL v2 API (e2e)', () => {
     it('lowStock=true шүүлтэд орж ирнэ (0 ≤ 3)', async () => {
       const res = await api()
         .get('/api/products?lowStock=true&limit=100')
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .expect(200);
       expect(res.body.items.some((p: { id: string }) => p.id === productId)).toBe(true);
     });
@@ -446,7 +494,7 @@ describe('ursGAL v2 API (e2e)', () => {
     it('movements reason шүүлт + summary 7 хоног', async () => {
       const mv = await api()
         .get(`/api/stock/movements?productId=${productId}&reason=PURCHASE_IN`)
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .expect(200);
       expect(mv.body.total).toBe(1);
 
@@ -467,7 +515,7 @@ describe('ursGAL v2 API (e2e)', () => {
       const { district: _d, ...noDistrict } = UB_ADDR;
       const res = await api()
         .post('/api/orders')
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .send({
           customerPhone: `9${T}`,
           ...noDistrict,
@@ -480,7 +528,7 @@ describe('ursGAL v2 API (e2e)', () => {
     it('Орон нутагт тээвэргүй → 400 «Ачаа явах тээвэр заавал»', async () => {
       const res = await api()
         .post('/api/orders')
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .send({
           customerPhone: `9${T}`,
           region: 'ORON_NUTAG',
@@ -495,7 +543,7 @@ describe('ursGAL v2 API (e2e)', () => {
     it('утас 8 оронтой биш → 400', async () => {
       await api()
         .post('/api/orders')
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .send({
           customerPhone: '123',
           ...UB_ADDR,
@@ -507,7 +555,7 @@ describe('ursGAL v2 API (e2e)', () => {
     it('давхардсан productId → 400', async () => {
       await api()
         .post('/api/orders')
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .send({
           customerName: `Э2Э-${T}`,
           customerPhone: `9${T}`,
@@ -522,7 +570,7 @@ describe('ursGAL v2 API (e2e)', () => {
     it('амжилттай үүсгэлт: дүн, үлдэгдэл, movement', async () => {
       const res = await api()
         .post('/api/orders')
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .send({
           customerName: `Э2Э-${T}`,
           customerPhone: `9${T}`,
@@ -539,14 +587,14 @@ describe('ursGAL v2 API (e2e)', () => {
       // GET /:id — fullAddress зөв угсрагдана
       const detail = await api()
         .get(`/api/orders/${orderId}`)
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .expect(200);
       expect(detail.body.fullAddress).toBe(UB_FULL);
 
       // GET / жагсаалт — shortAddress богино хэлбэр (N4)
       const list = await api()
         .get(`/api/orders?search=${res.body.orderNo}`)
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .expect(200);
       expect(list.body.items[0].shortAddress).toBe('ХУД, 11-р хороо');
       expect(res.body.orderNo).toMatch(/^ORD-\d{8}-\d{4}$/);
@@ -556,13 +604,13 @@ describe('ursGAL v2 API (e2e)', () => {
 
       const p = await api()
         .get(`/api/products/${productId}`)
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .expect(200);
       expect(p.body.stockQty).toBe(6);
 
       const mv = await api()
         .get(`/api/stock/movements?productId=${productId}&reason=ORDER`)
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .expect(200);
       expect(mv.body.items[0].qtyChange).toBe(-4);
       expect(mv.body.items[0].refId).toBe(orderId);
@@ -571,7 +619,7 @@ describe('ursGAL v2 API (e2e)', () => {
     it('хүрэлцэхгүй qty → 400 + ЮУ Ч өөрчлөгдөөгүй', async () => {
       const res = await api()
         .post('/api/orders')
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .send({
           customerName: `Э2Э-их-${T}`,
           customerPhone: `9${T}`,
@@ -582,7 +630,7 @@ describe('ursGAL v2 API (e2e)', () => {
       expect(res.body.message).toContain('хүрэлцэхгүй');
       const p = await api()
         .get(`/api/products/${productId}`)
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .expect(200);
       expect(p.body.stockQty).toBe(6);
     });
@@ -590,7 +638,7 @@ describe('ursGAL v2 API (e2e)', () => {
     it('буруу шилжилт NEW→COMPLETED → 400', async () => {
       await api()
         .patch(`/api/orders/${orderId}/status`)
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .send({ status: 'COMPLETED' })
         .expect(400);
     });
@@ -607,7 +655,6 @@ describe('ursGAL v2 API (e2e)', () => {
           soum: 'Эрдэнэбулган',
           transport: 'Од транс',
           addressDetail: 'Захын хойд талд',
-          deliveryFee: '0',
           items: [{ productId, qty: 1 }],
         })
         .expect(201);
@@ -649,7 +696,7 @@ describe('ursGAL v2 API (e2e)', () => {
     it('operator өөрийнхөө захиалгыг CONFIRMED болгоно', async () => {
       const res = await api()
         .patch(`/api/orders/${orderId}/status`)
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .send({ status: 'CONFIRMED' })
         .expect(200);
       expect(res.body.orderStatus).toBe('CONFIRMED');
@@ -793,7 +840,7 @@ describe('ursGAL v2 API (e2e)', () => {
         .expect(201);
       const ord = await api()
         .post('/api/orders')
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .send({
           customerName: `Э2Э-Зураггүй-${T}`,
           customerPhone: `5${T}`,
@@ -804,7 +851,7 @@ describe('ursGAL v2 API (e2e)', () => {
       noPhotoOrderId = ord.body.id;
       await api()
         .patch(`/api/orders/${noPhotoOrderId}/status`)
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .send({ status: 'CONFIRMED' })
         .expect(200);
       const realDriver = await api().get('/api/auth/me').set(auth(tok.driver));
@@ -880,7 +927,7 @@ describe('ursGAL v2 API (e2e)', () => {
       // 2 дахь захиалга (үлдэгдэл 6-2=4 болно)
       const ord = await api()
         .post('/api/orders')
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .send({
           customerName: `Э2Э-2-${T}`,
           customerPhone: `7${T}`,
@@ -891,7 +938,7 @@ describe('ursGAL v2 API (e2e)', () => {
       order2Id = ord.body.id;
       await api()
         .patch(`/api/orders/${order2Id}/status`)
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .send({ status: 'CONFIRMED' })
         .expect(200);
       await api()
@@ -949,7 +996,7 @@ describe('ursGAL v2 API (e2e)', () => {
         .expect(201);
       const ord = await api()
         .post('/api/orders')
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .send({
           customerName: `Э2Э-Бэлэн-${T}`,
           customerPhone: `7${T}`,
@@ -991,6 +1038,10 @@ describe('ursGAL v2 API (e2e)', () => {
       // тестүүдийн ачаалал/цалингийн тоололд нөлөөлнө — шууд устгана
       // (API-аар unassign хийх зам байхгүй)
       await prisma.stockMovement.deleteMany({ where: { refId: readyOrderId } });
+      // Хуваарилалт нь ORDER_RELEASED мэдэгдэл үүсгэсэн (V5). readyOrderId-г
+      // энд хоослодог тул эцсийн цэвэрлэгээний жагсаалтад орохгүй —
+      // мэдэгдлийг ЭНД устгахгүй бол ажилтны хонх дээр тестийн мөр үлдэнэ.
+      await prisma.notification.deleteMany({ where: { refId: readyOrderId } });
       await prisma.order.delete({ where: { id: readyOrderId } });
       readyOrderId = '';
     });
@@ -1082,7 +1133,7 @@ describe('ursGAL v2 API (e2e)', () => {
           email: `e2e-perm-${T}@ursgal.mn`,
           name: `Э2Э Перм ${T}`,
           password: 'e2epass123',
-          role: 'OPERATOR',
+          role: 'SELLER',
         })
         .expect(201);
       permUserId = res.body.id;
@@ -1096,11 +1147,12 @@ describe('ursGAL v2 API (e2e)', () => {
         .get(`/api/users/${permUserId}/permissions`)
         .set(auth(tok.admin))
         .expect(200);
-      expect(panel.body.role).toBe('OPERATOR');
+      expect(panel.body.role).toBe('SELLER');
       expect(panel.body.groups.map((g: { group: string }) => g.group)).toEqual([
         'ORDERS',
         'CUSTOMERS',
         'DRIVERS',
+        'SUPPLIES',
         'INVENTORY',
         'FINANCE',
         'REPORTS',
@@ -1126,7 +1178,6 @@ describe('ursGAL v2 API (e2e)', () => {
         (g: { items: Item[] }) => g.items.map((i) => i.key),
       );
       for (const dead of [
-        'orders.edit',
         'orders.delete',
         'customers.create',
         'customers.delete',
@@ -1136,7 +1187,14 @@ describe('ursGAL v2 API (e2e)', () => {
         expect(allKeys).not.toContain(dead);
       }
       // Панелын түлхүүр бүр backend-ийн ямар нэг route-д хэрэглэгддэг
-      expect(allKeys).toHaveLength(25);
+      // (V5-д нярав нэмэгдэхэд +2: orders.assign_warehouse, warehouse.handover)
+      expect(allKeys).toHaveLength(33);
+      expect(allKeys).toContain('drivers.zones');
+      expect(allKeys).toContain('orders.cancel');
+      expect(allKeys).toContain('supplies.create');
+      expect(allKeys).toContain('orders.assign_warehouse');
+      expect(allKeys).toContain('warehouse.handover');
+      expect(allKeys).toContain('orders.edit');
 
       // Хасагдсан түлхүүрийг олгох гэвэл валидацид унана
       await api()
@@ -1316,7 +1374,7 @@ describe('ursGAL v2 API (e2e)', () => {
         .expect(403);
       await api()
         .get('/api/dashboard/stock-health')
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .expect(200);
       const res = await api()
         .get('/api/dashboard/stock-health')
@@ -1329,7 +1387,7 @@ describe('ursGAL v2 API (e2e)', () => {
       await api().get('/api/categories').set(auth(tok.driver)).expect(403);
       const res = await api()
         .get('/api/categories')
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .expect(200);
       expect(Array.isArray(res.body)).toBe(true);
     });
@@ -1365,8 +1423,19 @@ describe('ursGAL v2 API (e2e)', () => {
      * алдаа өгдөг байв. Одоо GET /drivers нь drivers.view ЭСВЭЛ
      * orders.assign_driver-ийн аль нэгийг хүлээж авна.
      */
-    it('GET /drivers: assign_driver override-той OPERATOR-т нээгдэнэ', async () => {
-      // Анхны байдал: OPERATOR-т аль нь ч байхгүй → 403
+    it('GET /drivers: assign_driver override-той хүнд нээгдэнэ', async () => {
+      // Тестийн хэрэглэгч БОРЛУУЛАГЧ тул default-аар хоёулаа байдаг —
+      // урьдчилсан нөхцөлийг override-оор хасаж бэлдэнэ
+      await api()
+        .put(`/api/users/${permUserId}/permissions`)
+        .set(auth(tok.admin))
+        .send({
+          changes: [
+            { key: 'drivers.view', allowed: false },
+            { key: 'orders.assign_driver', allowed: false },
+          ],
+        })
+        .expect(200);
       await api().get('/api/drivers').set(auth(permUserToken)).expect(403);
 
       await api()
@@ -1385,13 +1454,18 @@ describe('ursGAL v2 API (e2e)', () => {
       // Аль нь ч байхгүй DRIVER → 403 хэвээр
       await api().get('/api/drivers').set(auth(tok.driver)).expect(403);
 
-      // цэвэрлэгээ
+      // цэвэрлэгээ — хоёуланг нь default руу буцаана
       await api()
         .put(`/api/users/${permUserId}/permissions`)
         .set(auth(tok.admin))
-        .send({ changes: [{ key: 'orders.assign_driver', allowed: null }] })
+        .send({
+          changes: [
+            { key: 'orders.assign_driver', allowed: null },
+            { key: 'drivers.view', allowed: null },
+          ],
+        })
         .expect(200);
-      await api().get('/api/drivers').set(auth(permUserToken)).expect(403);
+      await api().get('/api/drivers').set(auth(permUserToken)).expect(200);
     });
 
     it('нэвтрэлтгүйгээр хоёулаа 401', async () => {
@@ -1405,14 +1479,21 @@ describe('ursGAL v2 API (e2e)', () => {
      * эрх хэвээр үлддэг байв. Одоо шууд үйлчлэх ёстой.
      */
     it('role солиход эрх ШУУД шинэчлэгдэнэ (cache invalidate)', async () => {
-      // 1. Cache-ыг халаана: OPERATOR-т drivers.view байхгүй → 403
+      // 1. Жолоочийн эрхгүй role (ХАРИЛЦАГЧ) болгоод cache-ыг халаана.
+      // Override ашиглахгүй — энэ тест нь ЗӨВХӨН role солилтын
+      // нөлөөг хэмжих ёстой (override нь role-оос дээгүүр тул баруйлна).
+      await api()
+        .patch(`/api/users/${permUserId}`)
+        .set(auth(tok.admin))
+        .send({ role: 'OPERATOR' })
+        .expect(200);
       await api()
         .get('/api/auth/me')
         .set(auth(permUserToken))
         .expect(200);
       await api().get('/api/drivers').set(auth(permUserToken)).expect(403);
 
-      // 2. ADMIN role-ыг MANAGER болгоно (token хэвээр — role нь DB-ээс)
+      // 2. MANAGER болгоно (token хэвээр — role нь DB-ээс уншигдана)
       await api()
         .patch(`/api/users/${permUserId}`)
         .set(auth(tok.admin))
@@ -1449,7 +1530,7 @@ describe('ursGAL v2 API (e2e)', () => {
       await api()
         .post('/api/finance/entries')
         .set(auth(tok.operator))
-        .send({ type: 'INCOME', category: 'Бусад', amount: '100.00' })
+        .send({ type: 'INCOME', category: 'OTHER_INCOME', amount: '100.00' })
         .expect(403);
     });
 
@@ -1457,7 +1538,7 @@ describe('ursGAL v2 API (e2e)', () => {
       const inc = await api()
         .post('/api/finance/entries')
         .set(auth(tok.manager))
-        .send({ type: 'INCOME', category: 'Бусад орлого', amount: '5000.00' })
+        .send({ type: 'INCOME', category: 'OTHER_INCOME', amount: '5000.00' })
         .expect(201);
       financeEntryIds.push(inc.body.id);
       expect(inc.body.amount).toBe('5000');
@@ -1467,7 +1548,7 @@ describe('ursGAL v2 API (e2e)', () => {
         .set(auth(tok.manager))
         .send({
           type: 'EXPENSE',
-          category: 'Түрээс',
+          category: 'RENT',
           amount: '3000.50',
           note: 'Э2Э зарлага',
         })
@@ -1475,6 +1556,43 @@ describe('ursGAL v2 API (e2e)', () => {
       financeEntryIds.push(exp.body.id);
       expect(exp.body.type).toBe('EXPENSE');
       expect(exp.body.createdBy.fullName).toBeTruthy();
+    });
+
+    /**
+     * Ангилал нь каталогийн код байх ёстой (V5) — эс тэгвэл нэг зардал
+     * олон нэрээр хуваагдаж тайлан бүлэглэгдэхгүй болно.
+     */
+    it('чөлөөт текст ба автомат ангилал хоригдоно', async () => {
+      const bad = await api()
+        .post('/api/finance/entries')
+        .set(auth(tok.manager))
+        .send({ type: 'EXPENSE', category: 'Түрээс', amount: '100' })
+        .expect(400);
+      expect(bad.body.message).toContain('Ангилал буруу');
+
+      // Автомат ангилал — гараар бичвэл тайлангийн тоо давхардана
+      await api()
+        .post('/api/finance/entries')
+        .set(auth(tok.manager))
+        .send({ type: 'INCOME', category: 'PAYMENT', amount: '100' })
+        .expect(400);
+      await api()
+        .post('/api/finance/entries')
+        .set(auth(tok.manager))
+        .send({ type: 'EXPENSE', category: 'SUPPLY', amount: '100' })
+        .expect(400);
+
+      const cats = await api()
+        .get('/api/finance/categories')
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(cats.body.EXPENSE.map((c: { code: string }) => c.code)).toContain(
+        'RENT',
+      );
+      // Автомат ангиллууд сонголтод ГАРАХГҮЙ
+      expect(cats.body.EXPENSE.map((c: { code: string }) => c.code)).not.toContain(
+        'SUPPLY',
+      );
     });
 
     it('жагсаалт type шүүлтүүртэй', async () => {
@@ -1527,7 +1645,7 @@ describe('ursGAL v2 API (e2e)', () => {
       const p1 = await api()
         .post(`/api/orders/${orderId}/payments`)
         .set(auth(tok.manager))
-        .send({ amount: '1500.00', method: 'CASH' })
+        .send({ amount: '1500.00', method: 'TRANSFER' })
         .expect(201);
       expect(p1.body.order.paymentStatus).toBe('PARTIAL');
       expect(p1.body.order.paidAmount).toBe('1500');
@@ -1546,7 +1664,7 @@ describe('ursGAL v2 API (e2e)', () => {
       await api()
         .post(`/api/orders/${orderId}/payments`)
         .set(auth(tok.manager))
-        .send({ amount: '3000.00', method: 'CASH' })
+        .send({ amount: '3000.00', method: 'TRANSFER' })
         .expect(400);
 
       // Бүрэн төлөлт → PAID, авлагаас алга болно
@@ -1568,7 +1686,7 @@ describe('ursGAL v2 API (e2e)', () => {
       await api()
         .post(`/api/orders/${orderId}/payments`)
         .set(auth(tok.manager))
-        .send({ amount: '1.00', method: 'CASH' })
+        .send({ amount: '1.00', method: 'TRANSFER' })
         .expect(400);
 
       // Устгахад буцаж PARTIAL + INCOME нь устна
@@ -1605,7 +1723,7 @@ describe('ursGAL v2 API (e2e)', () => {
       await api()
         .post(`/api/orders/${orderId}/payments`)
         .set(auth(tok.operator))
-        .send({ amount: '1.00', method: 'CASH' })
+        .send({ amount: '1.00', method: 'TRANSFER' })
         .expect(403);
     });
 
@@ -1637,7 +1755,7 @@ describe('ursGAL v2 API (e2e)', () => {
         .expect(201);
       const ord = await api()
         .post('/api/orders')
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .send({
           customerName: `Э2Э-Раце-${T}`,
           customerPhone: `7${T}`,
@@ -1660,7 +1778,7 @@ describe('ursGAL v2 API (e2e)', () => {
         [0, 1, 2, 3].map(() =>
           payments.addPayment(
             raceOrderId,
-            { amount: total, method: 'CASH' },
+            { amount: total, method: 'TRANSFER' },
             mgr.body,
           ),
         ),
@@ -1703,7 +1821,7 @@ describe('ursGAL v2 API (e2e)', () => {
     it('V4: гараар COMPLETED болгоход орлого үүсэхгүй, авлагад орно', async () => {
       const ord = await api()
         .post('/api/orders')
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .send({
           customerName: `Э2Э-Санхүү-${T}`,
           customerPhone: `7${T}`,
@@ -1715,7 +1833,7 @@ describe('ursGAL v2 API (e2e)', () => {
       for (const s of ['CONFIRMED', 'PREPARING', 'READY', 'COMPLETED']) {
         await api()
           .patch(`/api/orders/${financeOrderId}/status`)
-          .set(auth(tok.operator))
+          .set(auth(tok.seller))
           .send({ status: s })
           .expect(200);
       }
@@ -1910,16 +2028,41 @@ describe('ursGAL v2 API (e2e)', () => {
         .send({ productId, qtyChange: -4, reason: 'MANUAL_OUT' })
         .expect(201);
 
+      // Харилцагчийн самбар нь НИЙЛҮҮЛЭГЧИЙНХ (V5): зөвхөн өөрийн
+      // компанийн нийлүүлэлт, тооцоо, өөрийн барааны үлдэгдэл.
+      // Захиалга, бусдын бараа энд гарахгүй.
       const res = await api()
         .get('/api/dashboard/operator')
         .set(auth(tok.operator))
         .expect(200);
-      expect(res.body.myOrdersTotal).toBeGreaterThan(0);
-      const low = res.body.lowStockProducts.find(
-        (p: { id: string }) => p.id === productId,
-      );
-      expect(low).toBeDefined();
-      expect(low.stockQty).toBeLessThanOrEqual(low.lowStockLimit);
+      expect(res.body).not.toHaveProperty('myOrdersTotal');
+      expect(res.body).toHaveProperty('dueAmount');
+      expect(Array.isArray(res.body.recentSupplies)).toBe(true);
+      // Компанид холбогдоогүй харилцагчид хоосон бүтэц ирнэ
+      expect(res.body.company).toBeNull();
+      expect(res.body.lowStockProducts).toEqual([]);
+    });
+
+    it('харилцагч дотоод мэдээлэлд хүрэхгүй ⭐', async () => {
+      // Гаднын нийлүүлэгч тул захиалга/бараа/хэрэглэгч харах эрхгүй.
+      // Өмнө нь orders.view-тэй байсан тул БҮХ үйлчлүүлэгчийн нэр,
+      // утас, хаяг, төлбөрийг хардаг байв.
+      const me = await api()
+        .get('/api/auth/me')
+        .set(auth(tok.operator))
+        .expect(200);
+      expect(me.body.permissions).toEqual(['supplies.view']);
+
+      for (const path of [
+        '/api/orders',
+        `/api/orders/${orderId}`,
+        '/api/products',
+        '/api/customers/by-phone',
+        '/api/drivers',
+        '/api/stock/movements',
+      ]) {
+        await api().get(path).set(auth(tok.operator)).expect(403);
+      }
     });
 
     it('manager: stockLast7Days 7 өдөр + driverLoad', async () => {
@@ -2105,7 +2248,10 @@ describe('ursGAL v2 API (e2e)', () => {
           n.type === 'DELIVERY_FAILED' && n.refId === order2Id,
       );
       expect(failed).toBeDefined();
-      expect(failed.body).toBe('Хаалгаа нээсэнгүй');
+      // V5: биед нь хэн болох + шалтгаан хамт (борлуулагч руу ч очдог тул
+      // хэрэглэгчийг таних мэдээлэл хэрэгтэй)
+      expect(failed.body).toContain('Хаалгаа нээсэнгүй');
+      expect(failed.body).toContain(`7${T}`);
     });
 
     it('activity-log: бичилтүүд + permission_change + эрхийн шалгалт', async () => {
@@ -2182,7 +2328,7 @@ describe('ursGAL v2 API (e2e)', () => {
       for (const which of ['A', 'B']) {
         const ord = await api()
           .post('/api/orders')
-          .set(auth(tok.operator))
+          .set(auth(tok.seller))
           .send({
             customerName: `Э2Э-Маршрут-${which}-${T}`,
             customerPhone: `6${T}`,
@@ -2194,7 +2340,7 @@ describe('ursGAL v2 API (e2e)', () => {
         else roB = ord.body.id;
         await api()
           .patch(`/api/orders/${ord.body.id}/status`)
-          .set(auth(tok.operator))
+          .set(auth(tok.seller))
           .send({ status: 'CONFIRMED' })
           .expect(200);
         await api()
@@ -2270,240 +2416,6 @@ describe('ursGAL v2 API (e2e)', () => {
     });
   });
 
-  // ────────────────────────────────────────────── CUSTOMER PORTAL (V3)
-  describe('V3: Customer Portal ⭐', () => {
-    it('бүртгэл: CUSTOMER үүсч токен авна; давхардсан имэйл → 409', async () => {
-      const reg = await api()
-        .post('/api/auth/register')
-        .send({
-          name: 'Э2Э Портал Харилцагч',
-          email: `e2e-cust-${T}@mail.mn`,
-          phone: '99887700',
-          password: 'custpass1',
-        })
-        .expect(201);
-      custUserId = reg.body.user.id;
-      custToken = reg.body.accessToken;
-      expect(reg.body.user.role).toBe('CUSTOMER');
-      expect(reg.body.user.permissions).toEqual([]);
-
-      await api()
-        .post('/api/auth/register')
-        .send({
-          name: 'Давхар',
-          email: `e2e-cust-${T}@mail.mn`,
-          phone: '99887701',
-          password: 'custpass2',
-        })
-        .expect(409);
-    });
-
-    it('customer staff API-д хандахгүй (бүгд 403)', async () => {
-      for (const path of ['/api/orders', '/api/products', '/api/users']) {
-        await api().get(path).set(auth(custToken)).expect(403);
-      }
-    });
-
-    it('захиалга үүсгэнэ: утас/нэр профайлоос, staff-тай ижил transaction', async () => {
-      const before = await api()
-        .get(`/api/products/${productId}`)
-        .set(auth(tok.manager))
-        .expect(200);
-
-      const ord = await api()
-        .post('/api/orders')
-        .set(auth(custToken))
-        .send({ ...UB_ADDR, items: [{ productId, qty: 1 }] })
-        .expect(201);
-      custOrderId = ord.body.id;
-      expect(ord.body.customerId).toBe(custUserId);
-      expect(ord.body.phone).toBe('99887700'); // профайлын утас
-      expect(ord.body.customerName).toBe('Э2Э Портал Харилцагч');
-
-      const after = await api()
-        .get(`/api/products/${productId}`)
-        .set(auth(tok.manager))
-        .expect(200);
-      expect(after.body.stockQty).toBe(before.body.stockQty - 1);
-
-      // operator-т онлайн захиалгын мэдэгдэл очсон
-      const notifs = await api()
-        .get('/api/notifications?limit=50')
-        .set(auth(tok.operator))
-        .expect(200);
-      const mine = notifs.body.items.find(
-        (n: { type: string; refId: string | null }) =>
-          n.type === 'CUSTOMER_ORDER' && n.refId === custOrderId,
-      );
-      expect(mine.title).toContain('Шинэ онлайн захиалга');
-    });
-
-    it('portal: жагсаалт, дэлгэрэнгүй (хязгаарлагдмал), бусдынх 403', async () => {
-      const list = await api()
-        .get('/api/portal/orders')
-        .set(auth(custToken))
-        .expect(200);
-      expect(
-        list.body.items.some((o: { id: string }) => o.id === custOrderId),
-      ).toBe(true);
-
-      // Статус ахиулахад customer-т мэдэгдэл очно
-      await api()
-        .patch(`/api/orders/${custOrderId}/status`)
-        .set(auth(tok.admin))
-        .send({ status: 'CONFIRMED' })
-        .expect(200);
-      const notifs = await api()
-        .get('/api/notifications?limit=20')
-        .set(auth(custToken))
-        .expect(200);
-      expect(
-        notifs.body.items.some(
-          (n: { type: string; title: string }) =>
-            n.type === 'ORDER_STATUS' && n.title.includes('Баталгаажсан'),
-        ),
-      ).toBe(true);
-
-      const detail = await api()
-        .get(`/api/portal/orders/${custOrderId}`)
-        .set(auth(custToken))
-        .expect(200);
-      expect(detail.body.orderStatus).toBe('CONFIRMED');
-      expect(detail.body.items).toHaveLength(1);
-      expect(detail.body.fullAddress).toBe(UB_FULL);
-      expect(detail.body).not.toHaveProperty('createdById');
-      expect(detail.body.assignedDriver).toBeNull();
-
-      // Бусдын захиалга → 403; staff portal-д хандахгүй → 403
-      await api()
-        .get(`/api/portal/orders/${orderId}`)
-        .set(auth(custToken))
-        .expect(403);
-      await api()
-        .get('/api/portal/orders')
-        .set(auth(tok.admin))
-        .expect(403);
-    });
-
-    it('portal dashboard: тоонууд зөв', async () => {
-      const res = await api()
-        .get('/api/portal/dashboard')
-        .set(auth(custToken))
-        .expect(200);
-      expect(res.body.totalOrders).toBe(1);
-      expect(res.body.activeOrders).toBe(1);
-      expect(res.body.recentOrders[0].id).toBe(custOrderId);
-    });
-
-    it('profile: нэр/утас/нууц үг солино (имэйл хэвээр)', async () => {
-      const res = await api()
-        .patch('/api/portal/profile')
-        .set(auth(custToken))
-        .send({ name: 'Шинэ Нэр', phone: '99887711' })
-        .expect(200);
-      expect(res.body.name).toBe('Шинэ Нэр');
-      expect(res.body.phone).toBe('99887711');
-      expect(res.body.email).toBe(`e2e-cust-${T}@mail.mn`);
-
-      // ⚠ Нууц үг солиход одоогийн нууц үг ЗААВАЛ — эс тэгвэл хулгайлагдсан
-      // access token-той хэн ч бүртгэлийг бүрмөсөн эзэмшинэ
-      const noCurrent = await api()
-        .patch('/api/portal/profile')
-        .set(auth(custToken))
-        .send({ password: 'newpass99' })
-        .expect(400);
-      expect(noCurrent.body.message).toContain('Одоогийн нууц үг');
-      await api()
-        .patch('/api/portal/profile')
-        .set(auth(custToken))
-        .send({ password: 'newpass99', currentPassword: 'buruu-nuuts' })
-        .expect(400);
-      await api()
-        .patch('/api/portal/profile')
-        .set(auth(custToken))
-        .send({ password: 'custpass1', currentPassword: 'custpass1' })
-        .expect(400);
-      // Хуучин нууц үг хэвээр ажиллаж байна (өөрчлөгдөөгүйн баталгаа)
-      const stillOld = await api()
-        .post('/api/auth/login')
-        .send({ email: `e2e-cust-${T}@mail.mn`, password: 'custpass1' })
-        .expect(200);
-      const oldRefresh = stillOld.body.refreshToken;
-
-      const changed = await api()
-        .patch('/api/portal/profile')
-        .set(auth(custToken))
-        .send({ password: 'newpass99', currentPassword: 'custpass1' })
-        .expect(200);
-      expect(changed.body.passwordChanged).toBe(true);
-      // Хуучин session-ууд унтарсан
-      await api()
-        .post('/api/auth/refresh')
-        .send({ refreshToken: oldRefresh })
-        .expect(401);
-      await api()
-        .post('/api/auth/login')
-        .send({ email: `e2e-cust-${T}@mail.mn`, password: 'custpass1' })
-        .expect(401);
-      const relogin = await api()
-        .post('/api/auth/login')
-        .send({ email: `e2e-cust-${T}@mail.mn`, password: 'newpass99' })
-        .expect(200);
-      custToken = relogin.body.accessToken;
-    });
-
-    it('цуцлалт: хаалттай үед 403; нээлттэй үед зөвхөн NEW, үлдэгдэл буцна', async () => {
-      // Тохиргоо Settings-ээс уншигдана (V3-16)
-      await api()
-        .put('/api/settings')
-        .set(auth(tok.admin))
-        .send({ allowCustomerCancel: 'false' })
-        .expect(200);
-      const ord2 = await api()
-        .post('/api/orders')
-        .set(auth(custToken))
-        .send({ ...UB_ADDR, items: [{ productId, qty: 1 }] })
-        .expect(201);
-      custOrder2Id = ord2.body.id;
-
-      await api()
-        .patch(`/api/portal/orders/${custOrder2Id}/cancel`)
-        .set(auth(custToken))
-        .expect(403);
-
-      await api()
-        .put('/api/settings')
-        .set(auth(tok.admin))
-        .send({ allowCustomerCancel: 'true' })
-        .expect(200);
-      // CONFIRMED захиалга цуцлагдахгүй
-      await api()
-        .patch(`/api/portal/orders/${custOrderId}/cancel`)
-        .set(auth(custToken))
-        .expect(400);
-
-      const before = await api()
-        .get(`/api/products/${productId}`)
-        .set(auth(tok.manager))
-        .expect(200);
-      const res = await api()
-        .patch(`/api/portal/orders/${custOrder2Id}/cancel`)
-        .set(auth(custToken))
-        .expect(200);
-      expect(res.body.orderStatus).toBe('CANCELLED');
-      const after = await api()
-        .get(`/api/products/${productId}`)
-        .set(auth(tok.manager))
-        .expect(200);
-      expect(after.body.stockQty).toBe(before.body.stockQty + 1);
-      await api()
-        .put('/api/settings')
-        .set(auth(tok.admin))
-        .send({ allowCustomerCancel: 'false' })
-        .expect(200);
-    });
-  });
-
   // ────────────────────────────────────────────── SETTINGS + ANALYTICS + REPORTS (V3)
   describe('V3: Settings + Analytics + Reports ⭐', () => {
     it('settings: public унших, edit эрхтэйд л, буруу утга 400', async () => {
@@ -2512,7 +2424,6 @@ describe('ursGAL v2 API (e2e)', () => {
         .set(auth(tok.operator))
         .expect(200);
       expect(pub.body).toHaveProperty('companyName');
-      expect(pub.body.allowCustomerCancel).toBe('false');
 
       await api()
         .put('/api/settings')
@@ -2538,11 +2449,71 @@ describe('ursGAL v2 API (e2e)', () => {
         .set(auth(tok.admin))
         .send({ huurmagKey: 'x' })
         .expect(400);
-      await api()
+    });
+
+    /**
+     * DM-ийн хариу, банкны данс, хугацааны анхааруулга (V5).
+     * Frontend эдгээр түлхүүрүүд байхыг НАЙДДАГ — устгавал мессеж
+     * үүсэхгүй болно. Тиймээс гэрээг тестээр барина.
+     */
+    it('settings: V5-ийн шинэ түлхүүрүүд байх ба хадгалагдана', async () => {
+      const pub = await api()
+        .get('/api/settings')
+        .set(auth(tok.seller))
+        .expect(200);
+      for (const k of [
+        'dmTemplate',
+        'bankName',
+        'bankAccount',
+        'bankHolder',
+        'expiryWarnDays',
+      ]) {
+        expect(pub.body).toHaveProperty(k);
+      }
+      // Анхны загварт орлуулгууд байх ёстой — эс тэгвэл мессеж хоосон
+      for (const token of ['{нэр}', '{дугаар}', '{бараа}', '{нийт}', '{данс}']) {
+        expect(pub.body.dmTemplate).toContain(token);
+      }
+      expect(pub.body.expiryWarnDays).toBe('30');
+      /** Тестийн дараа ЯГ буцаах анхны загвар (кодод давхардуулахгүй) */
+      const originalTemplate: string = pub.body.dmTemplate;
+
+      const upd = await api()
         .put('/api/settings')
         .set(auth(tok.admin))
-        .send({ allowCustomerCancel: 'maybe' })
-        .expect(400);
+        .send({
+          dmTemplate: 'Сайн уу {нэр}, {дугаар} бэлэн.',
+          bankName: 'Э2Э банк',
+          bankAccount: '5000000001',
+          bankHolder: 'Э2Э ХХК',
+          expiryWarnDays: '45',
+        })
+        .expect(200);
+      expect(upd.body.dmTemplate).toContain('{нэр}');
+      expect(upd.body.bankAccount).toBe('5000000001');
+      expect(upd.body.expiryWarnDays).toBe('45');
+
+      // Хугацааны хураангуй тохиргоог дагана
+      const sum = await api()
+        .get('/api/batches/summary')
+        .set(auth(tok.admin))
+        .expect(200);
+      expect(sum.body.warnDays).toBe(45);
+
+      // Анхны утгуудад нь бүрэн буцаана — эс тэгвэл dev DB-д тестийн
+      // загвар үлдэж, бодит үйлчлүүлэгч рүү эвдэрсэн мессеж явна
+      const back = await api()
+        .put('/api/settings')
+        .set(auth(tok.admin))
+        .send({
+          dmTemplate: originalTemplate,
+          bankName: '',
+          bankAccount: '',
+          bankHolder: '',
+          expiryWarnDays: '30',
+        })
+        .expect(200);
+      expect(back.body.dmTemplate).toBe(originalTemplate);
     });
 
     it('analytics: manager нэвтэрнэ, operator 403, тоонууд зөв', async () => {
@@ -2672,12 +2643,12 @@ describe('ursGAL v2 API (e2e)', () => {
       // operator (inventory.view л эрхтэй) — өртөг нуугдана
       const asOperator = await api()
         .get(`/api/products/${productId}`)
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .expect(200);
       expect(asOperator.body).not.toHaveProperty('costPrice');
       const list = await api()
         .get(`/api/products?search=${T}&limit=50`)
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .expect(200);
       for (const p of list.body.items) {
         expect(p).not.toHaveProperty('costPrice');
@@ -2701,7 +2672,7 @@ describe('ursGAL v2 API (e2e)', () => {
     it('захиалгад costAtOrder snapshot — дараа өртөг өөрчлөгдөхөд хөндөгдөхгүй', async () => {
       const ord = await api()
         .post('/api/orders')
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .send({
           customerName: `Э2Э-Өртөг-${T}`,
           customerPhone: `4${T}`,
@@ -2770,7 +2741,7 @@ describe('ursGAL v2 API (e2e)', () => {
         .expect(201);
       const ord = await api()
         .post('/api/orders')
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .send({
           customerName: `Э2Э-Буцаалт-${T}`,
           customerPhone: `6${T}`,
@@ -2784,7 +2755,7 @@ describe('ursGAL v2 API (e2e)', () => {
 
       await api()
         .patch(`/api/orders/${retOrderId}/status`)
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .send({ status: 'CONFIRMED' })
         .expect(200);
       const realDriver = await api().get('/api/auth/me').set(auth(tok.driver));
@@ -2803,7 +2774,7 @@ describe('ursGAL v2 API (e2e)', () => {
       const pay = await api()
         .post(`/api/orders/${retOrderId}/payments`)
         .set(auth(tok.manager))
-        .send({ amount: ord.body.totalAmount, method: 'CASH' })
+        .send({ amount: ord.body.totalAmount, method: 'TRANSFER' })
         .expect(201);
       expect(pay.body.order.paymentStatus).toBe('PAID');
     });
@@ -2955,140 +2926,6 @@ describe('ursGAL v2 API (e2e)', () => {
   });
 
   // ────────────────────────────────────────────── V4: ХҮРГЭЛТИЙН ТАРИФ
-  describe('V4: Хүргэлтийн тариф ⭐', () => {
-    const DEFAULT_TARIFFS = [
-      { region: 'ULAANBAATAR', district: null, fee: '5000' },
-      { region: 'ORON_NUTAG', district: null, fee: '15000' },
-    ];
-    // deliveryFee override-гүй УБ хаяг (UB_ADDR-д '0' override орсон)
-    const { deliveryFee: _noFee, ...UB_ADDR_AUTO } = UB_ADDR;
-
-    afterAll(async () => {
-      // Тарифуудыг default руу нь буцаана
-      await api()
-        .put('/api/settings/tariffs')
-        .set(auth(tok.admin))
-        .send({ tariffs: DEFAULT_TARIFFS })
-        .expect(200);
-    });
-
-    it('GET tariffs нэвтэрсэн бүгдэд — default-ууд байна', async () => {
-      const res = await api()
-        .get('/api/settings/tariffs')
-        .set(auth(tok.operator))
-        .expect(200);
-      const ub = res.body.find(
-        (t: { region: string; district: string | null }) =>
-          t.region === 'ULAANBAATAR' && t.district === null,
-      );
-      const on = res.body.find(
-        (t: { region: string; district: string | null }) =>
-          t.region === 'ORON_NUTAG' && t.district === null,
-      );
-      expect(Number(ub.fee)).toBe(5000);
-      expect(Number(on.fee)).toBe(15000);
-    });
-
-    it('шинэ захиалгад хөлс автоматаар НЭМЭГДЭХГҮЙ (default 0); staff override болно', async () => {
-      await api()
-        .post('/api/stock/adjust')
-        .set(auth(tok.manager))
-        .send({ productId, qtyChange: 4, reason: 'PURCHASE_IN' })
-        .expect(201);
-
-      const auto = await api()
-        .post('/api/orders')
-        .set(auth(tok.operator))
-        .send({
-          customerName: `Э2Э-Тариф-${T}`,
-          customerPhone: `7${T}`,
-          ...UB_ADDR_AUTO,
-          items: [{ productId, qty: 1 }],
-        })
-        .expect(201);
-      feeOrderIds.push(auto.body.id);
-      expect(Number(auto.body.deliveryFee)).toBe(0);
-      const price = Number(auto.body.items[0].priceAtOrder);
-      expect(Number(auto.body.totalAmount)).toBe(price);
-
-      const manual = await api()
-        .post('/api/orders')
-        .set(auth(tok.operator))
-        .send({
-          customerName: `Э2Э-Тариф2-${T}`,
-          customerPhone: `7${T}`,
-          ...UB_ADDR_AUTO,
-          deliveryFee: '2000',
-          items: [{ productId, qty: 1 }],
-        })
-        .expect(201);
-      feeOrderIds.push(manual.body.id);
-      expect(Number(manual.body.deliveryFee)).toBe(2000);
-      expect(Number(manual.body.totalAmount)).toBe(price + 2000);
-    });
-
-    it('орон нутгийн захиалгад ч хөлс 0 (авто тариф байхгүй)', async () => {
-      const res = await api()
-        .post('/api/orders')
-        .set(auth(tok.operator))
-        .send({
-          customerName: `Э2Э-ТарифОН-${T}`,
-          customerPhone: `7${T}`,
-          region: 'ORON_NUTAG',
-          province: 'Хөвсгөл',
-          soum: 'Мөрөн',
-          transport: 'Тэнүүн транс',
-          items: [{ productId, qty: 1 }],
-        })
-        .expect(201);
-      feeOrderIds.push(res.body.id);
-      expect(Number(res.body.deliveryFee)).toBe(0);
-    });
-
-    it('тарифын лавлагаа: operator PUT 403, өөрчилсөн ч захиалгад нөлөөлөхгүй, default дутвал 400', async () => {
-      await api()
-        .put('/api/settings/tariffs')
-        .set(auth(tok.operator))
-        .send({ tariffs: DEFAULT_TARIFFS })
-        .expect(403);
-
-      // ХУД-д тусгай 7000 тариф
-      await api()
-        .put('/api/settings/tariffs')
-        .set(auth(tok.admin))
-        .send({
-          tariffs: [
-            ...DEFAULT_TARIFFS,
-            { region: 'ULAANBAATAR', district: 'ХУД', fee: '7000' },
-          ],
-        })
-        .expect(200);
-      const ord = await api()
-        .post('/api/orders')
-        .set(auth(tok.operator))
-        .send({
-          customerName: `Э2Э-Тариф3-${T}`,
-          customerPhone: `7${T}`,
-          ...UB_ADDR_AUTO, // district: ХУД — тусгай тариф байсан ч 0
-          items: [{ productId, qty: 1 }],
-        })
-        .expect(201);
-      feeOrderIds.push(ord.body.id);
-      expect(Number(ord.body.deliveryFee)).toBe(0);
-
-      // Region default дутуу бол 400
-      await api()
-        .put('/api/settings/tariffs')
-        .set(auth(tok.admin))
-        .send({
-          tariffs: [
-            { region: 'ULAANBAATAR', district: null, fee: '5000' },
-            { region: 'ORON_NUTAG', district: 'мөрөн', fee: '15000' },
-          ],
-        })
-        .expect(400);
-    });
-  });
 
   // ────────────────────────────────────────────── V4: НУУЦ ҮГ СЭРГЭЭХ
   describe('V4: Нууц үг сэргээх ⭐', () => {
@@ -3111,7 +2948,7 @@ describe('ursGAL v2 API (e2e)', () => {
           name: 'Э2Э Нууцүг Тест',
           email: pwEmail,
           password: 'firstpass1',
-          role: 'OPERATOR',
+          role: 'SELLER',
         })
         .expect(201);
       pwUserId = created.body.id;
@@ -3539,7 +3376,7 @@ describe('ursGAL v2 API (e2e)', () => {
       // Энгийн 400 + 403 — лог руу ОРОХГҮЙ
       await api()
         .post('/api/orders')
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .send({ region: 'ULAANBAATAR' })
         .expect(400);
       await api().get('/api/users').set(auth(tok.operator)).expect(403);
@@ -3569,26 +3406,1875 @@ describe('ursGAL v2 API (e2e)', () => {
     });
   });
 
-  // ────────────────────────────────────────────── V4-16: EDGE ГҮЙЦЭЭЛТ
-  describe('V4-16: Edge гүйцээлт ⭐', () => {
-    it('customer захиалгад ч хөлс нэмэгдэхгүй (override ч үл тоомсорлогдоно)', async () => {
+  // ────────────────────────────────────────────── V5: СУВАГ
+  describe('V5: Захиалгын суваг ⭐', () => {
+    it('суваг хадгалагдаж, шүүлт ба аналитикт тусна; орхивол OTHER', async () => {
       await api()
         .post('/api/stock/adjust')
         .set(auth(tok.manager))
-        .send({ productId, qtyChange: 1, reason: 'PURCHASE_IN' })
+        .send({ productId, qtyChange: 2, reason: 'PURCHASE_IN' })
         .expect(201);
-      // customer-ийн илгээсэн deliveryFee ч, авто тариф ч үйлчлэхгүй — 0
-      const ord = await api()
+
+      const ig = await api()
         .post('/api/orders')
-        .set(auth(custToken))
-        .send({ ...UB_ADDR, deliveryFee: '9999', items: [{ productId, qty: 1 }] })
+        .set(auth(tok.seller))
+        .send({
+          customerName: `Э2Э-IG-${T}`,
+          customerPhone: `3${T}`,
+          ...UB_ADDR,
+          channel: 'INSTAGRAM',
+          items: [{ productId, qty: 1 }],
+        })
         .expect(201);
-      feeOrderIds.push(ord.body.id);
-      expect(Number(ord.body.deliveryFee)).toBe(0);
-      expect(Number(ord.body.totalAmount)).toBe(
-        Number(ord.body.items[0].lineTotal),
+      feeOrderIds.push(ig.body.id);
+      expect(ig.body.channel).toBe('INSTAGRAM');
+
+      // Суваг заагаагүй бол OTHER
+      const other = await api()
+        .post('/api/orders')
+        .set(auth(tok.seller))
+        .send({
+          customerName: `Э2Э-Суваггүй-${T}`,
+          customerPhone: `3${T}`,
+          ...UB_ADDR,
+          items: [{ productId, qty: 1 }],
+        })
+        .expect(201);
+      feeOrderIds.push(other.body.id);
+      expect(other.body.channel).toBe('OTHER');
+
+      // Шүүлт: зөвхөн INSTAGRAM
+      const list = await api()
+        .get('/api/orders?channel=INSTAGRAM&limit=100')
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(
+        list.body.items.every(
+          (o: { channel: string }) => o.channel === 'INSTAGRAM',
+        ),
+      ).toBe(true);
+      expect(
+        list.body.items.some((o: { id: string }) => o.id === ig.body.id),
+      ).toBe(true);
+
+      // Буруу суваг → 400
+      await api()
+        .get('/api/orders?channel=TIKTOK')
+        .set(auth(tok.manager))
+        .expect(400);
+
+      // Аналитик: суваг тус бүрийн задаргаа, хувь нийлбэр 100 орчим
+      const ch = await api()
+        .get('/api/analytics/channels')
+        .set(auth(tok.manager))
+        .expect(200);
+      const insta = ch.body.find(
+        (c: { channel: string }) => c.channel === 'INSTAGRAM',
+      );
+      expect(insta.orders).toBeGreaterThanOrEqual(1);
+      expect(Number(insta.amount)).toBeGreaterThan(0);
+      expect(
+        ch.body.reduce((a: number, c: { share: number }) => a + c.share, 0),
+      ).toBeGreaterThanOrEqual(98);
+    });
+  });
+
+  // ────────────────────────────────────────────── V5: НИЙТИЙН ЗАХИАЛГЫН ЛИНК
+  describe('V5: Нийтийн захиалгын хүсэлт ⭐', () => {
+    let publicToken: string;
+    let requestId: string;
+    let convertedOrderId: string;
+
+    afterAll(async () => {
+      if (requestId) {
+        await prisma.orderRequestItem.deleteMany({ where: { requestId } });
+        await prisma.orderRequest.deleteMany({ where: { id: requestId } });
+      }
+    });
+
+    it('линк: ажилтанд нууц өгөгдөнө, буруу token → 404', async () => {
+      const res = await api()
+        .get('/api/order-requests/link')
+        .set(auth(tok.manager))
+        .expect(200);
+      publicToken = res.body.token;
+      expect(publicToken).toBeTruthy();
+
+      await api().get('/api/public/order-form?token=buruu').expect(404);
+    });
+
+    it('маягт: нэвтрэлтгүй нээгдэнэ, ҮЛДЭГДЭЛ/SKU/ӨРТӨГ гадагш гарахгүй', async () => {
+      const res = await api()
+        .get(`/api/public/order-form?token=${publicToken}`)
+        .expect(200);
+      expect(res.body.products.length).toBeGreaterThan(0);
+      const p = res.body.products[0];
+      expect(p).toHaveProperty('inStock'); // зөвхөн байгаа эсэх
+      expect(p).not.toHaveProperty('stockQty');
+      expect(p).not.toHaveProperty('sku');
+      expect(p).not.toHaveProperty('costPrice');
+    });
+
+    it('хүсэлт: үлдэгдэл ХӨДЛӨХГҮЙ, ажилтанд мэдэгдэл очно ⭐', async () => {
+      const before = await api()
+        .get(`/api/products/${productId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+
+      const res = await api()
+        .post(`/api/public/order-requests?token=${publicToken}`)
+        .field('customerName', `Э2Э Хүсэлт ${T}`)
+        .field('phone', `2${T}`)
+        .field('socialName', '@e2e_test')
+        .field('channel', 'INSTAGRAM')
+        .field('region', 'ULAANBAATAR')
+        .field('district', 'ХУД')
+        .field('khoroo', '11')
+        .field('building', 'Э2Э байр')
+        .attach('proof', PNG, { filename: 'proof.png', contentType: 'image/png' })
+        .field('items', JSON.stringify([{ productId, qty: 1 }]))
+        .expect(201);
+      requestId = res.body.id;
+      requestIds.push(requestId);
+
+      // ⭐ Хамгийн чухал: хүсэлт үлдэгдэлд хүрэхгүй
+      const after = await api()
+        .get(`/api/products/${productId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(after.body.stockQty).toBe(before.body.stockQty);
+
+      // Мэдэгдэл БОРЛУУЛАГЧ руу явна (V5); борлуулагч байхгүй бол
+      // ADMIN/MANAGER руу УНАНА — хүсэлт хаясан газраа үлдэхгүй.
+      // Хүлээн авагчдыг DB-ээс шалгана: тестийн орчинд борлуулагч
+      // байгаа эсэх нь тодорхойгүй тул нэрлэсэн хэрэглэгчээр шалгахгүй.
+      const notes = await prisma.notification.findMany({
+        where: { type: 'ORDER_REQUEST', refId: requestId },
+        select: { user: { select: { role: true, isActive: true } } },
+      });
+      expect(notes.length).toBeGreaterThan(0);
+      const sellers = await prisma.user.count({
+        where: { role: 'SELLER', isActive: true },
+      });
+      const expected = sellers > 0 ? ['SELLER'] : ['ADMIN', 'MANAGER'];
+      for (const n of notes) {
+        expect(expected).toContain(n.user.role);
+        expect(n.user.isActive).toBe(true);
+      }
+      // Хүлээн авагч бүрд яг нэг мөр — давхардахгүй
+      expect(notes.length).toBe(
+        sellers > 0
+          ? sellers
+          : await prisma.user.count({
+              where: { role: { in: ['ADMIN', 'MANAGER'] }, isActive: true },
+            }),
       );
     });
+
+    it('захиалга болгох: үлдэгдэл ЭНД хасагдаж, суваг/төлбөр шилжинэ ⭐', async () => {
+      const before = await api()
+        .get(`/api/products/${productId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+
+      const order = await api()
+        .post(`/api/order-requests/${requestId}/convert`)
+        .set(auth(tok.manager))
+        .send({ paymentConfirmed: true }) // ажилтан данс дээрээ харсан (V5)
+        .expect(201);
+      convertedOrderId = order.body.id;
+      feeOrderIds.push(convertedOrderId);
+
+      expect(order.body.channel).toBe('INSTAGRAM');
+      expect(order.body.paymentStatus).toBe('PAID');
+      expect(order.body.district).toBe('ХУД');
+      // «Захиалга болгох» нь өөрөө баталгаажуулалт (V5)
+      expect(order.body.orderStatus).toBe('CONFIRMED');
+
+      const after = await api()
+        .get(`/api/products/${productId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(after.body.stockQty).toBe(before.body.stockQty - 1);
+
+      // Давхар хөрвүүлэлт → 400
+      await api()
+        .post(`/api/order-requests/${requestId}/convert`)
+        .set(auth(tok.manager))
+        .send({ paymentConfirmed: true })
+        .expect(400);
+    });
+  });
+
+  // ─────────────────────────────────────── V5: ДҮҮРГЭЭР АВТОМАТ ХУВААРИЛАЛТ
+  describe('V5: Бүсээр автомат хуваарилалт ⭐', () => {
+    let zoneDriverId: string;
+    let pickedDriverId: string; // автомат сонгосон жолооч
+    let ubOrderId: string;
+    let farOrderId: string;
+
+    afterAll(async () => {
+      if (zoneDriverId) {
+        await prisma.driverProfile.deleteMany({
+          where: { userId: zoneDriverId },
+        });
+        await prisma.user.deleteMany({ where: { id: zoneDriverId } });
+      }
+    });
+
+    it('бүстэй жолооч үүсгэнэ — zones хадгалагдана', async () => {
+      const res = await api()
+        .post('/api/users')
+        .set(auth(tok.admin))
+        .send({
+          email: `e2e-zone-${T}@ursgal.mn`,
+          name: `Э2Э Бүс ${T}`,
+          password: 'e2epass123',
+          role: 'DRIVER',
+          feePerDelivery: '2000.00',
+          zones: ['ХУД'],
+        })
+        .expect(201);
+      zoneDriverId = res.body.id;
+      expect(res.body.driverProfile.zones).toEqual(['ХУД']);
+
+      const list = await api()
+        .get('/api/drivers')
+        .set(auth(tok.manager))
+        .expect(200);
+      const row = list.body.find((d: { id: string }) => d.id === zoneDriverId);
+      expect(row.zones).toEqual(['ХУД']);
+    });
+
+    it('ХУД захиалга бүсээ хамардаг жолоочид автоматаар очно ⭐', async () => {
+      const res = await api()
+        .post('/api/orders')
+        .set(auth(tok.manager))
+        .send({
+          customerName: `Э2Э Бүс-УБ-${T}`,
+          customerPhone: `7${T}`,
+          ...UB_ADDR, // district: ХУД
+          items: [{ productId, qty: 1 }],
+        })
+        .expect(201);
+      ubOrderId = res.body.id;
+      feeOrderIds.push(ubOrderId);
+      await api()
+        .patch(`/api/orders/${ubOrderId}/status`)
+        .set(auth(tok.manager))
+        .send({ status: 'CONFIRMED' })
+        .expect(200);
+
+      const auto = await api()
+        .patch('/api/orders/assign-driver/auto')
+        .set(auth(tok.manager))
+        .send({ orderIds: [ubOrderId] })
+        .expect(200);
+
+      expect(auto.body.skipped).toHaveLength(0);
+      expect(auto.body.assigned).toHaveLength(1);
+      expect(auto.body.assigned[0].district).toBe('ХУД');
+
+      const order = await api()
+        .get(`/api/orders/${ubOrderId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(order.body.deliveryStatus).toBe('ASSIGNED');
+      pickedDriverId = order.body.assignedDriver.id;
+
+      // ⭐ Сонгогдсон жолооч ХУД-ыг ЗААВАЛ хамарна. Тухайн нэрээр нь
+      // шалгахгүй — DB-д ХУД бүстэй өөр жолооч байвал ачааллаас нь
+      // хамаараад тэр нь сонгогдож болно (энэ нь ЗӨВ ажиллагаа).
+      const drivers = await api()
+        .get('/api/drivers')
+        .set(auth(tok.manager))
+        .expect(200);
+      const picked = drivers.body.find(
+        (d: { id: string }) => d.id === pickedDriverId,
+      );
+      expect(picked.zones).toContain('ХУД');
+      // Бүсгүй жолооч хэзээ ч сонгогдохгүй
+      expect(pickedDriverId).not.toBe(e2eDriverId);
+    });
+
+    it('аль хэдийн жолоочтойг ХӨНДӨХГҮЙ ⭐', async () => {
+      const auto = await api()
+        .patch('/api/orders/assign-driver/auto')
+        .set(auth(tok.manager))
+        .send({ orderIds: [ubOrderId] })
+        .expect(200);
+      expect(auto.body.assigned).toHaveLength(0);
+      expect(auto.body.skipped[0].reason).toBe('Аль хэдийн жолоочтой');
+
+      // Жолооч нь солигдоогүй
+      const order = await api()
+        .get(`/api/orders/${ubOrderId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(order.body.assignedDriver.id).toBe(pickedDriverId);
+    });
+
+    it('хэн ч хамаардаггүй дүүрэг / орон нутаг → шалтгаантай алгасна', async () => {
+      // Аль дүүргийг ХЭН Ч хамраагүйг АЖИЛЛАХ ҮЕДЭЭ олно. Тухайн
+      // дүүргийг нэрлээд бичвэл бодит DB-д тэр бүс хэн нэгэнд
+      // оноогдмогц тест унадаг (өгөгдлөөс хараат байх ёсгүй).
+      const drv = await api()
+        .get('/api/drivers')
+        .set(auth(tok.manager))
+        .expect(200);
+      const covered = new Set<string>(
+        drv.body
+          .filter((d: { isActive: boolean }) => d.isActive)
+          .flatMap((d: { zones?: string[] }) => d.zones ?? []),
+      );
+      const freeDistrict = [
+        'БХД',
+        'БНД',
+        'НД',
+        'БГД',
+        'СБД',
+        'ЧД',
+        'СХД',
+        'БЗД',
+        'ХУД',
+      ].find((d) => !covered.has(d));
+
+      const uncoveredIds: string[] = [];
+      if (freeDistrict) {
+        const res = await api()
+          .post('/api/orders')
+          .set(auth(tok.manager))
+          .send({
+            customerName: `Э2Э Бүс-${freeDistrict}-${T}`,
+            customerPhone: `8${T}`,
+            region: 'ULAANBAATAR',
+            district: freeDistrict,
+            khoroo: '2',
+            building: 'Э2Э байр',
+            entrance: '1',
+            floor: '1',
+            door: '1',
+            items: [{ productId, qty: 1 }],
+          })
+          .expect(201);
+        feeOrderIds.push(res.body.id);
+        uncoveredIds.push(res.body.id);
+        await api()
+          .patch(`/api/orders/${res.body.id}/status`)
+          .set(auth(tok.manager))
+          .send({ status: 'CONFIRMED' })
+          .expect(200);
+      }
+
+      // Орон нутаг — дүүрэггүй тул бүсээр хуваарилахгүй
+      const far = await api()
+        .post('/api/orders')
+        .set(auth(tok.manager))
+        .send({
+          customerName: `Э2Э Бүс-ОН-${T}`,
+          customerPhone: `6${T}`,
+          region: 'ORON_NUTAG',
+          province: 'Дархан-Уул',
+          soum: 'Дархан',
+          transport: 'Тээвэр ХХК',
+          items: [{ productId, qty: 1 }],
+        })
+        .expect(201);
+      farOrderId = far.body.id;
+      feeOrderIds.push(farOrderId);
+      await api()
+        .patch(`/api/orders/${farOrderId}/status`)
+        .set(auth(tok.manager))
+        .send({ status: 'CONFIRMED' })
+        .expect(200);
+
+      const auto = await api()
+        .patch('/api/orders/assign-driver/auto')
+        .set(auth(tok.manager))
+        .send({ orderIds: [...uncoveredIds, farOrderId] })
+        .expect(200);
+      expect(auto.body.assigned).toHaveLength(0);
+      expect(auto.body.skipped).toHaveLength(1 + uncoveredIds.length);
+      const reasons = auto.body.skipped.map(
+        (x: { reason: string }) => x.reason,
+      );
+      expect(reasons).toContain(
+        'Орон нутгийн захиалга — бүсээр хуваарилахгүй',
+      );
+
+      if (freeDistrict) {
+        expect(reasons).toContain(
+          `${freeDistrict}-ыг хамардаг сул жолооч алга`,
+        );
+        // Хуваарилагдаагүй хэвээр
+        const still = await api()
+          .get(`/api/orders/${uncoveredIds[0]}`)
+          .set(auth(tok.manager))
+          .expect(200);
+        expect(still.body.assignedDriver).toBeNull();
+      }
+    });
+
+    it('эрхгүй хүн автомат хуваарилалт хийхгүй → 403', async () => {
+      await api()
+        .patch('/api/orders/assign-driver/auto')
+        .set(auth(tok.driver))
+        .send({ orderIds: [farOrderId] })
+        .expect(403);
+    });
+  });
+
+  // ────────────────────────────────────────────── V5: НЯРАВ + ХҮЛЭЭЛГЭН ӨГӨХ
+  describe('V5: Нярав — бэлтгэл ба хүлээлгэн өгөх ⭐', () => {
+    let whOrderA: string;
+    let whOrderB: string;
+
+    it('нярав хэрэглэгч үүсч, өөрийн default эрхээ авна', async () => {
+      const created = await api()
+        .post('/api/users')
+        .set(auth(tok.admin))
+        .send({
+          email: `e2e-keeper-${T}@ursgal.mn`,
+          password: 'keeper123',
+          name: `Э2Э Нярав ${T}`,
+          role: 'WAREHOUSE',
+        })
+        .expect(201);
+      keeperId = created.body.id;
+
+      const login = await api()
+        .post('/api/auth/login')
+        .send({ email: `e2e-keeper-${T}@ursgal.mn`, password: 'keeper123' })
+        .expect(200);
+      keeperToken = login.body.accessToken;
+
+      const me = await api()
+        .get('/api/auth/me')
+        .set(auth(keeperToken))
+        .expect(200);
+      expect(me.body.role).toBe('WAREHOUSE');
+      expect(me.body.permissions).toContain('warehouse.handover');
+      expect(me.body.permissions).toContain('inventory.adjustment');
+      // Менежер оноогоогүй үед бэлтгэл зогсохгүйн тулд (V5)
+      expect(me.body.permissions).toContain('orders.assign_driver');
+      // Санхүү/хэрэглэгч рүү хүрэхгүй
+      expect(me.body.permissions).not.toContain('finance.view_income');
+      expect(me.body.permissions).not.toContain('users.manage');
+    });
+
+    it('жолооч няравын самбарт хүрэхгүй → 403 ⭐', async () => {
+      await api().get('/api/warehouse/board').set(auth(tok.driver)).expect(403);
+      await api()
+        .post('/api/warehouse/assign')
+        .set(auth(tok.operator))
+        .send({ warehouseId: keeperId, orderIds: [orderId] })
+        .expect(403);
+    });
+
+    it('менежер захиалгуудыг няравт хуваарилна', async () => {
+      for (const n of ['A', 'B']) {
+        const res = await api()
+          .post('/api/orders')
+          .set(auth(tok.manager))
+          .send({
+            customerName: `Э2Э Нярав-${n}-${T}`,
+            customerPhone: `9${T}`,
+            ...UB_ADDR,
+            items: [{ productId, qty: 1 }],
+          })
+          .expect(201);
+        feeOrderIds.push(res.body.id);
+        if (n === 'A') whOrderA = res.body.id;
+        else whOrderB = res.body.id;
+
+        // Няравт очихын тулд CONFIRMED байх ёстой
+        await api()
+          .patch(`/api/orders/${res.body.id}/status`)
+          .set(auth(tok.manager))
+          .send({ status: 'CONFIRMED' })
+          .expect(200);
+        // Жолооч нь хуваарилагдана
+        await api()
+          .patch(`/api/orders/${res.body.id}/assign-driver`)
+          .set(auth(tok.manager))
+          .send({ driverId: e2eDriverId })
+          .expect(200);
+      }
+
+      const res = await api()
+        .post('/api/warehouse/assign')
+        .set(auth(tok.manager))
+        .send({ warehouseId: keeperId, orderIds: [whOrderA, whOrderB] })
+        .expect(201);
+      expect(res.body.assigned).toBe(2);
+
+      // Идэвхгүй/буруу нярав → 400
+      await api()
+        .post('/api/warehouse/assign')
+        .set(auth(tok.manager))
+        .send({ warehouseId: e2eDriverId, orderIds: [whOrderA] })
+        .expect(400);
+    });
+
+    it('самбар: жолоочоор бүлэглээд бараа НЭГТГЭЖ харуулна ⭐', async () => {
+      const res = await api()
+        .get('/api/warehouse/board')
+        .set(auth(keeperToken))
+        .expect(200);
+      const g = res.body.find(
+        (x: { driverId: string }) => x.driverId === e2eDriverId,
+      );
+      expect(g).toBeTruthy();
+      expect(g.orderCount).toBeGreaterThanOrEqual(2);
+      // 2 захиалга × 1ш = нэгтгэсэн 2ш
+      const item = g.items.find(
+        (i: { productId: string }) => i.productId === productId,
+      );
+      expect(item.qty).toBeGreaterThanOrEqual(2);
+    });
+
+    it('нярав төлөв солино: CONFIRMED → PREPARING → READY', async () => {
+      for (const id of [whOrderA, whOrderB]) {
+        await api()
+          .patch(`/api/orders/${id}/status`)
+          .set(auth(keeperToken))
+          .send({ status: 'PREPARING' })
+          .expect(200);
+        await api()
+          .patch(`/api/orders/${id}/status`)
+          .set(auth(keeperToken))
+          .send({ status: 'READY' })
+          .expect(200);
+      }
+      const board = await api()
+        .get('/api/warehouse/board')
+        .set(auth(keeperToken))
+        .expect(200);
+      const g = board.body.find(
+        (x: { driverId: string }) => x.driverId === e2eDriverId,
+      );
+      expect(g.readyCount).toBeGreaterThanOrEqual(2);
+    });
+
+    it('хүлээлгэн өгөх: дугаар, нэгтгэл, ASSIGNED ⭐', async () => {
+      const res = await api()
+        .post('/api/warehouse/handovers')
+        .set(auth(keeperToken))
+        .send({
+          driverId: e2eDriverId,
+          orderIds: [whOrderA, whOrderB],
+          note: 'Э2Э хүлээлгэлт',
+        })
+        .expect(201);
+      handoverId = res.body.id;
+
+      expect(res.body.number).toMatch(/^ХҮЛ-\d{8}-\d{3}$/);
+      expect(res.body.keeper.id).toBe(keeperId);
+      expect(res.body.driver.id).toBe(e2eDriverId);
+      expect(res.body.handedAt).toBeTruthy();
+      expect(res.body.orders).toHaveLength(2);
+      // Хэвлэх хуудсанд нэгтгэсэн бараа
+      const total = res.body.totals.find(
+        (x: { qty: number; name: string }) => x.qty >= 2,
+      );
+      expect(total).toBeTruthy();
+
+      // Захиалгууд жолоочид гарсан
+      const order = await api()
+        .get(`/api/orders/${whOrderA}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(order.body.orderStatus).toBe('READY');
+      expect(order.body.deliveryStatus).toBe('ASSIGNED');
+
+      // Самбараас хасагдсан (handoverId тавигдсан)
+      const board = await api()
+        .get('/api/warehouse/board')
+        .set(auth(keeperToken))
+        .expect(200);
+      const g = board.body.find(
+        (x: { driverId: string }) => x.driverId === e2eDriverId,
+      );
+      expect(
+        (g?.orders ?? []).some((o: { id: string }) => o.id === whOrderA),
+      ).toBe(false);
+    });
+
+    it('давхар хүлээлгэлт → 400, түүх/хэвлэх хуудас нээгдэнэ', async () => {
+      await api()
+        .post('/api/warehouse/handovers')
+        .set(auth(keeperToken))
+        .send({ driverId: e2eDriverId, orderIds: [whOrderA] })
+        .expect(400);
+
+      const list = await api()
+        .get('/api/warehouse/handovers')
+        .set(auth(keeperToken))
+        .expect(200);
+      const row = list.body.find((h: { id: string }) => h.id === handoverId);
+      expect(row._count.orders).toBe(2);
+
+      const one = await api()
+        .get(`/api/warehouse/handovers/${handoverId}`)
+        .set(auth(keeperToken))
+        .expect(200);
+      expect(one.body.totals.length).toBeGreaterThan(0);
+    });
+  });
+
+  // ────────────────────────────────────────────── V5: БОРЛУУЛАГЧ
+  describe('V5: Борлуулагч — хүсэлтээс хүргэлт хүртэл ⭐', () => {
+    let reqId: string;
+    let sellerOrderId: string;
+
+    afterAll(async () => {
+      if (reqId) {
+        await prisma.orderRequestItem.deleteMany({ where: { requestId: reqId } });
+        await prisma.orderRequest.deleteMany({ where: { id: reqId } });
+      }
+    });
+
+    it('борлуулагч үүсч, өөрийн ажлын эрхээ авна', async () => {
+      const created = await api()
+        .post('/api/users')
+        .set(auth(tok.admin))
+        .send({
+          email: `e2e-seller-${T}@ursgal.mn`,
+          password: 'seller123',
+          name: `Э2Э Борлуулагч ${T}`,
+          role: 'SELLER',
+        })
+        .expect(201);
+      sellerId = created.body.id;
+
+      const login = await api()
+        .post('/api/auth/login')
+        .send({ email: `e2e-seller-${T}@ursgal.mn`, password: 'seller123' })
+        .expect(200);
+      sellerToken = login.body.accessToken;
+
+      const me = await api()
+        .get('/api/auth/me')
+        .set(auth(sellerToken))
+        .expect(200);
+      expect(me.body.role).toBe('SELLER');
+      // Ажлын гурван алхам
+      expect(me.body.permissions).toContain('orders.view');
+      expect(me.body.permissions).toContain('orders.assign_driver');
+      expect(me.body.permissions).toContain('customers.view');
+      // Санхүү/эрх/тайланд хүрэхгүй
+      expect(me.body.permissions).not.toContain('finance.view_income');
+      expect(me.body.permissions).not.toContain('users.manage');
+      expect(me.body.permissions).not.toContain('permissions.manage');
+    });
+
+    it('линкийн хүсэлт МЕНЕЖЕР дээр биш, БОРЛУУЛАГЧ дээр очно ⭐', async () => {
+      const link = await api()
+        .get('/api/order-requests/link')
+        .set(auth(tok.manager))
+        .expect(200);
+
+      const res = await api()
+        .post(`/api/public/order-requests?token=${link.body.token}`)
+        .field('customerName', `Э2Э Борл-Хүсэлт ${T}`)
+        .field('phone', SELLER_PHONE)
+        .field('channel', 'FACEBOOK')
+        .field('region', 'ULAANBAATAR')
+        .field('district', 'ХУД')
+        .field('khoroo', '11')
+        .field('building', 'Э2Э байр')
+        .attach('proof', PNG, { filename: 'proof.png', contentType: 'image/png' })
+        .field('items', JSON.stringify([{ productId, qty: 1 }]))
+        .expect(201);
+      reqId = res.body.id;
+      requestIds.push(reqId);
+
+      // ⭐ Борлуулагч дээр ирсэн
+      const mine = await api()
+        .get('/api/notifications?limit=20')
+        .set(auth(sellerToken))
+        .expect(200);
+      expect(
+        mine.body.items.some(
+          (n: { type: string; refId: string }) =>
+            n.type === 'ORDER_REQUEST' && n.refId === reqId,
+        ),
+      ).toBe(true);
+
+      // ⭐ Менежер дээр ИРЭХГҮЙ — борлуулагч байгаа тул
+      const mgr = await api()
+        .get('/api/notifications?limit=20')
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(
+        mgr.body.items.some(
+          (n: { type: string; refId: string }) =>
+            n.type === 'ORDER_REQUEST' && n.refId === reqId,
+        ),
+      ).toBe(false);
+    });
+
+    it('борлуулагч хүсэлтийг батлаад захиалга болгоно', async () => {
+      const order = await api()
+        .post(`/api/order-requests/${reqId}/convert`)
+        .set(auth(sellerToken))
+        .send({ paymentConfirmed: true }) // борлуулагч данс дээрээ харсан (V5)
+        .expect(201);
+      sellerOrderId = order.body.id;
+      feeOrderIds.push(sellerOrderId);
+      expect(order.body.channel).toBe('FACEBOOK');
+      expect(order.body.orderStatus).toBe('CONFIRMED');
+    });
+
+    it('худалдан авалтын түүхийг утсаар нь шалгана ⭐', async () => {
+      const h = await api()
+        .get(`/api/customers/history?phone=${SELLER_PHONE}`)
+        .set(auth(sellerToken))
+        .expect(200);
+      expect(h.body.summary.orders).toBe(1);
+      expect(h.body.orders[0].orderNo).toBe(
+        (
+          await api()
+            .get(`/api/orders/${sellerOrderId}`)
+            .set(auth(sellerToken))
+            .expect(200)
+        ).body.orderNo,
+      );
+      expect(h.body.summary.topProducts.length).toBeGreaterThan(0);
+
+      // phone-гүй бол 400
+      await api()
+        .get('/api/customers/history')
+        .set(auth(sellerToken))
+        .expect(400);
+      // Жолооч хэрэглэгчийн түүх харахгүй
+      await api()
+        .get(`/api/customers/history?phone=${SELLER_PHONE}`)
+        .set(auth(tok.driver))
+        .expect(403);
+    });
+
+    it('жолооч хуваарилахад НЯРАВ+МЕНЕЖЕР мэдэгдэл авна ⭐', async () => {
+      await api()
+        .patch(`/api/orders/${sellerOrderId}/assign-driver`)
+        .set(auth(sellerToken))
+        .send({ driverId: e2eDriverId })
+        .expect(200);
+
+      // Нярав — тооцоо гаргахад
+      const keeper = await api()
+        .get('/api/notifications?limit=20')
+        .set(auth(keeperToken))
+        .expect(200);
+      const note = keeper.body.items.find(
+        (n: { type: string; refId: string }) =>
+          n.type === 'ORDER_RELEASED' && n.refId === sellerOrderId,
+      );
+      expect(note).toBeTruthy();
+      // Хэрэглэгчийн мэдээлэл + түүх мэдэгдлийн биед шууд байна
+      expect(note.body).toContain(SELLER_PHONE);
+      expect(note.body).toContain('ХУД');
+      expect(note.body).toContain('Анхны худалдан авалт');
+
+      // Менежер — хяналт
+      const mgr = await api()
+        .get('/api/notifications?limit=20')
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(
+        mgr.body.items.some(
+          (n: { type: string; refId: string }) =>
+            n.type === 'ORDER_RELEASED' && n.refId === sellerOrderId,
+        ),
+      ).toBe(true);
+    });
+
+    it('дахин хуваарилахад мэдэгдэл ДАВХАРДАХГҮЙ ⭐', async () => {
+      const before = await api()
+        .get('/api/notifications?limit=50')
+        .set(auth(keeperToken))
+        .expect(200);
+      const count = (items: { type: string; refId: string }[]) =>
+        items.filter(
+          (n) => n.type === 'ORDER_RELEASED' && n.refId === sellerOrderId,
+        ).length;
+
+      await api()
+        .patch(`/api/orders/${sellerOrderId}/assign-driver`)
+        .set(auth(sellerToken))
+        .send({ driverId: e2eDriverId })
+        .expect(200);
+
+      const after = await api()
+        .get('/api/notifications?limit=50')
+        .set(auth(keeperToken))
+        .expect(200);
+      expect(count(after.body.items)).toBe(count(before.body.items));
+    });
+
+    it('хүргэлт амжилтгүй болоход БОРЛУУЛАГЧ мэдэгдэл авна ⭐', async () => {
+      // Захиалга үүсгээд жолоочид өгч, жолооч нь амжилтгүй гэж бүртгэнэ
+      const res = await api()
+        .post('/api/orders')
+        .set(auth(sellerToken))
+        .send({
+          customerName: `Э2Э-Амжилтгүй-${T}`,
+          customerPhone: SELLER_PHONE,
+          ...UB_ADDR,
+          items: [{ productId, qty: 1 }],
+        })
+        .expect(201);
+      const failId = res.body.id;
+      feeOrderIds.push(failId);
+      await api()
+        .patch(`/api/orders/${failId}/status`)
+        .set(auth(sellerToken))
+        .send({ status: 'CONFIRMED' })
+        .expect(200);
+      await api()
+        .patch(`/api/orders/${failId}/assign-driver`)
+        .set(auth(sellerToken))
+        .send({ driverId: e2eDriverId })
+        .expect(200);
+
+      await api()
+        .post(`/api/deliveries/${failId}/complete`)
+        .set(auth(e2eDriverToken))
+        .field('success', 'false')
+        .field('note', 'Хаяг олдсонгүй, утас авахгүй')
+        .expect(201);
+
+      // ⭐ Борлуулагч мэдэгдэл авсан — хэрэглэгчтэй ярьдаг нь тэр
+      const mine = await api()
+        .get('/api/notifications?limit=20')
+        .set(auth(sellerToken))
+        .expect(200);
+      const note = mine.body.items.find(
+        (n: { type: string; refId: string }) =>
+          n.type === 'DELIVERY_FAILED' && n.refId === failId,
+      );
+      expect(note).toBeTruthy();
+      expect(note.body).toContain('Хаяг олдсонгүй');
+      expect(note.body).toContain(SELLER_PHONE);
+
+      // Менежер ч хэвээр авна
+      const mgr = await api()
+        .get('/api/notifications?limit=20')
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(
+        mgr.body.items.filter(
+          (n: { type: string; refId: string }) =>
+            n.type === 'DELIVERY_FAILED' && n.refId === failId,
+        ),
+      ).toHaveLength(1); // давхардахгүй
+
+      // Самбарын «дахин хуваарилах» ээлжид гарсан
+      const board = await api()
+        .get('/api/dashboard/seller')
+        .set(auth(sellerToken))
+        .expect(200);
+      const row = board.body.failedDeliveries.find(
+        (o: { id: string }) => o.id === failId,
+      );
+      expect(row).toBeTruthy();
+      expect(row.deliveryNote).toBe('Хаяг олдсонгүй, утас авахгүй');
+      expect(row.driverName).toBeTruthy();
+
+      // Борлуулагч дахин жолооч хуваарилж чадна
+      await api()
+        .patch(`/api/orders/${failId}/assign-driver`)
+        .set(auth(sellerToken))
+        .send({ driverId: e2eDriverId })
+        .expect(200);
+    });
+
+    it('борлуулагчийн самбар — гурван алхмын дараалал', async () => {
+      const res = await api()
+        .get('/api/dashboard/seller')
+        .set(auth(sellerToken))
+        .expect(200);
+      expect(typeof res.body.newRequests).toBe('number');
+      expect(res.body.convertedToday).toBeGreaterThanOrEqual(1);
+      expect(res.body.releasedToday).toBeGreaterThanOrEqual(1);
+      expect(Array.isArray(res.body.pendingRequests)).toBe(true);
+      expect(Array.isArray(res.body.awaitingDriver)).toBe(true);
+      expect(Array.isArray(res.body.failedDeliveries)).toBe(true);
+
+      // Бусад эрх энэ самбарт хүрэхгүй
+      await api()
+        .get('/api/dashboard/seller')
+        .set(auth(tok.driver))
+        .expect(403);
+    });
+
+    it('борлуулагч санхүү/хэрэглэгчид рүү орохгүй → 403', async () => {
+      await api()
+        .get('/api/finance/summary')
+        .set(auth(sellerToken))
+        .expect(403);
+      await api().get('/api/users').set(auth(sellerToken)).expect(403);
+    });
+  });
+
+  // ────────────────────────────────────── V5: ЗАХИАЛГА ЗАСАХ
+  describe('V5: Захиалга засах ⭐', () => {
+    let editOrderId: string;
+    let secondProductId: string;
+
+    beforeAll(async () => {
+      await api()
+        .post('/api/stock/adjust')
+        .set(auth(tok.manager))
+        .send({ productId, qtyChange: 10, reason: 'PURCHASE_IN' })
+        .expect(201);
+
+      // Хоёр дахь бараа — засварт шинээр нэмэхэд
+      const p2 = await api()
+        .post('/api/products')
+        .set(auth(tok.admin))
+        .send({
+          sku: `${SKU}-EDIT`,
+          name: `Э2Э Засвар бараа ${T}`,
+          price: '1000.00',
+          costPrice: '600.00',
+        })
+        .expect(201);
+      secondProductId = p2.body.id;
+      editProductIds.push(secondProductId);
+      await api()
+        .post('/api/stock/adjust')
+        .set(auth(tok.admin))
+        .send({ productId: secondProductId, qtyChange: 10, reason: 'PURCHASE_IN' })
+        .expect(201);
+
+      const res = await api()
+        .post('/api/orders')
+        .set(auth(tok.manager))
+        .send({
+          customerName: `Э2Э-Засвар-${T}`,
+          customerPhone: `9${T}`,
+          ...UB_ADDR,
+          items: [{ productId, qty: 2 }],
+        })
+        .expect(201);
+      editOrderId = res.body.id;
+      feeOrderIds.push(editOrderId);
+      await api()
+        .patch(`/api/orders/${editOrderId}/status`)
+        .set(auth(tok.manager))
+        .send({ status: 'CONFIRMED' })
+        .expect(200);
+    });
+
+    it('баталгаажсаны дараа ХАЯГ засагдана ⭐', async () => {
+      const res = await api()
+        .patch(`/api/orders/${editOrderId}`)
+        .set(auth(tok.manager))
+        .send({
+          customerName: `Э2Э-Засвар-ЗАССАН-${T}`,
+          region: 'ULAANBAATAR',
+          district: 'БЗД',
+          khoroo: '5',
+          building: 'Шинэ байр',
+          entrance: '3',
+          floor: '7',
+          door: '705',
+          note: 'Хаяг зассан',
+        })
+        .expect(200);
+      expect(res.body.district).toBe('БЗД');
+      expect(res.body.fullAddress).toBe(
+        'БЗД, 5-р хороо, Шинэ байр, 3-р орц, 7 давхар, 705 тоот',
+      );
+      expect(res.body.note).toBe('Хаяг зассан');
+      // Орон нутгийн талбарууд цэвэрлэгдсэн хэвээр
+      expect(res.body.province).toBeNull();
+    });
+
+    it('бараа солиход ҮЛДЭГДЭЛ ЗӨРҮҮГЭЭР нь хөдөлнө ⭐', async () => {
+      const before = await api()
+        .get(`/api/products/${productId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      const before2 = await api()
+        .get(`/api/products/${secondProductId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+
+      // 2 ш байсныг 1 болгож, шинэ бараанаас 3 нэмнэ
+      const res = await api()
+        .patch(`/api/orders/${editOrderId}`)
+        .set(auth(tok.manager))
+        .send({
+          items: [
+            { productId, qty: 1 },
+            { productId: secondProductId, qty: 3 },
+          ],
+        })
+        .expect(200);
+      expect(res.body.items).toHaveLength(2);
+
+      const after = await api()
+        .get(`/api/products/${productId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      const after2 = await api()
+        .get(`/api/products/${secondProductId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      // ⭐ Хассан нь БУЦАЖ орсон, нэмсэн нь хасагдсан
+      expect(after.body.stockQty).toBe(before.body.stockQty + 1);
+      expect(after2.body.stockQty).toBe(before2.body.stockQty - 3);
+
+      // Нийт дүн дахин бодогдсон
+      const unit = Number(
+        res.body.items.find(
+          (i: { productId: string }) => i.productId === secondProductId,
+        ).priceAtOrder,
+      );
+      expect(unit).toBe(1000);
+      expect(Number(res.body.totalAmount)).toBe(
+        Number(before.body.price) * 1 + 1000 * 3,
+      );
+
+      // Хөдөлгөөн ORDER_EDIT шалтгаантай бүртгэгдсэн
+      const moves = await api()
+        .get(`/api/stock/movements?productId=${secondProductId}&reason=ORDER_EDIT`)
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(moves.body.items.length).toBeGreaterThan(0);
+      expect(moves.body.items[0].qtyChange).toBe(-3);
+    });
+
+    it('бараа хасахад мөр устаж, дүн буурна', async () => {
+      const res = await api()
+        .patch(`/api/orders/${editOrderId}`)
+        .set(auth(tok.manager))
+        .send({ items: [{ productId: secondProductId, qty: 3 }] })
+        .expect(200);
+      expect(res.body.items).toHaveLength(1);
+      expect(Number(res.body.totalAmount)).toBe(3000);
+    });
+
+    it('хоосон бараа / хүрэлцэхгүй үлдэгдэл → 400, үлдэгдэл хөдлөхгүй', async () => {
+      const before = await api()
+        .get(`/api/products/${secondProductId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+
+      await api()
+        .patch(`/api/orders/${editOrderId}`)
+        .set(auth(tok.manager))
+        .send({ items: [] })
+        .expect(400);
+
+      await api()
+        .patch(`/api/orders/${editOrderId}`)
+        .set(auth(tok.manager))
+        .send({ items: [{ productId: secondProductId, qty: 99999 }] })
+        .expect(400);
+
+      const after = await api()
+        .get(`/api/products/${secondProductId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(after.body.stockQty).toBe(before.body.stockQty);
+    });
+
+    it('дууссан захиалга ХӨШИНӨ ⭐', async () => {
+      await api()
+        .patch(`/api/orders/${editOrderId}/status`)
+        .set(auth(tok.manager))
+        .send({ status: 'COMPLETED' })
+        .expect(200);
+
+      const res = await api()
+        .patch(`/api/orders/${editOrderId}`)
+        .set(auth(tok.manager))
+        .send({ note: 'оройтсон засвар' })
+        .expect(400);
+      expect(res.body.message).toContain('засах боломжгүй');
+    });
+
+    it('эрхгүй хүн засахгүй → 403', async () => {
+      await api()
+        .patch(`/api/orders/${editOrderId}`)
+        .set(auth(tok.driver))
+        .send({ note: 'хакер' })
+        .expect(403);
+      await api()
+        .patch(`/api/orders/${editOrderId}`)
+        .set(auth(tok.operator))
+        .send({ note: 'хакер' })
+        .expect(403);
+    });
+  });
+
+  // ─────────────────────────────── V5: ХАРИЛЦАГЧИЙН НИЙЛҮҮЛЭЛТ
+  describe('V5: Харилцагчийн нийлүүлэлт ⭐', () => {
+    let supplyId: string;
+    let partnerToken: string;
+    let supProductId: string;
+    let otherCompanyId: string;
+    let quickCompanyId: string;
+
+    afterAll(async () => {
+      // Нийлүүлэлт нь эдгээр компанийг заадаг тул түүнээс ХОЙШ устна —
+      // үндсэн afterAll supplyIds-ыг эхлээд цэвэрлэдэг
+      for (const id of [otherCompanyId, quickCompanyId].filter(Boolean)) {
+        await prisma.supply.deleteMany({ where: { companyId: id } });
+        await prisma.company.deleteMany({ where: { id } });
+      }
+    });
+
+    it('харилцагч компани + нийлүүлэгч хүн бүртгэгдэнэ', async () => {
+      const co = await api()
+        .post('/api/companies')
+        .set(auth(tok.admin))
+        .send({ name: `Э2Э Нийлүүлэгч ${T}`, phone: '77001122' })
+        .expect(201);
+      supCompanyId = co.body.id;
+
+      const other = await api()
+        .post('/api/companies')
+        .set(auth(tok.admin))
+        .send({ name: `Э2Э Өөр компани ${T}` })
+        .expect(201);
+      otherCompanyId = other.body.id;
+
+      const user = await api()
+        .post('/api/users')
+        .set(auth(tok.admin))
+        .send({
+          email: `e2e-partner-${T}@ursgal.mn`,
+          password: 'partner123',
+          name: `Э2Э Харилцагч ${T}`,
+          role: 'OPERATOR',
+          companyId: supCompanyId,
+        })
+        .expect(201);
+      supPartnerId = user.body.id;
+
+      const login = await api()
+        .post('/api/auth/login')
+        .send({ email: `e2e-partner-${T}@ursgal.mn`, password: 'partner123' })
+        .expect(200);
+      partnerToken = login.body.accessToken;
+
+      const p = await api()
+        .post('/api/products')
+        .set(auth(tok.admin))
+        .send({
+          sku: `${SKU}-SUP`,
+          name: `Э2Э Нийлүүлэх бараа ${T}`,
+          price: '9000.00',
+          costPrice: '1000.00',
+          lowStockLimit: 5,
+        })
+        .expect(201);
+      supProductId = p.body.id;
+      editProductIds.push(supProductId);
+    });
+
+    it('нийлүүлэлт: ҮЛДЭГДЭЛ НЭМЭГДЭЖ, өртөг шинэчлэгдэнэ ⭐', async () => {
+      const before = await api()
+        .get(`/api/products/${supProductId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+
+      const res = await api()
+        .post('/api/supplies')
+        .set(auth(tok.manager))
+        .send({
+          companyId: supCompanyId,
+          supplierId: supPartnerId,
+          note: 'Эхний ачаа',
+          items: [{ productId: supProductId, qty: 20, unitCost: '5000' }],
+        })
+        .expect(201);
+      supplyId = res.body.id;
+      supplyIds.push(supplyId);
+
+      expect(res.body.number).toMatch(/^НИЙ-\d{8}-\d{3}$/);
+      expect(Number(res.body.totalCost)).toBe(100000);
+      expect(Number(res.body.paidAmount)).toBe(0);
+      expect(res.body.supplier.id).toBe(supPartnerId);
+
+      const after = await api()
+        .get(`/api/products/${supProductId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(after.body.stockQty).toBe(before.body.stockQty + 20);
+      expect(Number(after.body.costPrice)).toBe(5000);
+      expect(after.body.companyId).toBe(supCompanyId);
+
+      const moves = await api()
+        .get(`/api/stock/movements?productId=${supProductId}&reason=SUPPLY`)
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(moves.body.items[0].qtyChange).toBe(20);
+    });
+
+    it('тооцоо: нийт өртөг, төлсөн, ӨР ⭐', async () => {
+      const res = await api()
+        .get('/api/supplies/balances')
+        .set(auth(tok.manager))
+        .expect(200);
+      const row = res.body.find(
+        (c: { companyId: string }) => c.companyId === supCompanyId,
+      );
+      expect(row.supplies).toBe(1);
+      expect(Number(row.totalCost)).toBe(100000);
+      expect(Number(row.dueAmount)).toBe(100000);
+    });
+
+    it('хэсэгчилсэн төлбөр — ЗАРЛАГА болж бүртгэгдэнэ ⭐', async () => {
+      const res = await api()
+        .post(`/api/supplies/${supplyId}/pay`)
+        .set(auth(tok.manager))
+        .send({ amount: '60000' })
+        .expect(201);
+      expect(Number(res.body.paidAmount)).toBe(60000);
+      expect(Number(res.body.dueAmount)).toBe(40000);
+
+      await api()
+        .post(`/api/supplies/${supplyId}/pay`)
+        .set(auth(tok.manager))
+        .send({ amount: '999999' })
+        .expect(400);
+
+      const fin = await api()
+        .get('/api/finance/entries?type=EXPENSE&limit=50')
+        .set(auth(tok.manager))
+        .expect(200);
+      const entry = (fin.body.items ?? fin.body).find(
+        (e: { category: string; note: string | null }) =>
+          e.category === 'SUPPLY' && e.note?.includes('НИЙ-'),
+      );
+      expect(entry).toBeTruthy();
+      expect(Number(entry.amount)).toBe(60000);
+      financeEntryIds.push(entry.id);
+    });
+
+    it('үлдэгдэл дуусахад НИЙЛҮҮЛЭГЧид мэдэгдэнэ ⭐', async () => {
+      const cur = await api()
+        .get(`/api/products/${supProductId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      await api()
+        .post('/api/stock/adjust')
+        .set(auth(tok.manager))
+        .send({
+          productId: supProductId,
+          qtyChange: -(cur.body.stockQty - 2),
+          reason: 'MANUAL_OUT',
+        })
+        .expect(201);
+
+      const mine = await api()
+        .get('/api/notifications?limit=20')
+        .set(auth(partnerToken))
+        .expect(200);
+      expect(
+        mine.body.items.some(
+          (n: { type: string; refId: string }) =>
+            n.type === 'LOW_STOCK' && n.refId === supProductId,
+        ),
+      ).toBe(true);
+    });
+
+    it('харилцагч ЗӨВХӨН өөрийн компанийн тооцоог харна ⭐', async () => {
+      const list = await api()
+        .get('/api/supplies')
+        .set(auth(partnerToken))
+        .expect(200);
+      expect(list.body.length).toBeGreaterThan(0);
+      expect(
+        list.body.every(
+          (s: { companyId: string }) => s.companyId === supCompanyId,
+        ),
+      ).toBe(true);
+
+      const bal = await api()
+        .get('/api/supplies/balances')
+        .set(auth(partnerToken))
+        .expect(200);
+      expect(bal.body).toHaveLength(1);
+      expect(bal.body[0].companyId).toBe(supCompanyId);
+
+      const filtered = await api()
+        .get(`/api/supplies?companyId=${otherCompanyId}`)
+        .set(auth(partnerToken))
+        .expect(200);
+      expect(
+        filtered.body.every(
+          (s: { companyId: string }) => s.companyId === supCompanyId,
+        ),
+      ).toBe(true);
+
+      await api()
+        .post('/api/supplies')
+        .set(auth(partnerToken))
+        .send({
+          companyId: supCompanyId,
+          items: [{ productId: supProductId, qty: 1, unitCost: '100' }],
+        })
+        .expect(403);
+      await api()
+        .post(`/api/supplies/${supplyId}/pay`)
+        .set(auth(partnerToken))
+        .send({ amount: '100' })
+        .expect(403);
+    });
+
+    it('supplies.create-тэй хүн компаниа ӨӨРӨӨ үүсгэнэ ⭐', async () => {
+      // Урсгалыг эзэмшдэг эрх урсгалынхаа заавал алхмыг хийж чадах ёстой:
+      // нийлүүлэлт бүртгэхэд компани заавал хэрэгтэй атал компани үүсгэх
+      // нь зөвхөн админд байсан тул нярав/менежер дундуур гацдаг байв.
+      const quick = await api()
+        .post('/api/companies/quick')
+        .set(auth(keeperToken))
+        .send({ name: `Э2Э Хурдан ${T}`, phone: '77445566' })
+        .expect(201);
+      quickCompanyId = quick.body.id;
+      expect(quick.body.name).toBe(`Э2Э Хурдан ${T}`);
+
+      // Харилцагчид хуудсанд бусадтай адил харагдана
+      const list = await api()
+        .get('/api/companies')
+        .set(auth(tok.admin))
+        .expect(200);
+      expect(
+        list.body.some((c: { id: string }) => c.id === quickCompanyId),
+      ).toBe(true);
+
+      // Нэр давхардвал 409 + байгаа компанийг санал болгоно
+      const dup = await api()
+        .post('/api/companies/quick')
+        .set(auth(keeperToken))
+        .send({ name: `Э2Э Хурдан ${T}` })
+        .expect(409);
+      expect(dup.body.existing.id).toBe(quickCompanyId);
+
+      // Тэр компанид шууд нийлүүлэлт бүртгэж чадна — урсгал тасрахгүй
+      const sup = await api()
+        .post('/api/supplies')
+        .set(auth(keeperToken))
+        .send({
+          companyId: quickCompanyId,
+          items: [{ productId: supProductId, qty: 1, unitCost: '100' }],
+        })
+        .expect(201);
+      supplyIds.push(sup.body.id);
+    });
+
+    it('үүсгэх нээгдсэн ч ЗАСАХ нь хэвээр хаалттай ⭐', async () => {
+      // customers.edit өргөсөөгүй — Харилцагчид хуудасны бүрэн
+      // удирдлага админд үлдэнэ
+      await api()
+        .patch(`/api/companies/${quickCompanyId}`)
+        .set(auth(keeperToken))
+        .send({ name: 'Өөрчилсөн нэр' })
+        .expect(403);
+      await api()
+        .post('/api/companies')
+        .set(auth(keeperToken))
+        .send({ name: `Э2Э Бүрэн ${T}` })
+        .expect(403);
+
+      // supplies.create-гүй хүн хурдан үүсгэлт ч хийхгүй
+      await api()
+        .post('/api/companies/quick')
+        .set(auth(partnerToken))
+        .send({ name: `Э2Э Хориотой ${T}` })
+        .expect(403);
+      await api()
+        .post('/api/companies/quick')
+        .set(auth(tok.driver))
+        .send({ name: `Э2Э Хориотой2 ${T}` })
+        .expect(403);
+    });
+
+    it('компанигүй харилцагч 403 БИШ, хоосон жагсаалт авна ⭐', async () => {
+      // «Цэс харагдана гэдэг нь орж болно гэсэн амлалт» — өмнө нь
+      // компанид холбогдоогүй харилцагчид цэс нь харагдаад дарахад
+      // 403 өгдөг байв. companyId нь ХАНДАЛТЫН биш ШҮҮЛТИЙН нөхцөл.
+      const seed = await api()
+        .post('/api/auth/login')
+        .send({ email: 'operator@ursgal.mn', password: 'operator123' })
+        .expect(200);
+      const lone = seed.body.accessToken;
+      expect(seed.body.user.companyId).toBeNull();
+
+      const list = await api()
+        .get('/api/supplies')
+        .set(auth(lone))
+        .expect(200);
+      expect(list.body).toEqual([]);
+
+      const bal = await api()
+        .get('/api/supplies/balances')
+        .set(auth(lone))
+        .expect(200);
+      expect(bal.body).toEqual([]);
+
+      // Бусдын нийлүүлэлтийг id-гаар ч нээхгүй
+      await api().get(`/api/supplies/${supplyId}`).set(auth(lone)).expect(404);
+    });
+
+    it('дотоод ажилтан бүгдийг, харилцагч ЗӨВХӨН өөрийнхөө хардаг ⭐', async () => {
+      // Дотоод ажилтан (companyId=null) — хязгааргүй
+      const staff = await api()
+        .get('/api/supplies')
+        .set(auth(tok.manager))
+        .expect(200);
+      const companies = new Set(
+        staff.body.map((x: { companyId: string }) => x.companyId),
+      );
+      expect(companies.has(supCompanyId)).toBe(true);
+
+      // companyId шүүлтүүр дотоод ажилтанд ажиллана
+      const filtered = await api()
+        .get(`/api/supplies?companyId=${supCompanyId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(
+        filtered.body.every(
+          (x: { companyId: string }) => x.companyId === supCompanyId,
+        ),
+      ).toBe(true);
+
+      // Компанитай харилцагч — зөвхөн өөрийнх, шүүлтүүр ч түүнийг
+      // тойрч гарахгүй (өмнөх тестүүд үүнийг мөн шалгадаг)
+      const mine = await api()
+        .get(`/api/supplies?companyId=${otherCompanyId}`)
+        .set(auth(partnerToken))
+        .expect(200);
+      expect(
+        mine.body.every(
+          (x: { companyId: string }) => x.companyId === supCompanyId,
+        ),
+      ).toBe(true);
+    });
+
+    it('өөр компанийн хүнийг нийлүүлэгч болгож болохгүй → 400', async () => {
+      await api()
+        .post('/api/supplies')
+        .set(auth(tok.manager))
+        .send({
+          companyId: otherCompanyId,
+          supplierId: supPartnerId,
+          items: [{ productId: supProductId, qty: 1, unitCost: '100' }],
+        })
+        .expect(400);
+
+      await api().get('/api/supplies').set(auth(tok.driver)).expect(403);
+    });
+  });
+
+  // ──────────────────────────────────── V5: ЖОЛООЧИЙН БҮС
+  describe('V5: Жолоочийн бүс — дүүргээр хуваарилалт ⭐', () => {
+    it('нярав бүс нэмж, хасаж чадна ⭐', async () => {
+      // Нэмэх
+      const set = await api()
+        .patch(`/api/drivers/${e2eDriverId}/zones`)
+        .set(auth(keeperToken))
+        .send({ zones: ['ХУД', 'БЗД'] })
+        .expect(200);
+      expect(set.body.zones.sort()).toEqual(['БЗД', 'ХУД']);
+
+      // Жагсаалтад тусгагдсан
+      const list = await api()
+        .get('/api/drivers')
+        .set(auth(keeperToken))
+        .expect(200);
+      const row = list.body.find((d: { id: string }) => d.id === e2eDriverId);
+      expect(row.zones.sort()).toEqual(['БЗД', 'ХУД']);
+
+      // Хасах — бүтэн жагсаалтыг дахин илгээнэ
+      const less = await api()
+        .patch(`/api/drivers/${e2eDriverId}/zones`)
+        .set(auth(keeperToken))
+        .send({ zones: ['ХУД'] })
+        .expect(200);
+      expect(less.body.zones).toEqual(['ХУД']);
+
+      // Бүгдийг цэвэрлэх нь хүчинтэй төлөв
+      const none = await api()
+        .patch(`/api/drivers/${e2eDriverId}/zones`)
+        .set(auth(keeperToken))
+        .send({ zones: [] })
+        .expect(200);
+      expect(none.body.zones).toEqual([]);
+    });
+
+    it('давхардал цэвэрлэгдэж, буруу дүүрэг → 400', async () => {
+      const dup = await api()
+        .patch(`/api/drivers/${e2eDriverId}/zones`)
+        .set(auth(keeperToken))
+        .send({ zones: ['ХУД', 'ХУД', 'БЗД'] })
+        .expect(200);
+      expect(dup.body.zones).toHaveLength(2);
+
+      await api()
+        .patch(`/api/drivers/${e2eDriverId}/zones`)
+        .set(auth(keeperToken))
+        .send({ zones: ['БАЙХГҮЙ'] })
+        .expect(400);
+    });
+
+    it('жолооч биш хүнд бүс тохируулах → 404', async () => {
+      await api()
+        .patch(`/api/drivers/${keeperId}/zones`)
+        .set(auth(tok.manager))
+        .send({ zones: ['ХУД'] })
+        .expect(404);
+    });
+
+    it('эрхгүй хүн бүс өөрчлөхгүй → 403', async () => {
+      await api()
+        .patch(`/api/drivers/${e2eDriverId}/zones`)
+        .set(auth(tok.driver))
+        .send({ zones: ['ХУД'] })
+        .expect(403);
+      await api()
+        .patch(`/api/drivers/${e2eDriverId}/zones`)
+        .set(auth(tok.operator))
+        .send({ zones: ['ХУД'] })
+        .expect(403);
+    });
+  });
+
+  // ──────────────── V5: МӨНГӨ vs БАРАА — тооллын зөв байдал
+  describe('V5: Цуцлалт ба буцаалтын тооцоо ⭐', () => {
+    it('төлбөртэй захиалгыг ШУУД цуцлахыг хориглоно ⭐', async () => {
+      // Өмнө нь цуцлалт үлдэгдлийг буцаадаг ч мөнгийг хөнддөггүй тул
+      // бараа агуулахад ирчихээд төлбөр нь ОРЛОГО болж номд үлддэг байв
+      const res = await api()
+        .post('/api/orders')
+        .set(auth(tok.seller))
+        .send({
+          customerName: `Э2Э-Цуцлалт-${T}`,
+          customerPhone: `9${T}`,
+          ...UB_ADDR,
+          paid: true,
+          items: [{ productId, qty: 1 }],
+        })
+        .expect(201);
+      const id = res.body.id;
+      feeOrderIds.push(id);
+      expect(Number(res.body.paidAmount)).toBeGreaterThan(0);
+
+      const denied = await api()
+        .patch(`/api/orders/${id}/status`)
+        .set(auth(tok.manager))
+        .send({ status: 'CANCELLED' })
+        .expect(400);
+      expect(denied.body.message).toContain('Төлбөртэй захиалгыг цуцлах');
+
+      // Захиалга хөндөгдөөгүй
+      const still = await api()
+        .get(`/api/orders/${id}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(still.body.orderStatus).not.toBe('CANCELLED');
+
+      // Зөв зам: төлбөрийг нь буцаагаад дараа нь цуцална
+      await api()
+        .delete(`/api/payments/${still.body.payments[0].id}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      const done = await api()
+        .patch(`/api/orders/${id}/status`)
+        .set(auth(tok.manager))
+        .send({ status: 'CANCELLED' })
+        .expect(200);
+      expect(done.body.orderStatus).toBe('CANCELLED');
+      expect(Number(done.body.paidAmount)).toBe(0);
+    });
+
+    it('буцаагдсан бараа БОРЛУУЛАЛТААС хасагдана ⭐', async () => {
+      const before = await api()
+        .get('/api/finance/summary')
+        .set(auth(tok.manager))
+        .expect(200);
+
+      // Захиалга → хүргэлт → бүтэн буцаалт
+      const res = await api()
+        .post('/api/orders')
+        .set(auth(tok.seller))
+        .send({
+          customerName: `Э2Э-Буцаалт-${T}`,
+          customerPhone: `9${T}`,
+          ...UB_ADDR,
+          items: [{ productId, qty: 1 }],
+        })
+        .expect(201);
+      const id = res.body.id;
+      feeOrderIds.push(id);
+      const line = Number(res.body.items[0].lineTotal);
+
+      const mid = await api()
+        .get('/api/finance/summary')
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(Number(mid.body.salesRevenue)).toBe(
+        Number(before.body.salesRevenue) + line,
+      );
+
+      await api()
+        .patch(`/api/orders/${id}/status`)
+        .set(auth(tok.manager))
+        .send({ status: 'CONFIRMED' })
+        .expect(200);
+      await api()
+        .patch(`/api/orders/${id}/assign-driver`)
+        .set(auth(tok.manager))
+        .send({ driverId: e2eDriverId })
+        .expect(200);
+      await api()
+        .post(`/api/deliveries/${id}/complete`)
+        .set(auth(e2eDriverToken))
+        .field('success', 'true')
+        .field('note', 'хүргэсэн')
+        .expect(201);
+
+      await api()
+        .post(`/api/orders/${id}/return`)
+        .set(auth(tok.manager))
+        .send({
+          reason: 'Э2Э буцаалт',
+          restock: true,
+          items: [{ orderItemId: res.body.items[0].id, qty: 1 }],
+        })
+        .expect(201);
+
+      // ⭐ Бараа агуулахад буцаж ирсэн тул борлуулалт анхны түвшинд
+      const after = await api()
+        .get('/api/finance/summary')
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(Number(after.body.salesRevenue)).toBe(
+        Number(before.body.salesRevenue),
+      );
+
+      // Аналитик мөн адил
+      const an = await api()
+        .get('/api/analytics/sales')
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(Number(an.body.totals.amount)).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  // ───────────────────── V5: ҮҮРГИЙН ХИЛ (эрхийн аудитын 5–8)
+  describe('V5: Үүргийн хил — цуцлалт, төлбөр, хүлээлгэлт ⭐', () => {
+    let boundaryOrderId: string;
+
+    beforeAll(async () => {
+      await api()
+        .post('/api/stock/adjust')
+        .set(auth(tok.manager))
+        .send({ productId, qtyChange: 5, reason: 'PURCHASE_IN' })
+        .expect(201);
+      const res = await api()
+        .post('/api/orders')
+        .set(auth(tok.seller))
+        .send({
+          customerName: `Э2Э-Хил-${T}`,
+          customerPhone: `9${T}`,
+          ...UB_ADDR,
+          items: [{ productId, qty: 1 }],
+        })
+        .expect(201);
+      boundaryOrderId = res.body.id;
+      feeOrderIds.push(boundaryOrderId);
+      await api()
+        .patch(`/api/orders/${boundaryOrderId}/status`)
+        .set(auth(tok.seller))
+        .send({ status: 'CONFIRMED' })
+        .expect(200);
+    });
+
+    it('НЯРАВ төлөв ахиулна ч ЦУЦЛАХГҮЙ ⭐', async () => {
+      // Бэлтгэлийн алхам нь түүний ажил
+      await api()
+        .patch(`/api/orders/${boundaryOrderId}/status`)
+        .set(auth(keeperToken))
+        .send({ status: 'PREPARING' })
+        .expect(200);
+
+      // Цуцлах нь үлдэгдэл/мөнгө буцаах арилжааны шийдвэр — эрхгүй
+      const denied = await api()
+        .patch(`/api/orders/${boundaryOrderId}/status`)
+        .set(auth(keeperToken))
+        .send({ status: 'CANCELLED' })
+        .expect(403);
+      expect(denied.body.message).toContain('цуцлах');
+
+      // Захиалга хөндөгдөөгүй
+      const still = await api()
+        .get(`/api/orders/${boundaryOrderId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(still.body.orderStatus).toBe('PREPARING');
+    });
+
+    it('БОРЛУУЛАГЧ төлбөр бүртгэнэ ⭐', async () => {
+      // Гүйлгээний баримтыг шалгадаг нь тэр — менежер рүү явахгүй
+      const pay = await api()
+        .post(`/api/orders/${boundaryOrderId}/payments`)
+        .set(auth(tok.seller))
+        .send({ amount: '1000.00', method: 'TRANSFER' })
+        .expect(201);
+      expect(Number(pay.body.order?.paidAmount ?? pay.body.paidAmount)).toBe(
+        1000,
+      );
+
+      // Гэхдээ санхүүгийн модуль нээгдэхгүй хэвээр
+      await api()
+        .get('/api/finance/summary')
+        .set(auth(tok.seller))
+        .expect(403);
+      await api()
+        .get('/api/finance/receivables')
+        .set(auth(tok.seller))
+        .expect(403);
+    });
+
+    it('МЕНЕЖЕР няравын самбарт орж хүлээлгэн өгч чадна ⭐', async () => {
+      // Нярав ирээгүй өдөр хүргэлт зогсохгүй
+      const board = await api()
+        .get('/api/warehouse/board')
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(Array.isArray(board.body)).toBe(true);
+      // mineOnly нь няравт л үйлчилнэ — менежерт бүх бэлтгэл харагдана
+      expect(
+        board.body.some((g: { orders: { id: string }[] }) =>
+          g.orders.some((o) => o.id === boundaryOrderId),
+        ),
+      ).toBe(true);
+
+      await api()
+        .get('/api/warehouse/handovers')
+        .set(auth(tok.manager))
+        .expect(200);
+    });
+
+    it('БОРЛУУЛАГЧ цуцална, ХАРИЛЦАГЧ цуцлахгүй ⭐', async () => {
+      await api()
+        .patch(`/api/orders/${boundaryOrderId}/status`)
+        .set(auth(tok.operator))
+        .send({ status: 'CANCELLED' })
+        .expect(403);
+
+      // Өмнөх тест 1000₮ төлбөр бүртгэсэн — төлбөртэй захиалга шууд
+      // цуцлагдахгүй тул эхлээд мөнгийг нь буцаана (V5-ийн шинэ дүрэм)
+      const cur = await api()
+        .get(`/api/orders/${boundaryOrderId}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      for (const pay of cur.body.payments) {
+        await api()
+          .delete(`/api/payments/${pay.id}`)
+          .set(auth(tok.manager))
+          .expect(200);
+      }
+
+      const done = await api()
+        .patch(`/api/orders/${boundaryOrderId}/status`)
+        .set(auth(tok.seller))
+        .send({ status: 'CANCELLED' })
+        .expect(200);
+      expect(done.body.orderStatus).toBe('CANCELLED');
+    });
+  });
+
+  // ────────────────────── V5: БЭЛТГЭЛГҮЙ ШУУД ДУУСГАХ
+  describe('V5: Бэлтгэлийн алхмыг алгасаж дуусгах ⭐', () => {
+    beforeAll(async () => {
+      // Өмнөх тестүүд үлдэгдлийг барсан байж болно — нөөцөө нэмнэ
+      await api()
+        .post('/api/stock/adjust')
+        .set(auth(tok.manager))
+        .send({ productId, qtyChange: 5, reason: 'PURCHASE_IN' })
+        .expect(201);
+    });
+
+    it('CONFIRMED-ээс шууд COMPLETED болно ⭐', async () => {
+      const res = await api()
+        .post('/api/orders')
+        .set(auth(tok.manager))
+        .send({
+          customerName: `Э2Э-Шууд-Дуусгах-${T}`,
+          customerPhone: `9${T}`,
+          ...UB_ADDR,
+          items: [{ productId, qty: 1 }],
+        })
+        .expect(201);
+      feeOrderIds.push(res.body.id);
+
+      await api()
+        .patch(`/api/orders/${res.body.id}/status`)
+        .set(auth(tok.manager))
+        .send({ status: 'CONFIRMED' })
+        .expect(200);
+      // ⭐ PREPARING/READY-г алгасана
+      const done = await api()
+        .patch(`/api/orders/${res.body.id}/status`)
+        .set(auth(tok.manager))
+        .send({ status: 'COMPLETED' })
+        .expect(200);
+      expect(done.body.orderStatus).toBe('COMPLETED');
+
+      // COMPLETED-ээс цааш явахгүй хэвээр
+      await api()
+        .patch(`/api/orders/${res.body.id}/status`)
+        .set(auth(tok.manager))
+        .send({ status: 'CANCELLED' })
+        .expect(400);
+    });
+
+    it('PREPARING-ээс ч шууд дуусгана, буцаж NEW руу явахгүй', async () => {
+      const res = await api()
+        .post('/api/orders')
+        .set(auth(tok.manager))
+        .send({
+          customerName: `Э2Э-Бэлтгэл-Дуусгах-${T}`,
+          customerPhone: `9${T}`,
+          ...UB_ADDR,
+          items: [{ productId, qty: 1 }],
+        })
+        .expect(201);
+      feeOrderIds.push(res.body.id);
+
+      for (const status of ['CONFIRMED', 'PREPARING']) {
+        await api()
+          .patch(`/api/orders/${res.body.id}/status`)
+          .set(auth(tok.manager))
+          .send({ status })
+          .expect(200);
+      }
+      // Ухрах хориотой хэвээр
+      await api()
+        .patch(`/api/orders/${res.body.id}/status`)
+        .set(auth(tok.manager))
+        .send({ status: 'NEW' })
+        .expect(400);
+
+      const done = await api()
+        .patch(`/api/orders/${res.body.id}/status`)
+        .set(auth(tok.manager))
+        .send({ status: 'COMPLETED' })
+        .expect(200);
+      expect(done.body.orderStatus).toBe('COMPLETED');
+    });
+  });
+
+  // ────────────────────────────────────────────── V4-16: EDGE ГҮЙЦЭЭЛТ
+  describe('V4-16: Edge гүйцээлт ⭐', () => {
 
     it('4 буруу оролдлого түгжихгүй — амжилттай нэвтрэлт counter-ийг 0 болгоно', async () => {
       const email = `e2e-cnt-${T}@ursgal.mn`;
@@ -3624,13 +5310,12 @@ describe('ursGAL v2 API (e2e)', () => {
         .expect(201);
       const ord = await api()
         .post('/api/orders')
-        .set(auth(tok.operator))
+        .set(auth(tok.seller))
         .send({
           customerName: `Э2Э-Төлсөн-${T}`,
           customerPhone: `5${T}`,
           ...UB_ADDR,
           paid: true,
-          paymentMethod: 'TRANSFER',
           items: [{ productId, qty: 1 }],
         })
         .expect(201);
@@ -3649,25 +5334,6 @@ describe('ursGAL v2 API (e2e)', () => {
       expect(income?.type).toBe('INCOME');
     });
 
-    it('customer-ийн paid:true үл тоомсорлогдоно — UNPAID хэвээр', async () => {
-      await api()
-        .post('/api/stock/adjust')
-        .set(auth(tok.manager))
-        .send({ productId, qtyChange: 1, reason: 'PURCHASE_IN' })
-        .expect(201);
-      const ord = await api()
-        .post('/api/orders')
-        .set(auth(custToken))
-        .send({ ...UB_ADDR, paid: true, items: [{ productId, qty: 1 }] })
-        .expect(201);
-      feeOrderIds.push(ord.body.id);
-      expect(ord.body.paymentStatus).toBe('UNPAID');
-      expect(Number(ord.body.paidAmount)).toBe(0);
-      const payment = await prisma.payment.findFirst({
-        where: { orderId: ord.body.id },
-      });
-      expect(payment).toBeNull();
-    });
 
     it('Харилцагчид (түнш = OPERATOR эрхтэй): жагсаалт статистиктай, operator 403', async () => {
       await api()
@@ -3722,4 +5388,1308 @@ describe('ursGAL v2 API (e2e)', () => {
       expect(refundEntry).toBeNull();
     });
   });
+
+  describe('V5: Хугацаа ба цуврал — FEFO ⭐', () => {
+    let nearId: string; // ойрхон дуусах цуврал
+    let farId: string; // хол дуусах цуврал
+    let batchOrderId: string;
+    let batchCompanyId: string;
+    const batchSupplyIds: string[] = [];
+
+    /** YYYY-MM-DD — өнөөдрөөс N хоногийн дараа/өмнө */
+    const day = (n: number) =>
+      new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
+
+    const batchesOf = async (token: string) =>
+      (
+        await api()
+          .get(`/api/batches?productId=${batchProductId}`)
+          .set(auth(token))
+          .expect(200)
+      ).body as Array<{
+        id: string;
+        batchNo: string | null;
+        remaining: number;
+        qty: number;
+        daysLeft: number;
+        state: string;
+      }>;
+
+    /**
+     * Цувралын тест нь бараа/нийлүүлэлт/захиалгаа өөрөө үүсгэдэг тул
+     * өөрөө БҮРЭН цэвэрлэнэ. Дараалал нь FK-гаар тогтоно:
+     * цуврал → захиалга(+мөр) → хөдөлгөөн/мэдэгдэл → нийлүүлэлт →
+     * бараа → компани. Буруу дараалалд afterAll унаж бүх тестийн
+     * ул мөр DB-д үлддэг.
+     */
+    afterAll(async () => {
+      if (batchProductId) {
+        await prisma.productBatch.deleteMany({
+          where: { productId: batchProductId },
+        });
+      }
+      if (batchOrderId) {
+        await prisma.notification.deleteMany({
+          where: { refId: batchOrderId },
+        });
+        // OrderItem нь захиалгатайгаа cascade-аар устана
+        await prisma.order.deleteMany({ where: { id: batchOrderId } });
+      }
+      if (batchProductId) {
+        await prisma.stockMovement.deleteMany({
+          where: { productId: batchProductId },
+        });
+      }
+      if (batchSupplyIds.length) {
+        await prisma.notification.deleteMany({
+          where: { refId: { in: batchSupplyIds } },
+        });
+        await prisma.supply.deleteMany({
+          where: { id: { in: batchSupplyIds } },
+        });
+      }
+      if (batchProductId) {
+        await prisma.product.deleteMany({ where: { id: batchProductId } });
+      }
+      if (batchCompanyId) {
+        await prisma.company.deleteMany({ where: { id: batchCompanyId } });
+      }
+    });
+
+    it('бэлтгэл — бараа ба нийлүүлэгч компани', async () => {
+      const prod = await api()
+        .post('/api/products')
+        .set(auth(tok.admin))
+        .send({
+          sku: `${SKU}-BATCH`,
+          name: `Э2Э Хугацаатай ${T}`,
+          price: '10000',
+          costPrice: '4000',
+          stockQty: 0,
+        })
+        .expect(201);
+      batchProductId = prod.body.id;
+
+      const co = await api()
+        .post('/api/companies')
+        .set(auth(tok.admin))
+        .send({ name: `Э2Э Хугацаа компани ${T}` })
+        .expect(201);
+      batchCompanyId = co.body.id;
+    });
+
+    it('хугацаатай нийлүүлэлт → цуврал автоматаар үүснэ', async () => {
+      for (const [days, no] of [
+        [20, 'ОЙРХОН'],
+        [300, 'ХОЛ'],
+      ] as Array<[number, string]>) {
+        const sup = await api()
+          .post('/api/supplies')
+          .set(auth(tok.admin))
+          .send({
+            companyId: batchCompanyId,
+            items: [
+              {
+                productId: batchProductId,
+                qty: 10,
+                unitCost: '4000',
+                expiryDate: day(days),
+                batchNo: no,
+              },
+            ],
+          })
+          .expect(201);
+        batchSupplyIds.push(sup.body.id);
+      }
+
+      const rows = await batchesOf(tok.admin);
+      expect(rows).toHaveLength(2);
+      // Хугацаагаар өсөхөөр эрэмбэлэгдэнэ — FEFO-гийн үндэс
+      expect(rows[0].batchNo).toBe('ОЙРХОН');
+      expect(rows[1].batchNo).toBe('ХОЛ');
+      expect(rows[0].state).toBe('CRITICAL'); // 20 ≤ 30 хоног
+      expect(rows[1].state).toBe('OK');
+      expect(rows[0].remaining).toBe(10);
+    });
+
+    it('хугацаагүй мөр цуврал үүсгэхгүй', async () => {
+      const sup = await api()
+        .post('/api/supplies')
+        .set(auth(tok.admin))
+        .send({
+          companyId: batchCompanyId,
+          items: [
+            { productId: batchProductId, qty: 5, unitCost: '4000' },
+          ],
+        })
+        .expect(201);
+      batchSupplyIds.push(sup.body.id);
+      // Цуврал нэмэгдээгүй — үлдэгдэл л өссөн
+      expect(await batchesOf(tok.admin)).toHaveLength(2);
+    });
+
+    it('захиалга ЭХЭЛЖ ДУУСАХ цувралаас хасна (FEFO)', async () => {
+      const order = await api()
+        .post('/api/orders')
+        .set(auth(tok.admin))
+        .send({
+          customerName: `Э2Э FEFO ${T}`,
+          customerPhone: `9${T}`,
+          ...UB_ADDR,
+          items: [{ productId: batchProductId, qty: 12 }],
+        })
+        .expect(201);
+      batchOrderId = order.body.id;
+
+      const rows = await batchesOf(tok.admin);
+      // ОЙРХОН бүрэн дуусч жагсаалтаас гарна, үлдсэн 2 нь ХОЛ-оос
+      expect(rows).toHaveLength(1);
+      expect(rows[0].batchNo).toBe('ХОЛ');
+      expect(rows[0].remaining).toBe(8);
+      nearId = (
+        await prisma.productBatch.findFirstOrThrow({
+          where: { productId: batchProductId, batchNo: 'ОЙРХОН' },
+        })
+      ).id;
+      farId = rows[0].id;
+      expect(
+        (await prisma.productBatch.findUniqueOrThrow({ where: { id: nearId } }))
+          .remaining,
+      ).toBe(0);
+    });
+
+    it('цуцлалт цувралыг УРВУУ дарааллаар нөхнө', async () => {
+      await api()
+        .patch(`/api/orders/${batchOrderId}/status`)
+        .set(auth(tok.admin))
+        .send({ status: 'CANCELLED' })
+        .expect(200);
+
+      const near = await prisma.productBatch.findUniqueOrThrow({
+        where: { id: nearId },
+      });
+      const far = await prisma.productBatch.findUniqueOrThrow({
+        where: { id: farId },
+      });
+      // Эхэлж дуусахаас нь хассан тул эхэлж дуусах руу нь буцна
+      expect(near.remaining).toBe(10);
+      expect(far.remaining).toBe(10);
+    });
+
+    it('гараар хугацаа зүүхэд үлдэгдэл НЭМЭГДЭХГҮЙ', async () => {
+      const before = (
+        await prisma.product.findUniqueOrThrow({
+          where: { id: batchProductId },
+        })
+      ).stockQty;
+
+      await api()
+        .post('/api/batches')
+        .set(auth(tok.admin))
+        .send({
+          productId: batchProductId,
+          expiryDate: day(-5), // хугацаа нь ДУУССАН
+          qty: 3,
+          batchNo: 'ХУУЧИН',
+        })
+        .expect(201);
+
+      const after = (
+        await prisma.product.findUniqueOrThrow({
+          where: { id: batchProductId },
+        })
+      ).stockQty;
+      expect(after).toBe(before);
+
+      const rows = await batchesOf(tok.admin);
+      const old = rows.find((b) => b.batchNo === 'ХУУЧИН')!;
+      expect(old.state).toBe('EXPIRED');
+      expect(old.daysLeft).toBeLessThan(0);
+    });
+
+    it('хугацаа зүүгээгүй үлдэгдлээс хэтрүүлж болохгүй', async () => {
+      const res = await api()
+        .post('/api/batches')
+        .set(auth(tok.admin))
+        .send({
+          productId: batchProductId,
+          expiryDate: day(90),
+          qty: 99999,
+        })
+        .expect(400);
+      expect(res.body.message).toContain('Хугацаа зүүгээгүй үлдэгдэл');
+    });
+
+    it('устгалд гаргахад үлдэгдэл хасагдаж хөдөлгөөн бичигдэнэ', async () => {
+      const rows = await batchesOf(tok.admin);
+      const expired = rows.find((b) => b.state === 'EXPIRED')!;
+      const before = (
+        await prisma.product.findUniqueOrThrow({
+          where: { id: batchProductId },
+        })
+      ).stockQty;
+
+      await api()
+        .post(`/api/batches/${expired.id}/write-off`)
+        .set(auth(tok.admin))
+        .send({ note: 'e2e устгал' })
+        .expect(201);
+
+      const after = (
+        await prisma.product.findUniqueOrThrow({
+          where: { id: batchProductId },
+        })
+      ).stockQty;
+      expect(after).toBe(before - expired.remaining);
+
+      const mv = await prisma.stockMovement.findFirst({
+        where: { productId: batchProductId, reason: 'EXPIRED' },
+      });
+      expect(mv).not.toBeNull();
+      expect(mv!.qtyChange).toBe(-expired.remaining);
+
+      // Устгасан цуврал жагсаалтаас гарна
+      expect(
+        (await batchesOf(tok.admin)).some((b) => b.id === expired.id),
+      ).toBe(false);
+
+      // Дахин устгах боломжгүй
+      const again = await api()
+        .post(`/api/batches/${expired.id}/write-off`)
+        .set(auth(tok.admin))
+        .send({})
+        .expect(400);
+      expect(again.body.message).toContain('устгалд гарсан');
+    });
+
+    it('хураангуй нь төлөв бүрээр бүлэглэнэ', async () => {
+      const res = await api()
+        .get('/api/batches/summary')
+        .set(auth(tok.admin))
+        .expect(200);
+      expect(res.body.warnDays).toBe(30);
+      for (const k of ['EXPIRED', 'CRITICAL', 'WARNING', 'OK']) {
+        expect(res.body[k]).toHaveProperty('batches');
+        expect(res.body[k]).toHaveProperty('qty');
+        expect(res.body[k]).toHaveProperty('value');
+      }
+      expect(Array.isArray(res.body.soonest)).toBe(true);
+    });
+
+    it('нярав цувралыг хардаг (агуулах бол түүний ажил)', async () => {
+      await api().get('/api/batches').set(auth(keeperToken)).expect(200);
+      await api()
+        .get('/api/batches/summary')
+        .set(auth(keeperToken))
+        .expect(200);
+    });
+
+    it('жолоочид цувралын эрх байхгүй', async () => {
+      await api().get('/api/batches').set(auth(tok.driver)).expect(403);
+      await api()
+        .post('/api/batches')
+        .set(auth(tok.driver))
+        .send({ productId: batchProductId, expiryDate: day(30), qty: 1 })
+        .expect(403);
+    });
+  });
+
+
+  describe('V5: Давтан захиалгын сануулга ⭐', () => {
+    let roProductId: string; // 10 хоног хүрдэг бараа
+    let skipProductId: string; // daysSupply = 0 — сануулгад ОРОХГҮЙ
+    const roOrderIds: string[] = [];
+    /**
+     * ⚠ УТАСНЫ ОРОН ЗАЙ — САНАМЖ.
+     *
+     * Сануулгын логик нь хүний ХАМГИЙН СҮҮЛИЙН захиалгыг хардаг тул
+     * өөр тест ижил утсаар шинэ захиалга үүсгэвэл миний хойш татсан
+     * захиалга дарагдаж, тест «шалтгаангүй» унана.
+     *
+     * Бусад тестүүд `<орон>${T}` хэлбэрээр 1..9 бүх угтварыг эзэлсэн.
+     * Тиймээс энд T-ийн СҮҮЛИЙН ОРНЫГ өөрчилж, аль ч `D${T}`-тэй
+     * тэнцэхээргүй дугаар үүсгэнэ: угтвар нь `2` тул D≠2 үед эхний
+     * орноороо, D=2 үед сүүлийн орноороо заавал ялгаатай.
+     * (Өмнө нь `2${T.slice(0,6)}1` гэж байсан нь T «1»-ээр төгсөх
+     * бүрд `2${T}`-тэй давхцаж, 10 ажиллагааны 1-д унадаг байв.)
+     */
+    const alt = (n: number) => `2${T.slice(0, 6)}${(Number(T[6]) + n) % 10}`;
+    const RO_PHONE = alt(1);
+    const SKIP_PHONE = alt(2);
+    const CANCEL_PHONE = alt(3);
+
+    afterAll(async () => {
+      if (roOrderIds.length) {
+        await prisma.notification.deleteMany({
+          where: { refId: { in: roOrderIds } },
+        });
+        await prisma.orderItem.deleteMany({
+          where: { orderId: { in: roOrderIds } },
+        });
+        await prisma.order.deleteMany({ where: { id: { in: roOrderIds } } });
+      }
+      const ids = [roProductId, skipProductId].filter(Boolean);
+      if (ids.length) {
+        await prisma.stockMovement.deleteMany({
+          where: { productId: { in: ids } },
+        });
+        await prisma.product.deleteMany({ where: { id: { in: ids } } });
+      }
+    });
+
+    /** Захиалгыг N хоногийн өмнө өгсөн болгож хойш нь татна */
+    const backdate = async (orderId: string, days: number) => {
+      await prisma.order.update({
+        where: { id: orderId },
+        data: { createdAt: new Date(Date.now() - days * 86_400_000) },
+      });
+    };
+
+    const rowFor = async (phone: string) => {
+      const res = await api()
+        .get('/api/reorders')
+        .set(auth(tok.seller))
+        .expect(200);
+      return (
+        res.body.rows as Array<{
+          phone: string;
+          state: string;
+          daysLeft: number;
+          qty: number;
+        }>
+      ).find((r) => r.phone === phone);
+    };
+
+    it('бэлтгэл — хэрэглээний хугацаатай бараанууд', async () => {
+      const a = await api()
+        .post('/api/products')
+        .set(auth(tok.admin))
+        .send({
+          sku: `${SKU}-RO`,
+          name: `Э2Э Сануулга ${T}`,
+          price: '10000',
+          daysSupply: 10,
+        })
+        .expect(201);
+      roProductId = a.body.id;
+      expect(a.body.daysSupply).toBe(10);
+
+      const b = await api()
+        .post('/api/products')
+        .set(auth(tok.admin))
+        .send({
+          sku: `${SKU}-RO0`,
+          name: `Э2Э Сануулгагүй ${T}`,
+          price: '5000',
+          daysSupply: 0, // хэрэглээний бус — сав, багаж гэх мэт
+        })
+        .expect(201);
+      skipProductId = b.body.id;
+
+      for (const id of [roProductId, skipProductId]) {
+        await api()
+          .post('/api/stock/adjust')
+          .set(auth(tok.admin))
+          .send({ productId: id, qtyChange: 50, reason: 'PURCHASE_IN' })
+          .expect(201);
+      }
+    });
+
+    it('дуусаагүй бол жагсаалтад ГАРАХГҮЙ', async () => {
+      const o = await api()
+        .post('/api/orders')
+        .set(auth(tok.admin))
+        .send({
+          customerName: `Э2Э Давтан ${T}`,
+          customerPhone: RO_PHONE,
+          ...UB_ADDR,
+          items: [{ productId: roProductId, qty: 1 }],
+        })
+        .expect(201);
+      roOrderIds.push(o.body.id);
+
+      // Дөнгөж авсан — 10 хоног хүрнэ, 7 хоногийн хязгаараас хол
+      expect(await rowFor(RO_PHONE)).toBeUndefined();
+    });
+
+    it('дуусах дөхөхөд гарч ирнэ', async () => {
+      // 5 хоногийн өмнө авсан → 5 хоног үлдсэн → 7-гийн хязгаарт багтана
+      await backdate(roOrderIds[0], 5);
+      const row = await rowFor(RO_PHONE);
+      expect(row).toBeDefined();
+      expect(row).toMatchObject({ state: 'SOON', daysLeft: 5, qty: 1 });
+    });
+
+    it('хугацаа хэтэрсэн бол ХОЦОРСОН болно', async () => {
+      await backdate(roOrderIds[0], 18); // 10 хоног хүрэх байсан → 8 хоцорсон
+      const row = await rowFor(RO_PHONE);
+      expect(row!.state).toBe('OVERDUE');
+      expect(row!.daysLeft).toBe(-8);
+    });
+
+    it('тоо ширхэг хугацааг уртасгана', async () => {
+      // 3 ширхэг × 10 хоног = 30 хоног хүрнэ
+      const o = await api()
+        .post('/api/orders')
+        .set(auth(tok.admin))
+        .send({
+          customerName: `Э2Э Олон ${T}`,
+          customerPhone: RO_PHONE,
+          ...UB_ADDR,
+          items: [{ productId: roProductId, qty: 3 }],
+        })
+        .expect(201);
+      roOrderIds.push(o.body.id);
+      await backdate(o.body.id, 18);
+
+      // Хамгийн СҮҮЛИЙН захиалгыг л хардаг тул хуучин нь орлогдоно.
+      // 18 хоногийн өмнө 3ш авсан → 30 хоног хүрнэ → 12 хоног үлдсэн
+      const row = await rowFor(RO_PHONE);
+      expect(row).toBeUndefined(); // 12 > 7 хязгаар
+    });
+
+    it('daysSupply = 0 бараа сануулгад орохгүй', async () => {
+      const o = await api()
+        .post('/api/orders')
+        .set(auth(tok.admin))
+        .send({
+          customerName: `Э2Э Сав ${T}`,
+          customerPhone: SKIP_PHONE,
+          ...UB_ADDR,
+          items: [{ productId: skipProductId, qty: 1 }],
+        })
+        .expect(201);
+      roOrderIds.push(o.body.id);
+      await backdate(o.body.id, 90); // ямар ч тохиолдолд «дууссан» байх ёстой
+
+      expect(await rowFor(SKIP_PHONE)).toBeUndefined();
+    });
+
+    it('цуцлагдсан захиалга сануулга үүсгэхгүй', async () => {
+      const o = await api()
+        .post('/api/orders')
+        .set(auth(tok.admin))
+        .send({
+          customerName: `Э2Э Цуцлагдсан ${T}`,
+          customerPhone: CANCEL_PHONE,
+          ...UB_ADDR,
+          items: [{ productId: roProductId, qty: 1 }],
+        })
+        .expect(201);
+      roOrderIds.push(o.body.id);
+      await backdate(o.body.id, 20);
+      expect(await rowFor(CANCEL_PHONE)).toBeDefined();
+
+      await api()
+        .patch(`/api/orders/${o.body.id}/status`)
+        .set(auth(tok.admin))
+        .send({ status: 'CANCELLED' })
+        .expect(200);
+
+      expect(await rowFor(CANCEL_PHONE)).toBeUndefined();
+    });
+
+    it('хэт хоцорсныг хаясан гэж үзэж хасна', async () => {
+      // reorderMaxOverdue = 60. 10 хоног хүрэх бараа 200 хоногийн өмнө
+      // авсан → 190 хоног хоцорсон → жагсаалтаас гарна
+      await backdate(roOrderIds[1], 200);
+      await backdate(roOrderIds[0], 200);
+      expect(await rowFor(RO_PHONE)).toBeUndefined();
+    });
+
+    it('жолоочид үйлчлүүлэгчийн жагсаалт харах эрх байхгүй', async () => {
+      await api().get('/api/reorders').set(auth(tok.driver)).expect(403);
+    });
+  });
+
+
+  describe('V5: Нягтлангийн тайлан ⭐', () => {
+    /**
+     * Хамгийн чухал нь ДАВХАРДАХГҮЙ байх: бараа худалдан авалт нь
+     * зарагдахдаа ЗБӨ болдог тул зардалд орвол өртөг хоёр дахин
+     * тоологдоно. Буцаалт нь борлуулалтаас аль хэдийн хасагдсан.
+     */
+    it('санхүүгийн байрлал — авлага, өглөг, бараа материал', async () => {
+      const res = await api()
+        .get('/api/finance/position')
+        .set(auth(tok.admin))
+        .expect(200);
+      for (const k of ['cash', 'receivable', 'payable', 'inventory', 'net']) {
+        expect(res.body).toHaveProperty(k);
+      }
+      // Цэвэр = мөнгө + авлага + бараа − өглөг
+      const n = (v: string) => Number(v);
+      expect(n(res.body.net)).toBeCloseTo(
+        n(res.body.cash) + n(res.body.receivable) + n(res.body.inventory) -
+          n(res.body.payable),
+        2,
+      );
+      expect(typeof res.body.productsWithoutCost).toBe('number');
+    });
+
+    it('байрлал нь орлогын эрхгүй хүнд хаалттай', async () => {
+      await api().get('/api/finance/position').set(auth(tok.driver)).expect(403);
+      await api().get('/api/finance/pnl').set(auth(tok.driver)).expect(403);
+    });
+
+    it('орлого тайлан — нийт ашиг ба цэвэр ашиг зөв бодогдоно', async () => {
+      const res = await api()
+        .get('/api/finance/pnl?from=2020-01-01&to=2099-12-31')
+        .set(auth(tok.admin))
+        .expect(200);
+      const n = (v: string) => Number(v);
+      expect(n(res.body.grossProfit)).toBeCloseTo(
+        n(res.body.revenue) - n(res.body.cogs),
+        2,
+      );
+      expect(n(res.body.netProfit)).toBeCloseTo(
+        n(res.body.grossProfit) + n(res.body.otherIncome) -
+          n(res.body.expenseTotal),
+        2,
+      );
+      // Зардлын мөрүүдийн нийлбэр нь дүнтэй тэнцэнэ
+      const sum = (res.body.expenses as Array<{ amount: string }>).reduce(
+        (a, e) => a + Number(e.amount),
+        0,
+      );
+      expect(sum).toBeCloseTo(n(res.body.expenseTotal), 2);
+    });
+
+    it('бараа худалдан авалт ба төлбөр тайланд ОРОХГҮЙ', async () => {
+      const res = await api()
+        .get('/api/finance/pnl?from=2020-01-01&to=2099-12-31')
+        .set(auth(tok.admin))
+        .expect(200);
+      const labels = (res.body.expenses as Array<{ label: string }>).map(
+        (e) => e.label,
+      );
+      // Эдгээр нь ЗБӨ/борлуулалттай давхардах тул зардалд гарч болохгүй
+      expect(labels).not.toContain('Бараа худалдан авалт');
+      expect(labels).not.toContain('Үйлчлүүлэгчид буцаалт');
+      // Харин ил тод байлгахын тулд «ороогүй» жагсаалтад гарна
+      const ex = (res.body.excluded as Array<{ label: string }>).map(
+        (e) => e.label,
+      );
+      expect(ex).toContain('Захиалгын төлбөр');
+      // Нэг нэрээр НЭГТГЭГДСЭН байх — 'PAYMENT' ба хуучин 'ORDER' хоёр
+      // мөр болж нягтланг төөрөгдүүлдэг байв
+      expect(ex.filter((l) => l === 'Захиалгын төлбөр')).toHaveLength(1);
+    });
+
+    it('орлого тайлан CSV татагдана', async () => {
+      const res = await api()
+        .get('/api/reports/pnl.csv?from=2020-01-01&to=2099-12-31')
+        .set(auth(tok.admin))
+        .expect(200);
+      expect(res.headers['content-type']).toContain('csv');
+      // Excel-д кирилл зөв гарах BOM
+      expect(res.text.charCodeAt(0)).toBe(0xfeff);
+      expect(res.text).toContain('Борлуулалт');
+      expect(res.text).toContain('ЦЭВЭР АШИГ');
+      // Ангилал КОД-оор биш МОНГОЛ нэрээр гарна
+      expect(res.text).not.toContain('DRIVER_PAYROLL');
+    });
+
+    it('санхүүгийн CSV ангиллыг монголоор гаргана', async () => {
+      const res = await api()
+        .get('/api/reports/finance.csv')
+        .set(auth(tok.admin))
+        .expect(200);
+      expect(res.text).not.toContain('DRIVER_PAYROLL');
+      expect(res.text).not.toContain('OTHER_INCOME');
+    });
+  });
+
+
+  describe('V5: ОРЛОГО = ТӨЛБӨР хамгаалалт ⭐', () => {
+    let paidOrderId: string;
+    let payProductId: string;
+
+    afterAll(async () => {
+      if (paidOrderId) {
+        await prisma.financeEntry.deleteMany({
+          where: { refOrderId: paidOrderId },
+        });
+        await prisma.payment.deleteMany({ where: { orderId: paidOrderId } });
+        await prisma.notification.deleteMany({ where: { refId: paidOrderId } });
+        await prisma.orderItem.deleteMany({ where: { orderId: paidOrderId } });
+        await prisma.order.deleteMany({ where: { id: paidOrderId } });
+      }
+      if (payProductId) {
+        await prisma.stockMovement.deleteMany({
+          where: { productId: payProductId },
+        });
+        await prisma.product.deleteMany({ where: { id: payProductId } });
+      }
+    });
+
+    /**
+     * ЯАГААД ЭНЭ ТЕСТ БАЙХ ЁСТОЙ ВЭ:
+     *
+     * Хуучин код захиалга үүсэх мөчид шууд ОРЛОГО бичдэг байсан —
+     * төлбөр хүлээж авсан эсэхээс үл хамааран. Үүнээс болж 29
+     * захиалгын 1,102,700₮ нь ОРЛОГО ба АВЛАГА хоёуланд нь давхар
+     * зогсож, санхүүгийн тайлан 77%-иар хөөрөгдөж байв.
+     *
+     * Зарчим: ОРЛОГО = ТӨЛБӨР. Payment мөргүйгээр INCOME бичигдэхгүй.
+     */
+    it('төлсөн захиалга Payment + INCOME хоёуланг үүсгэнэ', async () => {
+      const prod = await api()
+        .post('/api/products')
+        .set(auth(tok.admin))
+        .send({ sku: `${SKU}-PAY`, name: `Э2Э Төлбөр ${T}`, price: '5000' })
+        .expect(201);
+      payProductId = prod.body.id;
+      await api()
+        .post('/api/stock/adjust')
+        .set(auth(tok.admin))
+        .send({ productId: payProductId, qtyChange: 10, reason: 'PURCHASE_IN' })
+        .expect(201);
+
+      const order = await api()
+        .post('/api/orders')
+        .set(auth(tok.admin))
+        .send({
+          customerName: `Э2Э Төлбөрт ${T}`,
+          customerPhone: `4${T}`,
+          ...UB_ADDR,
+          items: [{ productId: payProductId, qty: 2 }],
+          paid: true,
+        })
+        .expect(201);
+      paidOrderId = order.body.id;
+      expect(order.body.paymentStatus).toBe('PAID');
+
+      const payments = await prisma.payment.findMany({
+        where: { orderId: paidOrderId },
+      });
+      const incomes = await prisma.financeEntry.findMany({
+        where: { refOrderId: paidOrderId, type: 'INCOME' },
+      });
+
+      // Гурвуулаа байх ба ижил дүнтэй
+      expect(payments).toHaveLength(1);
+      expect(incomes).toHaveLength(1);
+      expect(Number(incomes[0].amount)).toBe(Number(payments[0].amount));
+      expect(Number(order.body.paidAmount)).toBe(Number(payments[0].amount));
+
+      // ОРЛОГО нь тухайн ТӨЛБӨР рүү шууд заана — өнчин бичилт үүсэхгүй
+      expect(incomes[0].refPaymentId).toBe(payments[0].id);
+    });
+
+    it('төлөөгүй захиалга ОРЛОГО үүсгэхГҮЙ', async () => {
+      const order = await api()
+        .post('/api/orders')
+        .set(auth(tok.admin))
+        .send({
+          customerName: `Э2Э Төлөөгүй ${T}`,
+          customerPhone: `4${T}`,
+          ...UB_ADDR,
+          items: [{ productId: payProductId, qty: 1 }],
+        })
+        .expect(201);
+      expect(order.body.paymentStatus).toBe('UNPAID');
+
+      const incomes = await prisma.financeEntry.count({
+        where: { refOrderId: order.body.id, type: 'INCOME' },
+      });
+      expect(incomes).toBe(0);
+
+      // Цэвэрлэгээ
+      await prisma.notification.deleteMany({ where: { refId: order.body.id } });
+      await prisma.orderItem.deleteMany({ where: { orderId: order.body.id } });
+      await prisma.order.deleteMany({ where: { id: order.body.id } });
+    });
+
+    /**
+     * Кодын ЯМАР Ч зам Payment-гүй INCOME үүсгэж болохгүй. Тестийн
+     * явцад үүссэн бүх орлогыг шалгана — хуучин өгөгдөл биш, ЭНЭ
+     * ажиллагааны кодын гаргалгааг.
+     */
+    it('тестийн явцад үүссэн бүх ОРЛОГО төлбөртэй холбоотой', async () => {
+      const since = new Date(Date.now() - 10 * 60_000);
+      const orphans = await prisma.financeEntry.findMany({
+        where: {
+          type: 'INCOME',
+          entryDate: { gte: since },
+          refPaymentId: null,
+          // Гараар бүртгэсэн бусад орлого нь төлбөргүй байх нь хэвийн
+          category: { notIn: ['OTHER_INCOME'] },
+        },
+        select: { id: true, category: true, amount: true, note: true },
+      });
+      expect(orphans).toEqual([]);
+    });
+  });
+
+
+  describe('V5: Зөвхөн шилжүүлэг — залилангаас хамгаалах ⭐', () => {
+    let fraudProductId: string;
+    let fraudRequestId: string;
+    let honestRequestId: string;
+    let honestOrderId: string;
+    let publicTok: string;
+    const FRAUD_PHONE = `2${T.slice(0, 6)}7`;
+
+    afterAll(async () => {
+      for (const id of [fraudRequestId, honestRequestId].filter(Boolean)) {
+        await prisma.notification.deleteMany({ where: { refId: id } });
+        // Мөрүүд нь cascade-аар устдаг ч тодорхой байлгахын тулд
+        await prisma.orderRequestItem.deleteMany({ where: { requestId: id } });
+        await prisma.orderRequest.deleteMany({ where: { id } });
+      }
+      if (honestOrderId) {
+        await prisma.financeEntry.deleteMany({
+          where: { refOrderId: honestOrderId },
+        });
+        await prisma.payment.deleteMany({ where: { orderId: honestOrderId } });
+        await prisma.notification.deleteMany({ where: { refId: honestOrderId } });
+        await prisma.orderItem.deleteMany({
+          where: { orderId: honestOrderId },
+        });
+        await prisma.order.deleteMany({ where: { id: honestOrderId } });
+      }
+      if (fraudProductId) {
+        await prisma.stockMovement.deleteMany({
+          where: { productId: fraudProductId },
+        });
+        await prisma.product.deleteMany({ where: { id: fraudProductId } });
+      }
+    });
+
+    const submit = async () => {
+      const res = await api()
+        .post(`/api/public/order-requests?token=${publicTok}`)
+        .field('customerName', `Э2Э Залилан ${T}`)
+        .field('phone', FRAUD_PHONE)
+        .field('channel', 'INSTAGRAM')
+        .field('region', 'ULAANBAATAR')
+        .field('district', 'ХУД')
+        .field('khoroo', '1')
+        .field('building', '1')
+        .attach('proof', PNG, { filename: 'proof.png', contentType: 'image/png' })
+        .field('items', JSON.stringify([{ productId: fraudProductId, qty: 1 }]))
+        .expect(201);
+      requestIds.push(res.body.id);
+      return res.body.id as string;
+    };
+
+    it('бэлтгэл', async () => {
+      const prod = await api()
+        .post('/api/products')
+        .set(auth(tok.admin))
+        .send({ sku: `${SKU}-FRAUD`, name: `Э2Э Залилан ${T}`, price: '50000' })
+        .expect(201);
+      fraudProductId = prod.body.id;
+      await api()
+        .post('/api/stock/adjust')
+        .set(auth(tok.admin))
+        .send({ productId: fraudProductId, qtyChange: 10, reason: 'PURCHASE_IN' })
+        .expect(201);
+
+      const link = await api()
+        .get('/api/order-requests/link')
+        .set(auth(tok.admin))
+        .expect(200);
+      publicTok = link.body.token;
+    });
+
+    /**
+     * ⭐ ГОЛ ДҮРЭМ: үйлчлүүлэгчийн «Төлбөрөө хийсэн» товч нь МЭДҮҮЛЭГ.
+     * Ажилтан данс дээрээ мөнгийг хараагүй бол захиалга үүсэхгүй.
+     */
+    it('«төлсөн» гэж мэдүүлсэн ч баталгаажуулаагүй бол захиалга үүсэхгүй', async () => {
+      fraudRequestId = await submit();
+
+      const res = await api()
+        .post(`/api/order-requests/${fraudRequestId}/convert`)
+        .set(auth(tok.admin))
+        .send({ paymentConfirmed: false })
+        .expect(400);
+      expect(res.body.message).toContain('баталгаажуулаагүй');
+
+      // Хүсэлт хөндөгдөөгүй, үлдэгдэл хөдлөөгүй
+      const req = await prisma.orderRequest.findUniqueOrThrow({
+        where: { id: fraudRequestId },
+      });
+      expect(req.status).toBe('NEW');
+      expect(req.orderId).toBeNull();
+    });
+
+    /**
+     * Линкээр захиалахын тулд ЭХЛЭЭД шилжүүлж, баримтаа хавсаргана.
+     * «Дараа төлнө» гэсэн зам байхгүй — компани бэлэн мөнгөөр
+     * үйлчлэхгүй тул баримтгүй хүсэлт нь ажилтанд шалгах юмгүй,
+     * зөвхөн дарааллыг дүүргэдэг.
+     */
+    it('баримтгүй бол нийтийн хүсэлт хүлээж авахгүй', async () => {
+      const res = await api()
+        .post(`/api/public/order-requests?token=${publicTok}`)
+        .field('customerName', `Э2Э Баримтгүй ${T}`)
+        .field('phone', FRAUD_PHONE)
+        .field('channel', 'INSTAGRAM')
+        .field('region', 'ULAANBAATAR')
+        .field('district', 'ХУД')
+        .field('khoroo', '1')
+        .field('building', '1')
+        .field('items', JSON.stringify([{ productId: fraudProductId, qty: 1 }]))
+        .expect(400);
+      expect(res.body.message).toContain('баримт');
+    });
+
+    it('баримттай хүсэлт «төлсөн гэсэн» тэмдэгтэй үүснэ', async () => {
+      const id = await submit();
+      const req = await prisma.orderRequest.findUniqueOrThrow({
+        where: { id },
+      });
+      expect(req.paid).toBe(true);
+      expect(req.paymentProofUrl).toBeTruthy();
+      // Цэвэрлэгээнд орохын тулд
+      await prisma.orderRequestItem.deleteMany({ where: { requestId: id } });
+      await prisma.notification.deleteMany({ where: { refId: id } });
+      await prisma.orderRequest.deleteMany({ where: { id } });
+    });
+
+    it('баталгаажуулалтын талбаргүй бол хүлээж авахгүй', async () => {
+      await api()
+        .post(`/api/order-requests/${fraudRequestId}/convert`)
+        .set(auth(tok.admin))
+        .send({})
+        .expect(400);
+    });
+
+    it('мөнгө ороогүй хүсэлтийг шалтгаантай татгалзана', async () => {
+      const res = await api()
+        .post(`/api/order-requests/${fraudRequestId}/reject`)
+        .set(auth(tok.admin))
+        .send({ reason: 'Дансанд мөнгө ороогүй' })
+        .expect(201);
+      expect(res.body.status).toBe('REJECTED');
+      expect(res.body.rejectReason).toBe('Дансанд мөнгө ороогүй');
+    });
+
+    it('баталгаажуулсан бол захиалга ТӨЛСӨН төлөвтэй үүснэ', async () => {
+      honestRequestId = await submit();
+      const order = await api()
+        .post(`/api/order-requests/${honestRequestId}/convert`)
+        .set(auth(tok.admin))
+        .send({ paymentConfirmed: true })
+        .expect(201);
+      honestOrderId = order.body.id;
+      expect(order.body.paymentStatus).toBe('PAID');
+
+      // Төлбөр нь ЗӨВХӨН ШИЛЖҮҮЛЭГ байна — бэлэн мөнгө системд байхгүй
+      const payments = await prisma.payment.findMany({
+        where: { orderId: honestOrderId },
+      });
+      expect(payments).toHaveLength(1);
+      expect(payments[0].method).toBe('TRANSFER');
+    });
+
+    it('бэлэн мөнгөөр төлбөр бүртгэх боломжгүй', async () => {
+      const res = await api()
+        .post(`/api/orders/${honestOrderId}/payments`)
+        .set(auth(tok.admin))
+        .send({ amount: '1000', method: 'CASH' })
+        .expect(400);
+      expect(JSON.stringify(res.body.message)).toContain('Хэлбэр буруу');
+    });
+  });
+
+
+  describe('V5: Аюулгүй байдал — файл ба толгой ⭐', () => {
+    let secProductId: string;
+    let productImageUrl: string;
+    let proofOrderId: string;
+
+    afterAll(async () => {
+      if (proofOrderId) {
+        await prisma.notification.deleteMany({ where: { refId: proofOrderId } });
+        await prisma.orderItem.deleteMany({ where: { orderId: proofOrderId } });
+        await prisma.order.deleteMany({ where: { id: proofOrderId } });
+      }
+      if (secProductId) {
+        await prisma.stockMovement.deleteMany({
+          where: { productId: secProductId },
+        });
+        await prisma.product.deleteMany({ where: { id: secProductId } });
+      }
+    });
+
+    it('бэлтгэл — зурагтай бараа', async () => {
+      const prod = await api()
+        .post('/api/products')
+        .set(auth(tok.admin))
+        .send({ sku: `${SKU}-SEC`, name: `Э2Э Аюулгүй ${T}`, price: '1000' })
+        .expect(201);
+      secProductId = prod.body.id;
+
+      const withImg = await api()
+        .post(`/api/products/${secProductId}/image`)
+        .set(auth(tok.admin))
+        .attach('image', PNG, { filename: 'p.png', contentType: 'image/png' })
+        .expect(201);
+      productImageUrl = withImg.body.imageUrl;
+      expect(productImageUrl).toMatch(/^\/api\/uploads\/[a-f0-9]{32}\.png$/);
+    });
+
+    /**
+     * ⭐ Барааны зураг нь НИЙТИЙН захиалгын хуудсанд гардаг —
+     * үйлчлүүлэгч нэвтэрдэггүй тул нээлттэй байх ЁСТОЙ.
+     */
+    it('барааны зураг нэвтрэлтгүйгээр нээгдэнэ', async () => {
+      const res = await api().get(productImageUrl).expect(200);
+      expect(res.headers['content-type']).toContain('image/png');
+      // Браузер агуулгыг нь таамаглахгүй байх толгой
+      expect(res.headers['x-content-type-options']).toBe('nosniff');
+    });
+
+    /**
+     * ⭐ Гүйлгээний баримт, хүргэлтийн зураг нь хувийн мэдээлэл
+     * агуулдаг — нэвтрэлтгүйгээр хаагдсан байх ЁСТОЙ.
+     * (Өмнө нь ServeStaticModule guard-гүй үйлчилдэг тул задарч байв.)
+     */
+    it('баримтын зураг нэвтрэлтгүйд ХААЛТТАЙ', async () => {
+      const order = await api()
+        .post('/api/orders')
+        .set(auth(tok.admin))
+        .send({
+          customerName: `Э2Э Баримт ${T}`,
+          customerPhone: `3${T}`,
+          ...UB_ADDR,
+          items: [{ productId: productId, qty: 1 }],
+        })
+        .expect(201);
+      proofOrderId = order.body.id;
+
+      // Барааны зураг БИШ файл нэр — DB-д бүртгэлгүй тул хаалттай
+      const name = productImageUrl.split('/').pop()!;
+      const other = name.replace(/^./, name[0] === 'a' ? 'b' : 'a');
+
+      await api().get(`/api/uploads/${other}`).expect(401);
+      // Нэвтэрсэн хүнд 404 (файл байхгүй) — 401 биш
+      await api()
+        .get(`/api/uploads/${other}`)
+        .set(auth(tok.admin))
+        .expect(404);
+    });
+
+    it('зам гарах оролдлого таслагдана', async () => {
+      // Нэвтрэлтгүйд 401 — файл байгаа эсэхийг ч мэдэгдэхгүй нь зөв
+      await api().get('/api/uploads/..%2F..%2Fpackage.json').expect(401);
+      // Нэвтэрсэн хүнд нэрийн шалгалт: hex+өргөтгөл биш бол 400
+      await api()
+        .get('/api/uploads/..%2F..%2Fpackage.json')
+        .set(auth(tok.admin))
+        .expect(400);
+      await api()
+        .get('/api/uploads/not-a-valid-name.png')
+        .set(auth(tok.admin))
+        .expect(400);
+    });
+
+    /**
+     * ⭐ Клиентийн зарласан mimetype хуурамчлагдана. Файлын ЖИНХЭНЭ
+     * агуулгыг (magic bytes) шалгах ёстой — эс тэгвэл HTML/скрипт
+     * агуулгатай файл зураг нэрээр сервер дээр хадгалагдана.
+     */
+    it('зураг биш агуулгыг зураг гэж хуурч болохгүй', async () => {
+      const html = Buffer.from('<html><script>alert(1)</script></html>');
+      const res = await api()
+        .post(`/api/products/${secProductId}/image`)
+        .set(auth(tok.admin))
+        .attach('image', html, { filename: 'x.png', contentType: 'image/png' })
+        .expect(400);
+      expect(res.body.message).toContain('Зураг биш');
+    });
+
+    it('аюулгүй байдлын HTTP толгойнууд байна', async () => {
+      const res = await api().get('/api/health').expect(200);
+      expect(res.headers['x-content-type-options']).toBe('nosniff');
+      expect(res.headers['content-security-policy']).toBeDefined();
+      expect(res.headers['x-frame-options']).toBeDefined();
+      expect(res.headers['strict-transport-security']).toBeDefined();
+      // Framework-ээ зарлахгүй
+      expect(res.headers['x-powered-by']).toBeUndefined();
+    });
+  });
+
+
+  describe('V5: Талбарын уртын хязгаар ⭐', () => {
+    /**
+     * Өмнө нь DTO-нуудад @MaxLength огт байхгүй байсан тул 10,000
+     * тэмдэгт нэр амжилттай хадгалагддаг байв. Ийм өгөгдөл нь
+     * хүснэгт, тайлан, CSV экспортыг эвдэж, DB-г хөөнө.
+     *
+     * ХЯЗГААР НЬ БОДИТ ХЭРЭГЛЭЭНД ТОХИРСОН БАЙХ ЁСТОЙ — хэт чанга
+     * тавибал жинхэнэ монгол хаяг, нэр татгалзана. Тиймээс хоёр
+     * талаас нь шалгана.
+     */
+    const long = (n: number) => 'А'.repeat(n);
+
+    it('хэт урт утга татгалзана', async () => {
+      const res = await api()
+        .post('/api/orders')
+        .set(auth(tok.admin))
+        .send({
+          customerName: long(10000),
+          customerPhone: `9${T}`,
+          ...UB_ADDR,
+          items: [{ productId, qty: 1 }],
+        })
+        .expect(400);
+      expect(JSON.stringify(res.body.message)).toContain('customerName');
+    });
+
+    it('тэмдэглэл, хаягийн дэлгэрэнгүйд ч хязгаар үйлчилнэ', async () => {
+      await api()
+        .post('/api/stock/adjust')
+        .set(auth(tok.admin))
+        .send({
+          productId,
+          qtyChange: 1,
+          reason: 'CORRECTION',
+          note: long(5000),
+        })
+        .expect(400);
+    });
+
+    it('ЖИНХЭНЭ урт өгөгдөл татгалзахгүй', async () => {
+      const order = await api()
+        .post('/api/orders')
+        .set(auth(tok.admin))
+        .send({
+          // Бодит монгол нэр, хаяг урт байж болно
+          customerName: 'Батбаярын Мөнх-Очирын Ганзориг-Эрдэнэбилэг',
+          customerPhone: `9${T}`,
+          region: 'ULAANBAATAR',
+          district: 'ХУД',
+          khoroo: '11-р хороо',
+          building: '13-р хорооллын 4-р байрны ард талын шинэ цамхаг',
+          entrance: '2',
+          floor: '4',
+          door: '32',
+          addressDetail: 'Гуравдугаар эмнэлгийн урдуур '.repeat(8),
+          items: [{ productId, qty: 1 }],
+        })
+        .expect(201);
+      lengthOrderId = order.body.id;
+    });
+
+    it('жолоочийн бүсийн массивт хязгаар байна', async () => {
+      const res = await api()
+        .post('/api/users')
+        .set(auth(tok.admin))
+        .send({
+          email: `e2e-zones-${T}@ursgal.mn`,
+          password: 'zones123',
+          name: `Э2Э Бүс ${T}`,
+          role: 'DRIVER',
+          feePerDelivery: '1000',
+          zones: Array.from({ length: 50 }, () => 'ХУД'),
+        })
+        .expect(400);
+      expect(JSON.stringify(res.body.message)).toContain('zones');
+    });
+  });
+
+
+  describe('V5: Аюулгүй байдлын мөшгилт ⭐', () => {
+    const SEC_EMAIL = `e2e-sec-${T}@ursgal.mn`;
+
+    afterAll(async () => {
+      await prisma.activityLog.deleteMany({ where: { entity: 'security' } });
+    });
+
+    /**
+     * ActivityLogInterceptor нь зөвхөн АМЖИЛТТАЙ өөрчлөлтийг бичдэг
+     * бөгөөд `/auth/`-ыг бүрэн алгасдаг байв. Тиймээс «хэн орох гэж
+     * оролдоод чадаагүй», «хэн эрхээсээ хэтрэх гэж үзсэн» гэдгийг
+     * мөшгих ямар ч зам байсангүй.
+     */
+    it('амжилтгүй нэвтрэлт бүртгэгдэнэ', async () => {
+      const before = await prisma.activityLog.count({
+        where: { action: 'LOGIN_FAILED' },
+      });
+
+      await api()
+        .post('/api/auth/login')
+        .send({ email: SEC_EMAIL, password: 'буруу-нууц-үг' })
+        .expect(401);
+
+      const rows = await prisma.activityLog.findMany({
+        where: { action: 'LOGIN_FAILED' },
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+      });
+      expect(
+        await prisma.activityLog.count({ where: { action: 'LOGIN_FAILED' } }),
+      ).toBe(before + 1);
+
+      // Бүртгэлгүй хаяг тул хэрэглэгч танигдаагүй
+      expect(rows[0].userId).toBeNull();
+      const meta = rows[0].meta as { email?: string; ip?: string };
+      // ⭐ Имэйл БҮТНЭЭР хадгалагдахгүй — лог өөрөө задралын эх
+      // сурвалж болох ёсгүй
+      expect(meta.email).not.toBe(SEC_EMAIL);
+      expect(meta.email).toContain('***');
+      expect(meta.email).toContain('@ursgal.mn');
+    });
+
+    /**
+     * ⭐ Хамгийн үнэ цэнэтэй дохио: НЭВТЭРСЭН хүн эрхээсээ хэтрэх
+     * гэж оролдсон нь.
+     */
+    it('403 бүртгэгдэж, хэн юуг оролдсон нь тодорхой байна', async () => {
+      await api().get('/api/finance/summary').set(auth(tok.driver)).expect(403);
+
+      const row = await prisma.activityLog.findFirst({
+        where: { action: 'FORBIDDEN' },
+        orderBy: { createdAt: 'desc' },
+      });
+      expect(row).not.toBeNull();
+      expect(row!.entity).toBe('security');
+      // Хэн оролдсоныг мэдэх ёстой
+      expect(row!.userId).toBeTruthy();
+      const meta = row!.meta as { method?: string; path?: string };
+      expect(meta.method).toBe('GET');
+      expect(meta.path).toContain('/finance/summary');
+    });
+
+    it('403 хариу ӨӨРЧЛӨГДӨӨГҮЙ байх ёстой', async () => {
+      // Бүртгэл нь хариуг хөндөхгүй — зөвхөн тэмдэглэнэ
+      const res = await api()
+        .get('/api/users')
+        .set(auth(tok.driver))
+        .expect(403);
+      expect(res.body.message).toBeTruthy();
+      expect(res.body.statusCode).toBe(403);
+    });
+
+    /**
+     * Ердийн 401 нь токен хугацаа дуусах бүрд, автомат сканнерээс
+     * тасралтгүй гардаг. Бичвэл хүснэгт хогоор дүүрч жинхэнэ дохио
+     * алдагдана — тиймээс ЗОРИУД бүртгэхгүй.
+     */
+    it('токенгүй хандалт (401) бүртгэлийг дүүргэхгүй', async () => {
+      const before = await prisma.activityLog.count({
+        where: { entity: 'security' },
+      });
+      for (let i = 0; i < 5; i++) {
+        await api().get('/api/orders').expect(401);
+      }
+      expect(
+        await prisma.activityLog.count({ where: { entity: 'security' } }),
+      ).toBe(before);
+    });
+  });
+
+
+  describe('V5: Нэвтрэлтийн түүх ⭐', () => {
+    let histUserId: string;
+    let histToken: string;
+    const HIST_EMAIL = `e2e-hist-${T}@ursgal.mn`;
+
+    afterAll(async () => {
+      if (histUserId) {
+        await prisma.loginHistory.deleteMany({ where: { userId: histUserId } });
+        await prisma.refreshToken.deleteMany({ where: { userId: histUserId } });
+        await prisma.user.deleteMany({ where: { id: histUserId } });
+      }
+    });
+
+    /**
+     * Өмнө нь зөвхөн User.lastLoginAt шинэчлэгддэг байсан тул
+     * «хаанаас, ямар төхөөрөмжөөр орсон бэ» гэдэгт хариулах ямар ч
+     * зам байсангүй.
+     */
+    it('нэвтрэхэд төхөөрөмж ба IP бүртгэгдэнэ', async () => {
+      const created = await api()
+        .post('/api/users')
+        .set(auth(tok.admin))
+        .send({
+          email: HIST_EMAIL,
+          password: 'hist123',
+          name: `Э2Э Түүх ${T}`,
+          role: 'MANAGER',
+        })
+        .expect(201);
+      histUserId = created.body.id;
+
+      const login = await api()
+        .post('/api/auth/login')
+        .set(
+          'User-Agent',
+          'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) ' +
+            'AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1',
+        )
+        .send({ email: HIST_EMAIL, password: 'hist123' })
+        .expect(200);
+      histToken = login.body.accessToken;
+
+      const rows = await api()
+        .get('/api/auth/login-history')
+        .set(auth(histToken))
+        .expect(200);
+
+      expect(rows.body).toHaveLength(1);
+      // Хүн уншихуйц болгосон байх — түүхий User-Agent биш
+      expect(rows.body[0].device).toBe('Safari · iOS');
+      expect(rows.body[0].at).toBeTruthy();
+    });
+
+    it('өөр төхөөрөмжөөс орвол тусад нь бүртгэгдэнэ', async () => {
+      await api()
+        .post('/api/auth/login')
+        .set(
+          'User-Agent',
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
+            'Chrome/120.0 Safari/537.36',
+        )
+        .send({ email: HIST_EMAIL, password: 'hist123' })
+        .expect(200);
+
+      const rows = await api()
+        .get('/api/auth/login-history')
+        .set(auth(histToken))
+        .expect(200);
+      expect(rows.body).toHaveLength(2);
+      // Хамгийн сүүлийнх нь эхэнд
+      expect(rows.body[0].device).toBe('Chrome · Windows');
+    });
+
+    /**
+     * ⭐ Хэрэглэгч ЗӨВХӨН өөрийнхөө түүхийг харна — бусдын нэвтрэлт
+     * хаанаас болсныг мэдэх нь өөрөө мэдээлэл задралт.
+     */
+    it('зөвхөн ӨӨРИЙН түүх харагдана', async () => {
+      const mine = await api()
+        .get('/api/auth/login-history')
+        .set(auth(tok.admin))
+        .expect(200);
+      const ids = (mine.body as Array<{ id: string }>).map((r) => r.id);
+
+      const theirs = await prisma.loginHistory.findMany({
+        where: { userId: histUserId },
+        select: { id: true },
+      });
+      for (const row of theirs) {
+        expect(ids).not.toContain(row.id);
+      }
+    });
+
+    it('амжилтгүй нэвтрэлт түүхэд ОРОХГҮЙ', async () => {
+      const before = await prisma.loginHistory.count({
+        where: { userId: histUserId },
+      });
+      await api()
+        .post('/api/auth/login')
+        .send({ email: HIST_EMAIL, password: 'буруу' })
+        .expect(401);
+      expect(
+        await prisma.loginHistory.count({ where: { userId: histUserId } }),
+      ).toBe(before);
+    });
+  });
+
 });

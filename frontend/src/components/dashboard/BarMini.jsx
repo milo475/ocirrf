@@ -24,9 +24,12 @@ export default function BarMini({
 
   return (
     <svg
-      width={width}
-      height={height + (labels ? 12 : 0)}
-      className="block"
+      viewBox={`0 0 ${width} ${height + (labels ? 12 : 0)}`}
+      preserveAspectRatio="xMidYMid meet"
+      style={{ maxWidth: width }}
+      /* Утсан дээр эзэн элементийн өргөнд багтана — өмнө нь тогтмол
+         px өргөнтэй байсан тул хуудсыг тэлж, бүх зүйл жижгэрдэг байв */
+      className="block w-full h-auto"
       aria-hidden="true"
     >
       {values.map((v, i) => {

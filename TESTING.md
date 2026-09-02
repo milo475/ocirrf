@@ -69,6 +69,5 @@
 
 ```bash
 cd backend
-bash scripts/smoke-test-v2.sh   # 4 эрхийн бүтэн урсгал + 8 эрхийн зөрчил
-bash scripts/smoke-test.sh      # v1 суурь API урсгал
+bash scripts/smoke-test.sh      # health, нэвтрэлт, эрхийн хил, үндсэн замууд
 ```

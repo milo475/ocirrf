@@ -31,3 +31,12 @@ uploads/
 Thumbs.db
 .idea/
 *.swp
+.vercel
+.env*
+
+# Prisma-ийн AI туслахын баримт (prisma init суулгадаг, --no-skills-ээр алгасна).
+# Prisma-ийн хувилбарт уягдсан vendor файлууд — репод хөтлөхөд хувилбар
+# ахих бүрт хуучирч, 500KB / 89 бичлэг дэмий эзэлнэ. Дискэн дээр үлдэнэ.
+backend/.agents/
+backend/.claude/
+backend/.windsurf/

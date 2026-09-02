@@ -4,11 +4,12 @@ import AdminDashboard from './dashboards/AdminDashboard'
 import DriverDashboard from './dashboards/DriverDashboard'
 import ManagerDashboard from './dashboards/ManagerDashboard'
 import OperatorDashboard from './dashboards/OperatorDashboard'
+import SellerDashboard from './dashboards/SellerDashboard'
 import StockHealthDashboard from './dashboards/StockHealthDashboard'
 
 /** / хуудас — эрх бүр өөрийн самбартай */
 export default function Dashboard() {
-  const { user } = useAuth()
+  const { user, hasPerm } = useAuth()
 
   switch (user?.role) {
     case 'ADMIN':
@@ -19,8 +20,15 @@ export default function Dashboard() {
       return <OperatorDashboard />
     case 'DRIVER':
       return <DriverDashboard />
-    case 'CUSTOMER':
-      return <Navigate to="/portal" replace />
+    case 'SELLER':
+      return <SellerDashboard />
+    case 'WAREHOUSE':
+      // Эрхийг нь хассан үед ч '/' руу буцааж давталт үүсгэхгүй
+      return hasPerm('warehouse.handover') ? (
+        <Navigate to="/warehouse" replace />
+      ) : (
+        <StockHealthDashboard />
+      )
     default:
       // Аюулгүйн fallback — танигдаагүй эрхэд хуучин нөөцийн самбар
       return <StockHealthDashboard />

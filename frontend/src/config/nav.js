@@ -1,6 +1,7 @@
 import {
   Bell,
   Boxes,
+  CalendarClock,
   ChartColumn,
   ClipboardList,
   Contact,
@@ -10,12 +11,15 @@ import {
   Package,
   PackageSearch,
   PlusCircle,
+  Repeat,
   ScrollText,
   Truck,
   UserRound,
   Users,
   UsersRound,
   Wallet,
+  Inbox,
+  PackageOpen,
 } from 'lucide-react'
 
 /**
@@ -23,6 +27,10 @@ import {
  * perm — effective permission; anyPerm — аль нэг нь байхад хангалттай;
  * roles — permission-гүй тухайлсан эрхийн цэс. Аль нь ч байхгүй бол
  * нэвтэрсэн бүгдэд. Дараалал = харагдах дараалал.
+ *
+ * requires — эрхээс ГАДНА хуудасны урьдчилсан нөхцөл (V5). Цэс
+ * харагдана гэдэг нь орж болно гэсэн амлалт; эрх байгаа ч тухайн
+ * хуудас утга учиртай ажиллах нөхцөл бүрдээгүй бол харуулахгүй.
  */
 export const NAV_ITEMS = [
   // ── DRIVER ──
@@ -40,45 +48,9 @@ export const NAV_ITEMS = [
     icon: Home,
     path: '/',
     end: true,
-    roles: ['ADMIN', 'MANAGER', 'OPERATOR', 'DRIVER'],
+    roles: ['ADMIN', 'MANAGER', 'OPERATOR', 'DRIVER', 'WAREHOUSE', 'SELLER'],
   },
-  // ── CUSTOMER portal ──
-  {
-    key: 'portal-home',
-    label: 'Миний самбар',
-    icon: Home,
-    path: '/portal',
-    end: true,
-    roles: ['CUSTOMER'],
-  },
-  {
-    key: 'portal-new',
-    label: 'Шинэ захиалга',
-    icon: PlusCircle,
-    path: '/portal/new',
-    roles: ['CUSTOMER'],
-  },
-  {
-    key: 'portal-orders',
-    label: 'Миний захиалгууд',
-    icon: PackageSearch,
-    path: '/portal/orders',
-    roles: ['CUSTOMER'],
-  },
-  {
-    key: 'portal-profile',
-    label: 'Профайл',
-    icon: UserRound,
-    path: '/portal/profile',
-    roles: ['CUSTOMER'],
-  },
-  {
-    key: 'portal-notifs',
-    label: 'Мэдэгдэл',
-    icon: Bell,
-    path: '/notifications',
-    roles: ['CUSTOMER'],
-  },
+
   // ── Staff үндсэн цэсүүд (permission-оороо автоматаар) ──
   {
     key: 'orders',
@@ -86,6 +58,13 @@ export const NAV_ITEMS = [
     icon: ClipboardList,
     path: '/orders',
     end: true,
+    perm: 'orders.view',
+  },
+  {
+    key: 'order-requests',
+    label: 'Хүсэлтүүд',
+    icon: Inbox,
+    path: '/order-requests',
     perm: 'orders.view',
   },
   {
@@ -112,12 +91,43 @@ export const NAV_ITEMS = [
     perm: 'inventory.view',
   },
   {
+    key: 'warehouse',
+    label: 'Нярав',
+    icon: PackageOpen,
+    path: '/warehouse',
+    perm: 'warehouse.handover',
+  },
+  {
+    key: 'supplies',
+    label: 'Нийлүүлэлт',
+    icon: PackageSearch,
+    path: '/supplies',
+    perm: 'supplies.view',
+    // Компанид холбогдоогүй харилцагчид харуулах зүйл байхгүй
+    // (дотоод ажилтан companyId-гүй ч бүгдийг хардаг)
+    requires: (user) => user.role !== 'OPERATOR' || Boolean(user.companyId),
+  },
+  {
+    key: 'reorders',
+    label: 'Дахин захиалга',
+    icon: Repeat,
+    path: '/reorders',
+    perm: 'customers.view',
+  },
+  {
     key: 'stock',
     label: 'Агуулах',
     icon: Boxes,
     path: '/stock',
     // Route нь inventory.view — цэс нь adjustment шаардаж байсан тул
     // зөвхөн харах эрхтэй хүнд цэс нуугдаад URL-ээр л ордог байв
+    perm: 'inventory.view',
+  },
+  {
+    key: 'expiry',
+    label: 'Хугацаа',
+    icon: CalendarClock,
+    path: '/expiry',
     perm: 'inventory.view',
   },
   {
@@ -160,11 +170,11 @@ export const NAV_ITEMS = [
     label: 'Мэдэгдэл',
     icon: Bell,
     path: '/notifications',
-    roles: ['ADMIN', 'MANAGER', 'OPERATOR'],
+    roles: ['ADMIN', 'MANAGER', 'OPERATOR', 'SELLER', 'WAREHOUSE'],
   },
   {
     key: 'users',
-    label: 'Хэрэглэгчид',
+    label: 'User',
     icon: Users,
     path: '/users',
     end: true,
@@ -180,10 +190,49 @@ export const NAV_ITEMS = [
   // Тохиргоо sidebar-ын доод хэсэгт тогтмол байдаг (AppShell)
 ]
 
+/**
+ * Утасны доод tab bar-т эрх бүрийн ХАМГИЙН ЧУХАЛ цэсүүд (V5).
+ *
+ * Sidebar-ын дараалал нь бүх эрхэд нэг ижил тул няравын доод барт
+ * «Нүүр, Захиалга, Хүсэлтүүд, Харилцагчид» гарч, өөрийнх нь ажлын
+ * хуудас цэсний ард нуугддаг байв. Эрх бүрт өөрийнх нь өдөр тутмын
+ * зүйлийг эхэнд тавина; жагсаалтад байхгүй бол ердийн дараалал.
+ */
+const MOBILE_TABS = {
+  ADMIN: ['home', 'orders', 'order-requests', 'finance'],
+  MANAGER: ['home', 'orders', 'delivery-ops', 'finance'],
+  SELLER: ['home', 'order-requests', 'orders', 'reorders'],
+  WAREHOUSE: ['warehouse', 'orders', 'expiry', 'stock'],
+  OPERATOR: ['home', 'orders', 'supplies', 'products'],
+  DRIVER: ['deliveries', 'home'],
+}
+
+/**
+ * Доод bar-т орох цэсүүд — MOBILE_TABS-ын дарааллаар, зөвхөн тухайн
+ * хэрэглэгчид ХАРАГДДАГ нь. Дутвал ердийн дарааллаас нөхнө.
+ */
+export function mobileTabsFor(user, items, max = 4) {
+  const wanted = MOBILE_TABS[user?.role] ?? []
+  // ⚠ Энэ файл lucide-ээс `Map` icon-ыг импортолдог тул `new Map()`
+  // бичвэл түүнийг дуудаж «not a constructor» гэж унана
+  const picked = []
+  for (const key of wanted) {
+    const item = items.find((i) => i.key === key)
+    if (item && !picked.includes(item)) picked.push(item)
+    if (picked.length === max) break
+  }
+  for (const item of items) {
+    if (picked.length === max) break
+    if (!picked.includes(item)) picked.push(item)
+  }
+  return picked
+}
+
 /** Хэрэглэгчид харагдах цэсүүд — permission эсвэл role-оор шүүнэ */
 export function navFor(user, hasPerm) {
   if (!user) return []
   return NAV_ITEMS.filter((item) => {
+    if (item.requires && !item.requires(user)) return false
     if (item.roles) return item.roles.includes(user.role)
     if (item.anyPerm) return item.anyPerm.some(hasPerm)
     if (item.perm) return hasPerm(item.perm)

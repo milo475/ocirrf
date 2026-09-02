@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router'
+import { Navigate, useNavigate } from 'react-router'
 import { homeFor } from '../components/auth/RoleRoute'
 import Modal from '../components/ui/Modal'
 import { useAuth } from '../context/AuthContext'
 import { useLang } from '../context/LanguageContext'
 import { api } from '../lib/api'
+import AuthShell from '../components/auth/AuthShell'
 
 export default function Login() {
   const { user, loading, login } = useAuth()
@@ -66,9 +67,12 @@ export default function Login() {
   }
 
   return (
-    <main className="min-h-screen bg-bg text-ink flex items-center justify-center px-6">
-      <div className="w-full max-w-sm">
-        <div className="bg-surface border border-rule rounded-lg p-8">
+    <AuthShell>
+      <div>
+        {/* Шилэн карт: доорх зураг бүдгэрч харагдана (V5).
+            `backdrop-blur` нь ард талыг нь бүдгэрүүлдэг тул
+            зураг дээр ч текст цэвэр уншигдана. */}
+        <div className="bg-surface/75 backdrop-blur-md border border-rule/70 rounded-lg p-8 shadow-2xl shadow-black/40">
           <h1 className="font-serif text-4xl font-medium text-center">ursGAL</h1>
           <p className="mt-2 text-center text-sm text-ink-muted">
             {t('Нөөц ба захиалгын систем')}
@@ -130,15 +134,6 @@ export default function Login() {
             </button>
           </form>
 
-          <p className="mt-5 text-center text-sm text-ink-muted">
-            {t('Шинэ хэрэглэгч үү?')}{' '}
-            <Link
-              to="/register"
-              className="text-accent underline underline-offset-2"
-            >
-              {t('Бүртгүүлэх')}
-            </Link>
-          </p>
           <p className="mt-2 text-center text-sm">
             <button
               type="button"
@@ -168,6 +163,6 @@ export default function Login() {
           </p>
         )}
       </Modal>
-    </main>
+    </AuthShell>
   )
 }

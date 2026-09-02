@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ConflictException,
   HttpException,
   HttpStatus,
   Injectable,
@@ -16,7 +15,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
-import { RegisterDto } from './dto/register.dto';
+import { SecurityLogService } from '../activity-log/security-log.service';
+import { describeUserAgent } from './user-agent.util';
 
 export type JwtPayload = { sub: string; role: string; jti?: string };
 
@@ -32,9 +32,19 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly permissionsService: PermissionsService,
+    private readonly securityLog: SecurityLogService,
   ) {}
 
-  async login(dto: LoginDto) {
+  /**
+   * @param ip Хүсэлт хаанаас ирснийг аюулгүй байдлын бүртгэлд
+   *   тэмдэглэнэ — довтолгоо нэг эх сурвалжаас ирж буйг таних гол
+   *   мэдээлэл.
+   */
+  async login(
+    dto: LoginDto,
+    ip: string | null = null,
+    userAgent: string | null = null,
+  ) {
     // User.username талбарт email хэлбэрийн утга хадгалагддаг (seed-ийн дагуу)
     const user = await this.prisma.user.findUnique({
       where: { username: dto.email },
@@ -44,6 +54,8 @@ export class AuthService {
     const invalid = new UnauthorizedException('Нэвтрэх мэдээлэл буруу');
 
     if (!user || !user.isActive) {
+      // Бүртгэлгүй/идэвхгүй хаягаар оролдсон нь ч дохио
+      this.securityLog.loginFailed(dto.email, ip, user?.id ?? null);
       throw invalid;
     }
 
@@ -53,6 +65,7 @@ export class AuthService {
       HttpStatus.LOCKED,
     );
     if (user.lockedUntil && user.lockedUntil > new Date()) {
+      this.securityLog.loginFailed(dto.email, ip, user.id);
       throw locked;
     }
 
@@ -70,6 +83,11 @@ export class AuthService {
             }
           : { failedLoginCount: count },
       });
+      if (willLock) {
+        this.securityLog.loginLocked(dto.email, ip, user.id);
+      } else {
+        this.securityLog.loginFailed(dto.email, ip, user.id);
+      }
       throw willLock ? locked : invalid;
     }
 
@@ -79,28 +97,18 @@ export class AuthService {
       data: { failedLoginCount: 0, lockedUntil: null, lastLoginAt: new Date() },
     });
 
+    /**
+     * Нэвтрэлтийн түүх (V5) — «хаанаас, ямар төхөөрөмжөөр орсон»,
+     * «миний бүртгэлээр өөр хүн орсон уу» гэдэгт хариулна.
+     * fire-and-forget: бүртгэл амжилтгүй болсон ч нэвтрэлт саадгүй.
+     */
+    void this.prisma.loginHistory
+      .create({ data: { userId: user.id, ip, userAgent } })
+      .catch(() => undefined);
+
     return this.issueTokens(updated);
   }
 
-  /** Харилцагчийн өөрийн бүртгэл — үргэлж CUSTOMER эрхтэй */
-  async register(dto: RegisterDto) {
-    const exists = await this.prisma.user.findUnique({
-      where: { username: dto.email },
-    });
-    if (exists) {
-      throw new ConflictException('Энэ имэйл аль хэдийн бүртгэлтэй байна');
-    }
-    const user = await this.prisma.user.create({
-      data: {
-        username: dto.email,
-        fullName: dto.name.trim(),
-        phone: dto.phone,
-        passwordHash: await bcrypt.hash(dto.password, 10),
-        role: Role.CUSTOMER,
-      },
-    });
-    return this.issueTokens(user);
-  }
 
   /**
    * Refresh + ROTATION (V4-08): хуучин token revoke хийгдэж шинэ хос
@@ -210,6 +218,26 @@ export class AuthService {
     return this.issueTokens(updated);
   }
 
+  /**
+   * Хэрэглэгчийн сүүлийн нэвтрэлтүүд.
+   * Өөрийнхөө түүхийг хэн ч харна — «энэ би мөн үү» гэдгийг зөвхөн
+   * тухайн хүн мэднэ. Бусдынхыг харах нь users.manage эрхийн ажил
+   * (controller дээр шалгагдана).
+   */
+  async loginHistory(userId: string, limit = 20) {
+    const rows = await this.prisma.loginHistory.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: Math.min(limit, 100),
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      at: r.createdAt,
+      ip: r.ip,
+      device: describeUserAgent(r.userAgent),
+    }));
+  }
+
   private async issueTokens(user: User) {
     // jti (V4-08): refresh token DB-д hash-аар бүртгэгдэж rotation хийгдэнэ
     const jti = randomUUID();
@@ -251,6 +279,7 @@ export class AuthService {
         role: user.role,
         mustChangePassword: user.mustChangePassword,
         lastLoginAt: user.lastLoginAt,
+        companyId: user.companyId,
         permissions: [...permissions],
       },
     };

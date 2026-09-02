@@ -1,12 +1,68 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { DeliveryRegion, Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 /** Нэвтэрсэн бүх хэрэглэгчид харагдах public түлхүүрүүд + default утга */
 export const PUBLIC_SETTINGS: Record<string, string> = {
   companyName: 'ursGAL',
   companyPhone: '',
-  allowCustomerCancel: 'false',
+  // Нийтийн захиалгын хуудсанд харагдах данс (V5)
+  bankName: '',
+  bankAccount: '',
+  bankHolder: '',
+  /**
+   * Хугацаа дуусахаас хэдэн хоногийн ӨМНӨ анхааруулах вэ (V5).
+   * Компанийн дүрэм: «дуусахаас 30 хоногийн өмнө устгалд оруулна».
+   */
+  expiryWarnDays: '30',
+  /**
+   * DM-ийн хариу загвар (V5).
+   *
+   * Захиалга баталгаажсаны дараа борлуулагч Instagram/Facebook руу
+   * буцаж бичдэг мессеж. Өмнө нь ҮҮНИЙГ ГАРААР бичдэг байсан —
+   * өдөрт 20 захиалга бол өдөрт 20 удаа.
+   *
+   * Орлуулгууд (гүйцэтгэл нь frontend/src/lib/dmMessage.js-д):
+   *   {нэр} {дугаар} {бараа} {нийт} {хаяг} {данс} {утас} {компани}
+   */
+  /**
+   * Давтан захиалга (V5) — нэмэлт бүтээгдэхүүн дуусах дөхөхөд
+   * үйлчлүүлэгчид сануулах логикийн тохиргоо.
+   */
+  /** Бараанд тусад нь заагаагүй бол нэг ширхэг хэдэн хоног хүрэх вэ */
+  defaultDaysSupply: '30',
+  /** Дуусахаас хэдэн хоногийн ӨМНӨ жагсаалтад гарах вэ */
+  reorderLeadDays: '7',
+  /** Хэдэн хоног хоцорсныг хойш нь жагсаалтаас хасах вэ (хаясан үйлчлүүлэгч) */
+  reorderMaxOverdue: '60',
+  /** Сануулгын мессежийн загвар — {нэр} {бараа} {хоног} {компани} {утас} */
+  reorderTemplate: [
+    'Сайн байна уу, {нэр}!',
+    '',
+    'Таны авсан {бараа} дуусах дөхөж байгаа байх.',
+    'Дахин захиалах бол энэ мессежид хариулаарай — бид бэлдье.',
+    '',
+    'Баярлалаа!',
+    '',
+    'Холбоо барих: {утас}',
+  ].join('\n'),
+  dmTemplate: [
+    'Сайн байна уу, {нэр}!',
+    '',
+    'Таны захиалга баталгаажлаа. Дугаар: {дугаар}',
+    '',
+    '{бараа}',
+    'Нийт: {нийт}',
+    '',
+    'Хүргэх хаяг:',
+    '{хаяг}',
+    '',
+    '{данс}',
+    '',
+    'Жолооч хүргэхийн өмнө утсаар холбогдоно.',
+    'Баярлалаа!',
+    '',
+    'Холбоо барих: {утас}',
+  ].join('\n'),
 };
 
 @Injectable()
@@ -38,15 +94,6 @@ export class SettingsService {
       if (!(key in PUBLIC_SETTINGS)) {
         throw new BadRequestException(`Буруу тохиргооны түлхүүр: ${key}`);
       }
-      if (
-        key === 'allowCustomerCancel' &&
-        value !== 'true' &&
-        value !== 'false'
-      ) {
-        throw new BadRequestException(
-          'allowCustomerCancel нь "true" эсвэл "false" байна',
-        );
-      }
       if (typeof value !== 'string') {
         throw new BadRequestException('Тохиргооны утга string байна');
       }
@@ -63,70 +110,4 @@ export class SettingsService {
     return this.getPublic();
   }
 
-  // ── Хүргэлтийн тариф (V4-05) ──
-
-  /** Бүх тариф — default (district=null) мөрүүд эхэндээ */
-  async tariffs() {
-    const rows = await this.prisma.deliveryTariff.findMany({
-      orderBy: [{ region: 'asc' }, { district: 'asc' }],
-    });
-    // default-ууд region бүрийн эхэнд
-    return rows.sort((a, b) =>
-      a.region === b.region
-        ? (a.district === null ? -1 : 1) - (b.district === null ? -1 : 1)
-        : a.region.localeCompare(b.region),
-    );
-  }
-
-  /** Тарифуудыг бүхэлд нь солино — region бүрийн default заавал байна */
-  async setTariffs(
-    list: { region: DeliveryRegion; district?: string | null; fee: string }[],
-  ) {
-    const keys = new Set<string>();
-    for (const t of list) {
-      const key = `${t.region}:${t.district ?? ''}`;
-      if (keys.has(key)) {
-        throw new BadRequestException('Тариф давхардаж байна');
-      }
-      keys.add(key);
-      if (new Prisma.Decimal(t.fee).lt(0)) {
-        throw new BadRequestException('Тариф 0-ээс багагүй байна');
-      }
-    }
-    for (const region of Object.values(DeliveryRegion)) {
-      if (!keys.has(`${region}:`)) {
-        throw new BadRequestException(
-          `${region} бүсийн default тариф заавал байна`,
-        );
-      }
-    }
-    await this.prisma.$transaction([
-      this.prisma.deliveryTariff.deleteMany({}),
-      this.prisma.deliveryTariff.createMany({
-        data: list.map((t) => ({
-          region: t.region,
-          district: t.district?.trim() || null,
-          fee: new Prisma.Decimal(t.fee),
-        })),
-      }),
-    ]);
-    return this.tariffs();
-  }
-
-  /** Хаягийн тариф: дүүргийн тусгай тариф байвал түүнийг, үгүй бол default */
-  async feeFor(
-    region: DeliveryRegion,
-    district?: string | null,
-  ): Promise<Prisma.Decimal> {
-    if (region === DeliveryRegion.ULAANBAATAR && district) {
-      const specific = await this.prisma.deliveryTariff.findFirst({
-        where: { region, district },
-      });
-      if (specific) return specific.fee;
-    }
-    const def = await this.prisma.deliveryTariff.findFirst({
-      where: { region, district: null },
-    });
-    return def?.fee ?? new Prisma.Decimal(0);
-  }
 }

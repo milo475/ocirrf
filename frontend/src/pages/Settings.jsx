@@ -7,6 +7,7 @@ import { useLang } from '../context/LanguageContext'
 import { useTheme } from '../context/ThemeContext'
 import { api } from '../lib/api'
 import { formatDateTime } from '../lib/format'
+import { DM_TOKENS } from '../lib/dmMessage'
 
 function OptionGroup({ label, options, value, onChange, note }) {
   return (
@@ -74,9 +75,56 @@ export default function Settings() {
         />
       </div>
 
+      <LoginHistory t={t} />
+
       <SystemSettings t={t} />
-      <TariffSettings t={t} />
     </div>
+  )
+}
+
+/**
+ * НЭВТРЭЛТИЙН ТҮҮХ (V5) — хүн бүр ӨӨРИЙНХӨӨ түүхийг харна.
+ *
+ * «Миний бүртгэлээр өөр хүн орсон уу» гэдгийг зөвхөн тухайн хүн
+ * таньж чадна: танихгүй төхөөрөмж, танихгүй цаг харвал шууд мэднэ.
+ * Тиймээс админд биш, хэрэглэгч бүрт харуулах нь үр дүнтэй.
+ */
+function LoginHistory({ t }) {
+  const [rows, setRows] = useState(null)
+
+  useEffect(() => {
+    api('/auth/login-history')
+      .then(setRows)
+      .catch(() => setRows([]))
+  }, [])
+
+  if (!rows?.length) return null
+
+  return (
+    <section className="mt-12 border-t border-rule pt-8">
+      <p className="text-xs uppercase tracking-wide text-ink-muted mb-2">
+        {t('Миний нэвтрэлтүүд')}
+      </p>
+      <p className="text-sm text-ink-muted mb-4">
+        {t(
+          'Танихгүй төхөөрөмж эсвэл цаг харвал нууц үгээ солиод админд мэдэгдээрэй.',
+        )}
+      </p>
+      <ul className="border border-rule rounded-lg divide-y divide-rule">
+        {rows.map((r) => (
+          <li
+            key={r.id}
+            className="px-4 py-2.5 flex items-baseline justify-between gap-4 flex-wrap"
+          >
+            <span className="text-sm">{r.device}</span>
+            <span className="font-mono text-xs text-ink-muted tabular-nums">
+              {formatDateTime(r.at)}
+              {r.ip ? ` · ${r.ip}` : ''}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }
 
@@ -98,8 +146,6 @@ function SystemSettings({ t }) {
 
   if (!canEdit || !values) return null
 
-  const allowCancel = values.allowCustomerCancel === 'true'
-
   async function save() {
     setSaving(true)
     try {
@@ -114,7 +160,7 @@ function SystemSettings({ t }) {
   }
 
   return (
-    <section className="mt-12 border-t border-rule pt-8 max-w-md">
+    <section className="mt-12 border-t border-rule pt-8 max-w-xl">
       <p className="text-xs uppercase tracking-wide text-ink-muted mb-4">
         {t('Системийн тохиргоо')}
       </p>
@@ -136,182 +182,162 @@ function SystemSettings({ t }) {
           }
           className="font-mono"
         />
-        <label className="flex items-center justify-between gap-4 py-1 cursor-pointer">
-          <span className="text-sm">
-            {t('Харилцагч шинэ захиалгаа цуцлах боломжтой')}
-          </span>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={allowCancel}
-            aria-label={t('Харилцагч шинэ захиалгаа цуцлах боломжтой')}
-            onClick={() =>
-              setValues((v) => ({
-                ...v,
-                allowCustomerCancel: allowCancel ? 'false' : 'true',
-              }))
-            }
-            className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${
-              allowCancel ? 'bg-accent' : 'bg-rule'
-            }`}
-          >
-            <span
-              className={`absolute top-0.5 w-5 h-5 rounded-full bg-bg transition-all ${
-                allowCancel ? 'left-[22px]' : 'left-0.5'
-              }`}
-            />
-          </button>
-        </label>
-        <Button onClick={save} loading={saving} className="w-full">
-          {t('Хадгалах')}
-        </Button>
-      </div>
-    </section>
-  )
-}
-
-const REGION_LABELS = {
-  ULAANBAATAR: 'Улаанбаатар',
-  ORON_NUTAG: 'Орон нутаг',
-}
-
-/** Хүргэлтийн тариф (V4-05) — settings.edit эрхтэйд засах боломжтой */
-function TariffSettings({ t }) {
-  const { hasPerm } = useAuth()
-  const toast = useToast()
-  const canEdit = hasPerm('settings.edit')
-
-  const [rows, setRows] = useState(null) // [{region, district, fee}]
-  const [newDistrict, setNewDistrict] = useState('')
-  const [newFee, setNewFee] = useState('')
-  const [saving, setSaving] = useState(false)
-
-  useEffect(() => {
-    if (!canEdit) return
-    api('/settings/tariffs')
-      .then((list) =>
-        setRows(
-          list.map((x) => ({
-            region: x.region,
-            district: x.district,
-            fee: String(Number(x.fee)),
-          })),
-        ),
-      )
-      .catch(() => {})
-  }, [canEdit])
-
-  if (!canEdit || !rows) return null
-
-  const setFee = (i) => (e) =>
-    setRows((r) => r.map((row, j) => (j === i ? { ...row, fee: e.target.value } : row)))
-
-  function addDistrict() {
-    const d = newDistrict.trim()
-    if (!d || !newFee.trim()) return
-    if (rows.some((r) => r.region === 'ULAANBAATAR' && r.district === d)) {
-      toast.show(t('Тариф давхардаж байна'), { type: 'error' })
-      return
-    }
-    setRows((r) => [...r, { region: 'ULAANBAATAR', district: d, fee: newFee.trim() }])
-    setNewDistrict('')
-    setNewFee('')
-  }
-
-  async function save() {
-    setSaving(true)
-    try {
-      const fresh = await api('/settings/tariffs', {
-        method: 'PUT',
-        body: { tariffs: rows },
-      })
-      setRows(
-        fresh.map((x) => ({
-          region: x.region,
-          district: x.district,
-          fee: String(Number(x.fee)),
-        })),
-      )
-      toast.show(t('Тариф хадгалагдлаа'))
-    } catch (e) {
-      toast.show(e.message, { type: 'error' })
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <section className="mt-12 border-t border-rule pt-8 max-w-md">
-      <p className="text-xs uppercase tracking-wide text-ink-muted mb-1">
-        {t('Хүргэлтийн тариф')}
-      </p>
-      <p className="text-sm text-ink-muted mb-4">
-        {t('Дүүрэггүй мөр нь тухайн бүсийн үндсэн тариф')}
-      </p>
-      <div className="divide-y divide-rule border-y border-rule">
-        {rows.map((row, i) => (
-          <div
-            key={`${row.region}:${row.district ?? ''}`}
-            className="py-2 flex items-center gap-3 text-sm"
-          >
-            <span className="flex-1">
-              {t(REGION_LABELS[row.region])}
-              {row.district && (
-                <span className="text-ink-muted"> · {row.district}</span>
-              )}
-            </span>
-            <input
-              type="number"
-              min="0"
-              step="100"
-              value={row.fee}
-              onChange={setFee(i)}
-              aria-label={`${row.region} ${row.district ?? 'default'} тариф`}
-              className="w-28 bg-bg border border-rule rounded px-2 py-1 font-mono text-right focus:outline-none focus:border-ink-muted"
-            />
-            {row.district && (
-              <button
-                type="button"
-                onClick={() => setRows((r) => r.filter((_, j) => j !== i))}
-                aria-label={t('Мөр устгах')}
-                className="text-ink-muted hover:text-alarm px-1"
-              >
-                ×
-              </button>
-            )}
-          </div>
-        ))}
       </div>
 
-      {/* УБ-ын дүүргийн тусгай тариф нэмэх */}
-      <div className="mt-4 flex items-end gap-2">
-        <div className="flex-1">
-          <Input
-            id="tariff-district"
-            label={t('Дүүргийн тусгай тариф (УБ)')}
-            value={newDistrict}
-            onChange={(e) => setNewDistrict(e.target.value)}
-            placeholder={t('Дүүрэг')}
-          />
-        </div>
-        <input
+      {/* Банкны данс (V5) — нийтийн захиалгын хуудас ба DM-ийн хариунд
+          орно. Хоосон бол мессежид «удахгүй илгээнэ» гэж гарна. */}
+      <p className="mt-10 text-xs uppercase tracking-wide text-ink-muted mb-4">
+        {t('Төлбөр хүлээн авах данс')}
+      </p>
+      <div className="space-y-4">
+        <Input
+          id="st-bank"
+          label={t('Банк')}
+          value={values.bankName}
+          onChange={(e) =>
+            setValues((v) => ({ ...v, bankName: e.target.value }))
+          }
+        />
+        <Input
+          id="st-acct"
+          label={t('Дансны дугаар')}
+          value={values.bankAccount}
+          onChange={(e) =>
+            setValues((v) => ({ ...v, bankAccount: e.target.value }))
+          }
+          className="font-mono"
+        />
+        <Input
+          id="st-holder"
+          label={t('Данс эзэмшигч')}
+          value={values.bankHolder}
+          onChange={(e) =>
+            setValues((v) => ({ ...v, bankHolder: e.target.value }))
+          }
+        />
+      </div>
+
+      {/* Хугацааны анхааруулга (V5) */}
+      <p className="mt-10 text-xs uppercase tracking-wide text-ink-muted mb-4">
+        {t('Хугацааны хяналт')}
+      </p>
+      <Input
+        id="st-expiry"
+        label={t('Дуусахаас хэдэн хоногийн өмнө анхааруулах')}
+        type="number"
+        min="1"
+        value={values.expiryWarnDays}
+        onChange={(e) =>
+          setValues((v) => ({ ...v, expiryWarnDays: e.target.value }))
+        }
+        className="font-mono"
+      />
+
+      {/* Давтан захиалгын сануулга (V5) */}
+      <p className="mt-10 text-xs uppercase tracking-wide text-ink-muted mb-4">
+        {t('Давтан захиалгын сануулга')}
+      </p>
+      <div className="space-y-4">
+        <Input
+          id="st-days"
+          label={t('Барааны ердийн хэрэглээ (хоног)')}
+          type="number"
+          min="1"
+          value={values.defaultDaysSupply}
+          onChange={(e) =>
+            setValues((v) => ({ ...v, defaultDaysSupply: e.target.value }))
+          }
+          className="font-mono"
+        />
+        <p className="-mt-2 text-xs text-ink-muted">
+          {t(
+            'Бараанд тусад нь заагаагүй бол нэг ширхэг нь хэдэн хоног хүрэх вэ.',
+          )}
+        </p>
+        <Input
+          id="st-lead"
+          label={t('Дуусахаас хэдэн хоногийн өмнө сануулах')}
           type="number"
           min="0"
-          step="100"
-          value={newFee}
-          onChange={(e) => setNewFee(e.target.value)}
-          placeholder="₮"
-          aria-label={t('Тариф')}
-          className="w-24 bg-bg border border-rule rounded px-2 py-2 font-mono text-right text-sm focus:outline-none focus:border-ink-muted"
+          value={values.reorderLeadDays}
+          onChange={(e) =>
+            setValues((v) => ({ ...v, reorderLeadDays: e.target.value }))
+          }
+          className="font-mono"
         />
-        <Button variant="ghost" onClick={addDistrict}>
-          +
-        </Button>
+        <Input
+          id="st-overdue"
+          label={t('Хэдэн хоног хоцорсныг жагсаалтаас хасах')}
+          type="number"
+          min="1"
+          value={values.reorderMaxOverdue}
+          onChange={(e) =>
+            setValues((v) => ({ ...v, reorderMaxOverdue: e.target.value }))
+          }
+          className="font-mono"
+        />
+        <p className="-mt-2 text-xs text-ink-muted">
+          {t('Үүнээс их хоцорсон хүнийг эргэж ирэхгүй гэж үзнэ.')}
+        </p>
+      </div>
+      <label
+        htmlFor="st-remind"
+        className="block mt-4 text-xs uppercase tracking-wide text-ink-muted mb-1.5"
+      >
+        {t('Сануулгын загвар')}
+      </label>
+      <textarea
+        id="st-remind"
+        rows={9}
+        value={values.reorderTemplate}
+        onChange={(e) =>
+          setValues((v) => ({ ...v, reorderTemplate: e.target.value }))
+        }
+        className="w-full bg-bg border border-rule rounded px-3 py-2 text-sm leading-relaxed resize-y focus:outline-none focus:border-ink-muted"
+      />
+      <p className="mt-2 text-xs text-ink-muted">
+        <span className="font-mono text-accent">
+          {'{нэр} {бараа} {хоног} {утас} {компани}'}
+        </span>
+      </p>
+
+      {/* DM-ийн хариу загвар (V5) */}
+      <p className="mt-10 text-xs uppercase tracking-wide text-ink-muted mb-4">
+        {t('Үйлчлүүлэгч рүү илгээх хариу')}
+      </p>
+      <label
+        htmlFor="st-dm"
+        className="block text-xs uppercase tracking-wide text-ink-muted mb-1.5"
+      >
+        {t('Мессежийн загвар')}
+      </label>
+      <textarea
+        id="st-dm"
+        rows={14}
+        value={values.dmTemplate}
+        onChange={(e) =>
+          setValues((v) => ({ ...v, dmTemplate: e.target.value }))
+        }
+        className="w-full bg-bg border border-rule rounded px-3 py-2 text-sm leading-relaxed resize-y focus:outline-none focus:border-ink-muted"
+      />
+      <div className="mt-3 border border-rule rounded p-3">
+        <p className="text-xs text-ink-muted mb-2">
+          {t('Дараах түлхүүрүүд бодит утгаар солигдоно')}:
+        </p>
+        <dl className="space-y-1">
+          {DM_TOKENS.map(([token, note]) => (
+            <div key={token} className="flex gap-2 text-xs">
+              <dt className="font-mono text-accent shrink-0">{token}</dt>
+              <dd className="text-ink-muted">{t(note)}</dd>
+            </div>
+          ))}
+        </dl>
       </div>
 
-      <Button onClick={save} loading={saving} className="mt-4 w-full">
+      <Button onClick={save} loading={saving} className="w-full mt-8">
         {t('Хадгалах')}
       </Button>
     </section>
   )
 }
+

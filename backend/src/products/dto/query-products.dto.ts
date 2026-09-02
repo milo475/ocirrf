@@ -6,17 +6,24 @@ import {
   IsString,
   IsUUID,
   Max,
+  MaxLength,
   Min,
 } from 'class-validator';
 
 export class QueryProductsDto {
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   search?: string;
 
   @IsOptional()
   @IsUUID('4', { message: 'categoryId буруу форматтай' })
   categoryId?: string;
+
+  /** Харилцагч компаниар шүүх (V5) */
+  @IsOptional()
+  @IsUUID('4', { message: 'companyId буруу форматтай' })
+  companyId?: string;
 
   /** Заагаагүй бол зөвхөн идэвхтэй бараа */
   @IsOptional()

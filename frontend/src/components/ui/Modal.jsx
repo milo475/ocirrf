@@ -14,7 +14,7 @@ export default function Modal({ open, onClose, title, children, footer }) {
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6 overflow-y-auto">
       <button
         type="button"
         aria-label="Хаах"
@@ -24,7 +24,7 @@ export default function Modal({ open, onClose, title, children, footer }) {
       <div
         role="dialog"
         aria-modal="true"
-        className="relative w-full max-w-md bg-surface border border-rule rounded-lg shadow-xl"
+        className="relative w-full max-w-md my-auto bg-surface border border-rule rounded-lg shadow-xl"
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-rule">
           <h2 className="font-serif text-lg font-medium">{title}</h2>

@@ -50,6 +50,11 @@ export class AnalyticsController {
     return this.analyticsService.drivers(q.from, q.to);
   }
 
+  @Get('channels')
+  channels(@Query() q: RangeDto) {
+    return this.analyticsService.channels(q.from, q.to);
+  }
+
   @Get('customers')
   customers() {
     return this.analyticsService.customers();

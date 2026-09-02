@@ -110,7 +110,17 @@ export default function ProductCatalog({
                         onClick={() => onPick(p)}
                         className="w-full text-left px-3 py-2 text-sm flex items-center justify-between gap-3 hover:bg-bg transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
                       >
-                        <span className="min-w-0">
+                        <span className="flex items-center gap-3 min-w-0">
+                          {p.imageUrl ? (
+                            <img
+                              src={p.imageUrl}
+                              alt={p.name}
+                              className="w-10 h-10 rounded border border-rule object-cover shrink-0"
+                            />
+                          ) : (
+                            <span className="w-10 h-10 rounded border border-rule shrink-0" />
+                          )}
+                          <span className="min-w-0">
                           <span className="block truncate">{p.name}</span>
                           <span className="font-mono text-xs text-ink-muted">
                             {p.sku}
@@ -119,6 +129,7 @@ export default function ProductCatalog({
                                 {t('stock.out')}
                               </span>
                             )}
+                          </span>
                           </span>
                         </span>
                         <span className="flex items-center gap-3 shrink-0">

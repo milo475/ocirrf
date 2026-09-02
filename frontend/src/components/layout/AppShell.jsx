@@ -1,11 +1,19 @@
 import { useCallback, useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router'
-import { Bell, LogOut, PanelLeft, PanelLeftClose, Settings } from 'lucide-react'
+import {
+  Bell,
+  LogOut,
+  Menu,
+  PanelLeft,
+  PanelLeftClose,
+  Settings,
+  X,
+} from 'lucide-react'
 import ConfirmDialog from '../ui/ConfirmDialog'
-import { navFor } from '../../config/nav'
+import { mobileTabsFor, navFor } from '../../config/nav'
 import { useAuth } from '../../context/AuthContext'
 import { useLang } from '../../context/LanguageContext'
-import { api, getAccessToken } from '../../lib/api'
+import { API_BASE, api, getAccessToken } from '../../lib/api'
 import { initOfflineQueue } from '../../lib/offlineQueue'
 import NotificationBell from './NotificationBell'
 import ThemeToggle from './ThemeToggle'
@@ -15,7 +23,8 @@ const ROLE_LABELS = {
   MANAGER: 'Менежер',
   OPERATOR: 'Харилцагч', // бараа нийлүүлдэг түнш — захиалга шивэх эрхтэй
   DRIVER: 'Жолооч',
-  CUSTOMER: 'Портал хэрэглэгч',
+  WAREHOUSE: 'Нярав',
+  SELLER: 'Борлуулагч',
 }
 
 /**
@@ -90,7 +99,7 @@ export default function AppShell() {
         return
       }
       es = new EventSource(
-        `/api/notifications/stream?token=${encodeURIComponent(token)}`,
+        `${API_BASE}/notifications/stream?token=${encodeURIComponent(token)}`,
       )
       es.onmessage = (e) => {
         try {
@@ -126,6 +135,21 @@ export default function AppShell() {
 
   // Санамсаргүй дарж гарахаас хамгаална — эхлээд баталгаажуулна
   const [logoutOpen, setLogoutOpen] = useState(false)
+  /** Mobile-ийн бүрэн цэс. Доод бар нь 4-өөс олон зүйлийг багтаадаггүй */
+  const [menuOpen, setMenuOpen] = useState(false)
+  useEffect(() => {
+    if (!menuOpen) return
+    const onKey = (e) => {
+      if (e.key === 'Escape') setMenuOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    // Цэс нээлттэй үед ард нь гүйлгэхгүй
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = ''
+    }
+  }, [menuOpen])
 
   function handleLogout() {
     setLogoutOpen(false)
@@ -144,9 +168,20 @@ export default function AppShell() {
 
   const tabLink = ({ isActive }) =>
     [
-      'flex-1 flex flex-col items-center gap-0.5 py-2 text-[11px] transition-colors',
+      'flex-1 min-w-0 flex flex-col items-center gap-0.5 py-2 text-[10px] leading-tight transition-colors',
       isActive ? 'text-accent' : 'text-ink-muted',
     ].join(' ')
+
+  /**
+   * Доод tab bar-т ЗӨВХӨН эхний цөөн зүйл орно (nav.js-ийн дараалал нь
+   * чухлаараа). Админд 13 цэс байдаг тул бүгдийг нэг мөрөнд шахахад
+   * бичвэр нь давхарлаж, дэлгэцнээс гардаг байв — үлдсэнийг «Цэс»
+   * товчоор нээгддэг бүрэн жагсаалтад өгнө.
+   */
+  const MAX_TABS = 4
+  const isDriver = user?.role === 'DRIVER'
+  const tabItems = mobileTabsFor(user, items, MAX_TABS)
+  const needsMore = items.length > tabItems.length
 
   return (
     <div className="min-h-screen bg-bg text-ink flex">
@@ -239,27 +274,15 @@ export default function AppShell() {
             )}
             <NotificationBell unread={unread} />
             <ThemeToggle />
-            {/* Mobile дээр sidebar байхгүй тул тохиргоо/гарах topbar-т */}
-            <NavLink
-              to="/settings"
-              title={t('Тохиргоо')}
-              className={({ isActive }) =>
-                `md:hidden p-1 ${isActive ? 'text-accent' : 'text-ink-muted'}`
-              }
-            >
-              <Settings size={18} />
-            </NavLink>
-            {user && (
-              <span className="md:hidden font-mono text-[11px] uppercase tracking-wide border rounded px-1.5 py-0.5 text-accent border-accent/40 bg-accent/12">
-                {t(ROLE_LABELS[user.role] ?? user.role)}
-              </span>
-            )}
+            {/* Mobile: sidebar байхгүй тул бүх цэс энэ товчны цаана.
+                Тохиргоо/эрх/гарах ч мөн тэнд — topbar-т 3 зүйл л үлдэнэ */}
             <button
               type="button"
-              onClick={() => setLogoutOpen(true)}
-              className="md:hidden text-sm text-ink-muted hover:text-alarm transition-colors"
+              onClick={() => setMenuOpen(true)}
+              aria-label={t('Цэс')}
+              className="md:hidden p-1 text-ink-muted hover:text-ink"
             >
-              {t('Гарах')}
+              <Menu size={20} />
             </button>
           </div>
         </header>
@@ -280,16 +303,18 @@ export default function AppShell() {
         onCancel={() => setLogoutOpen(false)}
       />
 
-      {/* ── Mobile доод tab bar ── */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-surface border-t border-rule flex">
-        {items.map((item) => (
+      {/* ── Mobile доод tab bar — хамгийн чухал 4 + «Цэс» ── */}
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-surface border-t border-rule flex pb-[env(safe-area-inset-bottom)]">
+        {tabItems.map((item) => (
           <NavLink key={item.key} to={item.path} end={item.end} className={tabLink}>
-            <item.icon size={20} />
-            <span>{t(item.label)}</span>
+            <item.icon size={20} className="shrink-0" />
+            <span className="w-full truncate text-center px-0.5">
+              {t(item.label)}
+            </span>
           </NavLink>
         ))}
         {/* Жолоочид мэдэгдлийн tab — badge-тэй */}
-        {user?.role === 'DRIVER' && (
+        {isDriver && (
           <NavLink to="/notifications" className={tabLink}>
             <span className="relative">
               <Bell size={20} />
@@ -299,10 +324,92 @@ export default function AppShell() {
                 </span>
               )}
             </span>
-            <span>{t('Мэдэгдэл')}</span>
+            <span className="w-full truncate text-center px-0.5">
+              {t('Мэдэгдэл')}
+            </span>
           </NavLink>
         )}
+        {needsMore && (
+          <button
+            type="button"
+            onClick={() => setMenuOpen(true)}
+            className="flex-1 min-w-0 flex flex-col items-center gap-0.5 py-2 text-[10px] leading-tight text-ink-muted"
+          >
+            <Menu size={20} className="shrink-0" />
+            <span className="w-full truncate text-center px-0.5">{t('Цэс')}</span>
+          </button>
+        )}
       </nav>
+
+      {/* ── Mobile бүрэн цэс ── */}
+      {menuOpen && (
+        <div className="md:hidden fixed inset-0 z-50">
+          <button
+            type="button"
+            aria-label={t('Хаах')}
+            onClick={() => setMenuOpen(false)}
+            className="absolute inset-0 w-full bg-bg/70"
+          />
+          <div className="absolute right-0 top-0 h-full w-[82vw] max-w-xs bg-surface border-l border-rule flex flex-col">
+            <div className="flex items-center justify-between px-4 h-12 border-b border-rule shrink-0">
+              <span className="font-serif text-lg">{t('Цэс')}</span>
+              <button
+                type="button"
+                onClick={() => setMenuOpen(false)}
+                aria-label={t('Хаах')}
+                className="p-1 text-ink-muted hover:text-ink"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <nav className="flex-1 overflow-y-auto p-2 space-y-1">
+              {items.map((item) => (
+                <NavLink
+                  key={item.key}
+                  to={item.path}
+                  end={item.end}
+                  onClick={() => setMenuOpen(false)}
+                  className={sideLink}
+                >
+                  <item.icon size={18} className="shrink-0" />
+                  <span className="truncate">{t(item.label)}</span>
+                </NavLink>
+              ))}
+            </nav>
+
+            <div className="border-t border-rule p-2 space-y-1 shrink-0">
+              <NavLink
+                to="/settings"
+                onClick={() => setMenuOpen(false)}
+                className={sideLink}
+              >
+                <Settings size={18} className="shrink-0" />
+                <span>{t('Тохиргоо')}</span>
+              </NavLink>
+              {user && (
+                <div className="px-3 py-2">
+                  <p className="text-sm truncate">{user.name}</p>
+                  <span className="mt-1 inline-flex font-mono text-[11px] uppercase tracking-wide border rounded px-1.5 py-0.5 text-accent border-accent/40 bg-accent/12">
+                    {t(ROLE_LABELS[user.role] ?? user.role)}
+                  </span>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false)
+                  setLogoutOpen(true)
+                }}
+                className="w-full flex items-center gap-3 rounded px-3 py-2 text-sm text-ink-muted hover:text-alarm"
+              >
+                <LogOut size={18} className="shrink-0" />
+                <span>{t('Гарах')}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

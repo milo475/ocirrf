@@ -9,6 +9,7 @@ import Table from '../components/ui/Table'
 import { useLang } from '../context/LanguageContext'
 import { api } from '../lib/api'
 import { formatMoney, formatMoneyRound, formatMoneyShort } from '../lib/format'
+import { channelLabel } from '../lib/channels'
 
 const PRESETS = [7, 30, 90]
 
@@ -46,9 +47,10 @@ export default function Analytics() {
       api(`/analytics/top-products?${range}&limit=8`),
       api(`/analytics/drivers?${range}`),
       api('/analytics/customers'),
+      api(`/analytics/channels?${range}`),
     ])
-      .then(([sales, top, drivers, customers]) =>
-        setData({ sales, top, drivers, customers }),
+      .then(([sales, top, drivers, customers, channels]) =>
+        setData({ sales, top, drivers, customers, channels }),
       )
       .catch((e) => setError(e))
   }, [days, custom])
@@ -158,7 +160,7 @@ export default function Analytics() {
           {/* Борлуулалт */}
           <section className="mt-10 border-t border-rule pt-6">
             <div className="flex items-start gap-10 flex-wrap">
-              <div className="flex [&>*]:basis-44 [&>*]:shrink-0 [&>*]:min-w-0 md:divide-x divide-rule">
+              <div className="grid grid-cols-2 gap-y-6 md:flex md:gap-y-0 [&>*]:min-w-0 md:[&>*]:basis-44 md:[&>*]:shrink-0 md:divide-x divide-rule">
                 <MetricCard
                   label={t('Захиалгын тоо')}
                   value={String(data.sales.totals.count)}
@@ -258,12 +260,46 @@ export default function Analytics() {
               )}
             </section>
 
+            {/* Суваг — захиалга хаанаас ирж байна (V5) */}
+            <section>
+              <p className="text-xs uppercase tracking-wide text-ink-muted border-b border-rule pb-2 mb-4">
+                {t('Суваг')}
+              </p>
+              {data.channels.length === 0 ? (
+                <p className="text-sm text-ink-muted">{t('Захиалга алга')}</p>
+              ) : (
+                <ul className="space-y-3">
+                  {data.channels.map((c) => (
+                    <li key={c.channel}>
+                      <div className="flex items-baseline justify-between gap-3 text-sm">
+                        <span>
+                          {t(channelLabel(c.channel))}
+                          <span className="ml-2 font-mono text-xs text-ink-muted tabular-nums">
+                            {c.orders} {t('захиалга')} · {c.share}%
+                          </span>
+                        </span>
+                        <span className="font-mono tabular-nums">
+                          {formatMoney(c.amount)}
+                        </span>
+                      </div>
+                      <div className="mt-1 h-1.5 rounded bg-rule overflow-hidden">
+                        <div
+                          className="h-full bg-accent"
+                          style={{ width: `${c.share}%` }}
+                        />
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
             {/* Хүлээн авагч (утсаар бүлэглэсэн) */}
             <section>
               <p className="text-xs uppercase tracking-wide text-ink-muted border-b border-rule pb-2 mb-4">
                 {t('Хүлээн авагч')}
               </p>
-              <div className="flex [&>*]:basis-44 [&>*]:shrink-0 [&>*]:min-w-0 divide-x divide-rule">
+              <div className="grid grid-cols-2 gap-y-6 md:flex md:gap-y-0 [&>*]:min-w-0 md:[&>*]:basis-44 md:[&>*]:shrink-0 md:divide-x divide-rule">
                 <MetricCard
                   label={t('Шинэ')}
                   value={String(data.customers.newCustomers)}

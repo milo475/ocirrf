@@ -9,8 +9,11 @@ import { api } from '../lib/api'
 
 const GROUP_LABELS = {
   ORDERS: 'Захиалга',
-  CUSTOMERS: 'Харилцагч',
+  // Түлхүүр нь customers.* хэвээр. Бүлэг нь нийлүүлэгч компани БА
+  // худалдан авагчийн түүх хоёуланг хамардаг (доорх нэрсийг үзнэ үү)
+  CUSTOMERS: 'Харилцагчийн мэдээлэл',
   DRIVERS: 'Жолооч',
+  SUPPLIES: 'Нийлүүлэлт',
   INVENTORY: 'Агуулах',
   FINANCE: 'Санхүү',
   REPORTS: 'Тайлан',
@@ -22,7 +25,8 @@ const ROLE_LABELS = {
   MANAGER: 'Менежер',
   OPERATOR: 'Харилцагч', // бараа нийлүүлдэг түнш — захиалга шивэх эрхтэй
   DRIVER: 'Жолооч',
-  CUSTOMER: 'Портал хэрэглэгч',
+  WAREHOUSE: 'Нярав',
+  SELLER: 'Борлуулагч',
 }
 
 /**
@@ -164,7 +168,7 @@ export default function UserPermissions() {
                         className="size-4 accent-current text-accent shrink-0"
                       />
                       <span className="flex-1 min-w-0 text-sm">
-                        {item.label}
+                        {t(item.label)}
                         <span className="block font-mono text-[10px] text-ink-muted">
                           {item.key}
                         </span>

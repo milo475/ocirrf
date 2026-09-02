@@ -4,6 +4,7 @@ import { homeFor } from '../components/auth/RoleRoute'
 import { useAuth } from '../context/AuthContext'
 import { useLang } from '../context/LanguageContext'
 import { api } from '../lib/api'
+import AuthShell from '../components/auth/AuthShell'
 
 /**
  * Түр нууц үгээр нэвтэрсэн хэрэглэгчийн заавал солих дэлгэц (V4-06).
@@ -73,9 +74,12 @@ export default function ChangePassword() {
   )
 
   return (
-    <main className="min-h-screen bg-bg text-ink flex items-center justify-center px-6">
-      <div className="w-full max-w-sm">
-        <div className="bg-surface border border-rule rounded-lg p-8">
+    <AuthShell>
+      <div>
+        {/* Шилэн карт: доорх зураг бүдгэрч харагдана (V5).
+            `backdrop-blur` нь ард талыг нь бүдгэрүүлдэг тул
+            зураг дээр ч текст цэвэр уншигдана. */}
+        <div className="bg-surface/75 backdrop-blur-md border border-rule/70 rounded-lg p-8 shadow-2xl shadow-black/40">
           <h1 className="font-serif text-3xl font-medium text-center">
             {t('Шинэ нууц үг зохиох')}
           </h1>
@@ -122,6 +126,6 @@ export default function ChangePassword() {
           </form>
         </div>
       </div>
-    </main>
+    </AuthShell>
   )
 }
