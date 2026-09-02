@@ -40,6 +40,9 @@ export const SCOPED_MODELS: ReadonlySet<string> = new Set<string>([
   'ProductBatch',
   'OrderReturn',
   'Setting',
+  'OrganizationApp',
+  // 'Application' — САНААТАЙГААР байхгүй: платформын глобал каталог,
+  // байгууллагаас хамааралгүй (App Registry)
 ]);
 
 // organizationId нь nullable: нэвтрэлтийн ӨМНӨХ security event

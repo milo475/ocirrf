@@ -24,6 +24,46 @@ async function seedOrganization() {
   });
 }
 
+/**
+ * APP REGISTRY каталог — migration-ий тогтмол UUID-уудтай ижил.
+ * Idempotent: nameMn/descriptionMn зэрэг нь дахин seed-д шинэчлэгдэнэ,
+ * харин status-ыг ДАРАХГҮЙ (SUPERADMIN дараа нь консолоос удирдана).
+ */
+const APP_CATALOG = [
+  { id: '00000000-0000-4000-8000-0000000a0001', key: 'ursgal', nameMn: 'Урсгал', nameEn: 'Ursgal', descriptionMn: 'Агуулах, захиалга, хүргэлт, санхүүгийн дотоод удирдлага', icon: 'boxes', color: '#8b2635', status: 'ACTIVE' as const, sortOrder: 1 },
+  { id: '00000000-0000-4000-8000-0000000a0002', key: 'sankhuu', nameMn: 'Санхүү / НЯБО', nameEn: 'Finance', descriptionMn: 'Дансны төлөвлөгөө, давхар бичилт, авлага/өглөг, НӨАТ, нэхэмжлэх', icon: 'landmark', color: '#1e6091', status: 'COMING_SOON' as const, sortOrder: 2 },
+  { id: '00000000-0000-4000-8000-0000000a0003', key: 'hr', nameMn: 'Хүний нөөц / Цалин', nameEn: 'HR & Payroll', descriptionMn: 'Ажилтны бүртгэл, ирц, амралт чөлөө, цалингийн тооцоо', icon: 'users', color: '#2d6a4f', status: 'COMING_SOON' as const, sortOrder: 3 },
+  { id: '00000000-0000-4000-8000-0000000a0004', key: 'crm', nameMn: 'Харилцагч (CRM)', nameEn: 'CRM', descriptionMn: 'Харилцагчийн бүртгэл, борлуулалтын сувгууд, идэвхжүүлэлт', icon: 'heart-handshake', color: '#7b2cbf', status: 'COMING_SOON' as const, sortOrder: 4 },
+  { id: '00000000-0000-4000-8000-0000000a0005', key: 'hudaldan-avalt', nameMn: 'Худалдан авалт', nameEn: 'Procurement', descriptionMn: 'Нийлүүлэгчийн үнийн санал, худалдан авалтын захиалга, өглөгийн хяналт', icon: 'shopping-cart', color: '#b5651d', status: 'COMING_SOON' as const, sortOrder: 5 },
+  { id: '00000000-0000-4000-8000-0000000a0006', key: 'tailan', nameMn: 'Тайлан / Аналитик', nameEn: 'Reports', descriptionMn: 'Нэгдсэн тайлан, KPI самбар, экспорт', icon: 'bar-chart-3', color: '#457b9d', status: 'COMING_SOON' as const, sortOrder: 6 },
+];
+
+async function seedApplications() {
+  for (const app of APP_CATALOG) {
+    const { id, status, ...fields } = app;
+    await prisma.application.upsert({
+      where: { key: app.key },
+      // status-ыг update-д оруулахгүй — консолоос солигдсоныг дарахгүй
+      update: { nameMn: fields.nameMn, nameEn: fields.nameEn, descriptionMn: fields.descriptionMn, icon: fields.icon, color: fields.color, sortOrder: fields.sortOrder },
+      create: { id, status, ...fields },
+    });
+  }
+  // Default байгууллагад ursgal идэвхтэй
+  await prisma.organizationApp.upsert({
+    where: {
+      organizationId_applicationId: {
+        organizationId: DEFAULT_ORG_ID,
+        applicationId: APP_CATALOG[0].id,
+      },
+    },
+    update: {},
+    create: {
+      organizationId: DEFAULT_ORG_ID,
+      applicationId: APP_CATALOG[0].id,
+    },
+  });
+}
+
 async function seedUsers() {
   const users = [
     {
@@ -183,6 +223,7 @@ async function seedProducts(
 
 async function main() {
   await seedOrganization();
+  await seedApplications();
   const users = await seedUsers();
   await seedDriverProfile(users);
   const categories = await seedCategories();

@@ -28,6 +28,7 @@ import { OrderRequestsModule } from './order-requests/order-requests.module';
 import { OrdersModule } from './orders/orders.module';
 import { PermissionsGuard } from './permissions/permissions.guard';
 import { PermissionsModule } from './permissions/permissions.module';
+import { PlatformModule } from './platform/platform.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { ReportsModule } from './reports/reports.module';
 import { SettingsModule } from './settings/settings.module';
@@ -89,6 +90,7 @@ import { WarehouseModule } from './warehouse/warehouse.module';
     ),
     PrismaModule,
     PermissionsModule,
+    PlatformModule,
     AuthModule,
     CategoriesModule,
     ProductsModule,

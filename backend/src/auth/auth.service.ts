@@ -196,6 +196,17 @@ export class AuthService {
               },
             });
           }
+          // Цөм "ursgal" app шинэ байгууллагад автоматаар идэвхжинэ
+          // (App Registry) — каталогт байхгүй онцгой орчинд алгасна
+          const ursgal = await tx.application.findUnique({
+            where: { key: 'ursgal' },
+            select: { id: true },
+          });
+          if (ursgal) {
+            await tx.organizationApp.create({
+              data: { organizationId: org.id, applicationId: ursgal.id },
+            });
+          }
           return admin;
         } catch (e) {
           // Зэрэг илгээсэн давхар бүртгэлийн уралдаан — P2002

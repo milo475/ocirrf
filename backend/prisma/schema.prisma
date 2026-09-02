@@ -86,6 +86,55 @@ enum PayoutStatus {
   PAID
 }
 
+/// Платформ дээрх app-ийн статус (App Registry)
+enum AppStatus {
+  ACTIVE // ашиглахад бэлэн
+  COMING_SOON // каталогт харагдана, идэвхжүүлж болохгүй
+  DISABLED // огт харагдахгүй
+}
+
+/// ПЛАТФОРМЫН APP КАТАЛОГ (App Registry) — Odoo маягийн олон дотоод
+/// системийн бүртгэл. ursGAL нь эдгээрийн зөвхөн нэг нь.
+///
+/// АНХААР: платформын түвшний ГЛОБАЛ дата — байгууллагаас хамааралгүй
+/// тул org-scope extension-ий SCOPED_MODELS-д ОРУУЛАХГҮЙ (жагсаалтад
+/// байхгүй model-д extension огт үйлчилдэггүй).
+model Application {
+  id            String    @id @default(uuid())
+  /// Тогтмол түлхүүр (жишээ: "ursgal") — production-д ороод ирвэл
+  /// хэзээ ч өөрчлөгдөхгүй, frontend манифест үүгээр холбогдоно
+  key           String    @unique
+  nameMn        String
+  nameEn        String
+  descriptionMn String
+  /// lucide icon-ий нэр (жишээ: "boxes")
+  icon          String
+  /// Card-ийн accent өнгө (hex)
+  color         String
+  status        AppStatus @default(COMING_SOON)
+  sortOrder     Int       @default(100)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  organizationApps OrganizationApp[]
+}
+
+/// Аль байгууллага аль app-ийг идэвхжүүлсэн бэ (org-scoped).
+/// Байгууллага устахад хамт устана (Cascade — join хүснэгт).
+model OrganizationApp {
+  id              String       @id @default(uuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  applicationId   String
+  application     Application  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  enabledAt       DateTime     @default(now())
+  /// Хэн идэвхжүүлсэн (register-org-ийн автомат идэвхжүүлэлтэд null)
+  enabledByUserId String?
+  enabledBy       User?        @relation(fields: [enabledByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, applicationId])
+}
+
 /// ТҮРЭЭСЛЭГЧ БАЙГУУЛЛАГА (Multi-tenancy) — нэг deployment дээр олон
 /// компани тус тусын бүрэн тусгаарлагдсан өгөгдөлтэй ажиллана.
 ///
@@ -120,6 +169,7 @@ model Organization {
   orderReturns   OrderReturn[]
   settings       Setting[]
   activityLogs   ActivityLog[]
+  apps           OrganizationApp[]
 }
 
 model User {
@@ -144,27 +194,28 @@ model User {
   lockedUntil        DateTime?
   createdAt          DateTime  @default(now())
 
-  orders           Order[]          @relation("CreatedOrders")
+  orders           Order[]           @relation("CreatedOrders")
   stockMoves       StockMovement[]
-  assignedOrders   Order[]          @relation("AssignedOrders")
-  warehouseOrders  Order[]          @relation("WarehouseOrders")
-  handoversMade    DriverHandover[] @relation("HandoversMade")
-  handoversTaken   DriverHandover[] @relation("HandoversTaken")
+  assignedOrders   Order[]           @relation("AssignedOrders")
+  warehouseOrders  Order[]           @relation("WarehouseOrders")
+  handoversMade    DriverHandover[]  @relation("HandoversMade")
+  handoversTaken   DriverHandover[]  @relation("HandoversTaken")
   driverProfile    DriverProfile?
   permissions      UserPermission[]
-  financeEntries   FinanceEntry[]   @relation("FinanceEntries")
-  driverPayouts    DriverPayout[]   @relation("DriverPayouts")
-  payoutsCreated   DriverPayout[]   @relation("PayoutsCreated")
+  financeEntries   FinanceEntry[]    @relation("FinanceEntries")
+  driverPayouts    DriverPayout[]    @relation("DriverPayouts")
+  payoutsCreated   DriverPayout[]    @relation("PayoutsCreated")
   notifications    Notification[]
-  paymentsReceived Payment[]        @relation("PaymentsReceived")
-  returnsCreated   OrderReturn[]    @relation("ReturnsCreated")
+  paymentsReceived Payment[]         @relation("PaymentsReceived")
+  returnsCreated   OrderReturn[]     @relation("ReturnsCreated")
   refreshTokens    RefreshToken[]
   loginHistory     LoginHistory[]
-  batchesCreated   ProductBatch[]   @relation("BatchesCreated")
-  suppliesBrought  Supply[]         @relation("SuppliedBy")
-  suppliesReceived Supply[]         @relation("SuppliesReceived")
-  company          Company?         @relation(fields: [companyId], references: [id])
-  organization     Organization     @relation(fields: [organizationId], references: [id])
+  batchesCreated   ProductBatch[]    @relation("BatchesCreated")
+  suppliesBrought  Supply[]          @relation("SuppliedBy")
+  suppliesReceived Supply[]          @relation("SuppliesReceived")
+  company          Company?          @relation(fields: [companyId], references: [id])
+  organization     Organization      @relation(fields: [organizationId], references: [id])
+  appsEnabled      OrganizationApp[]
 
   @@index([organizationId])
 }
