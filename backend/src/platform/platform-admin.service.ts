@@ -82,7 +82,10 @@ export class PlatformAdminService {
   private async setOrgActive(id: string, isActive: boolean) {
     const org = await this.prisma.organization.findUnique({ where: { id } });
     if (!org) throw new NotFoundException('Байгууллага олдсонгүй');
-    await this.prisma.organization.update({ where: { id }, data: { isActive } });
+    await this.prisma.organization.update({
+      where: { id },
+      data: { isActive },
+    });
     return { ok: true, id, isActive };
   }
 

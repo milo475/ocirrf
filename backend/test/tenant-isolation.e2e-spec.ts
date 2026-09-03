@@ -94,7 +94,9 @@ describe('Байгууллагын тусгаарлалт (multi-tenancy e2e)', 
     }).compile();
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix('api');
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     await app.init();
     http = app.getHttpServer();
     prisma = new PrismaClient({
@@ -224,18 +226,27 @@ describe('Байгууллагын тусгаарлалт (multi-tenancy e2e)', 
         .expect(201);
       orderAId = o.body.id;
 
-      const prodsB = await api().get('/api/products').set(auth(tokB)).expect(200);
+      const prodsB = await api()
+        .get('/api/products')
+        .set(auth(tokB))
+        .expect(200);
       const listB: Array<{ id: string }> = prodsB.body.items ?? prodsB.body;
       expect(listB.some((x) => x.id === productAId)).toBe(false);
 
-      const ordersB = await api().get('/api/orders').set(auth(tokB)).expect(200);
+      const ordersB = await api()
+        .get('/api/orders')
+        .set(auth(tokB))
+        .expect(200);
       expect(
         ordersB.body.items.some((x: { id: string }) => x.id === orderAId),
       ).toBe(false);
     });
 
     it('Б нь А-гийн бараа/захиалгыг id-гээр ч авахгүй (404) ⭐', async () => {
-      await api().get(`/api/products/${productAId}`).set(auth(tokB)).expect(404);
+      await api()
+        .get(`/api/products/${productAId}`)
+        .set(auth(tokB))
+        .expect(404);
       await api().get(`/api/orders/${orderAId}`).set(auth(tokB)).expect(404);
       // Өөрчлөх оролдлого ч 404 — байдаг эсэхийг нь ч мэдэхгүй
       await api()
@@ -341,7 +352,10 @@ describe('Байгууллагын тусгаарлалт (multi-tenancy e2e)', 
         .field('district', 'ХУД')
         .field('khoroo', '11')
         .field('building', 'Тест байр')
-        .attach('proof', PNG, { filename: 'proof.png', contentType: 'image/png' })
+        .attach('proof', PNG, {
+          filename: 'proof.png',
+          contentType: 'image/png',
+        })
         .field('items', JSON.stringify([{ productId: productAId, qty: 1 }]))
         .expect(201);
       requestAId = res.body.id;

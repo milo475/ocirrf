@@ -62,15 +62,10 @@ export function formatFullAddress(a: AddressFields): string {
     return parts.join(', ');
   }
 
-  const base = [
-    a.province,
-    a.soum ? `${a.soum} сум` : null,
-  ]
+  const base = [a.province, a.soum ? `${a.soum} сум` : null]
     .filter(Boolean)
     .join(', ');
-  const withTransport = a.transport
-    ? `${base} — Тээвэр: ${a.transport}`
-    : base;
+  const withTransport = a.transport ? `${base} — Тээвэр: ${a.transport}` : base;
   return a.addressDetail
     ? `${withTransport}, ${a.addressDetail}`
     : withTransport;

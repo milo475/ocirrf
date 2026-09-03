@@ -133,7 +133,6 @@ export class CreateOrderDto {
   @IsEnum(OrderChannel, { message: 'Суваг буруу' })
   channel?: OrderChannel;
 
-
   /**
    * "Төлсөн" гэж үүсгэх — бүтэн төлбөр нь захиалгатай нэг transaction-д
    * бүртгэгдэнэ (Payment + INCOME entry).

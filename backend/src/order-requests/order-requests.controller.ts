@@ -24,10 +24,7 @@ import { RequirePermission } from '../permissions/require-permission.decorator';
 import { PublicOrderRequestDto } from './dto/public-order-request.dto';
 import { OrderRequestsService } from './order-requests.service';
 import { assertRealImage } from '../uploads/image-content.util';
-import {
-  ConvertRequestDto,
-  RejectRequestDto,
-} from './dto/handle-request.dto';
+import { ConvertRequestDto, RejectRequestDto } from './dto/handle-request.dto';
 
 const IMAGE_MIME: Record<string, string> = {
   'image/jpeg': '.jpg',
@@ -38,7 +35,10 @@ const IMAGE_MIME: Record<string, string> = {
 const proofStorage = diskStorage({
   destination: UPLOADS_DIR,
   filename: (_req, file, cb) => {
-    cb(null, randomBytes(16).toString('hex') + (IMAGE_MIME[file.mimetype] ?? '.jpg'));
+    cb(
+      null,
+      randomBytes(16).toString('hex') + (IMAGE_MIME[file.mimetype] ?? '.jpg'),
+    );
   },
 });
 

@@ -220,8 +220,7 @@ export class UsersService {
       throw new NotFoundException('Хэрэглэгч олдсонгүй');
     }
     // Төстэй харагддаг тэмдэгтгүй (0/O, 1/l/I) цагаан толгой
-    const alphabet =
-      'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
     const tempPassword = Array.from(randomBytes(8))
       .map((b) => alphabet[b % alphabet.length])
       .join('');

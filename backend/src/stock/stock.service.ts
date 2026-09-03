@@ -56,9 +56,7 @@ export class StockService {
 
       if (product.stockQty < 0) {
         // throw хийснээр increment мөн буцаагдана
-        throw new BadRequestException(
-          'Үлдэгдэл хасах хэмжээнээс бага байна',
-        );
+        throw new BadRequestException('Үлдэгдэл хасах хэмжээнээс бага байна');
       }
 
       const movement = await tx.stockMovement.create({

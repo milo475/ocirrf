@@ -38,7 +38,10 @@ const IMAGE_MIME: Record<string, string> = {
 const imageStorage = diskStorage({
   destination: UPLOADS_DIR,
   filename: (_req, file, cb) => {
-    cb(null, randomBytes(16).toString('hex') + (IMAGE_MIME[file.mimetype] ?? '.jpg'));
+    cb(
+      null,
+      randomBytes(16).toString('hex') + (IMAGE_MIME[file.mimetype] ?? '.jpg'),
+    );
   },
 });
 

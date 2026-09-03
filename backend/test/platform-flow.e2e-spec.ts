@@ -30,7 +30,9 @@ describe('Платформын бүтэн урсгал (integration)', () => {
     }).compile();
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix('api');
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     await app.init();
     http = app.getHttpServer();
     prisma = new PrismaClient({
@@ -97,10 +99,7 @@ describe('Платформын бүтэн урсгал (integration)', () => {
     const tok2 = two.body.accessToken;
     orgIds.push(two.body.user.organizationId);
 
-    const prods2 = await api()
-      .get('/api/products')
-      .set(auth(tok2))
-      .expect(200);
+    const prods2 = await api().get('/api/products').set(auth(tok2)).expect(200);
     expect(prods2.body.items ?? prods2.body).toHaveLength(0);
     await api()
       .get(`/api/products/${product.body.id}`)
@@ -133,10 +132,7 @@ describe('Платформын бүтэн урсгал (integration)', () => {
 
     // 6. Superadmin эрх нь байгууллагын тусгаарлалтыг ЭВДЭЭГҮЙ:
     // энгийн API-гаар 1-р админ 2-ын барааг мөн л харахгүй
-    const prods1 = await api()
-      .get('/api/products')
-      .set(auth(tok1))
-      .expect(200);
+    const prods1 = await api().get('/api/products').set(auth(tok1)).expect(200);
     const list1: Array<{ id: string }> = prods1.body.items ?? prods1.body;
     expect(list1.some((p) => p.id === product.body.id)).toBe(true);
     expect(list1).toHaveLength(1);

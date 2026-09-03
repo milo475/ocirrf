@@ -102,8 +102,6 @@ export class NotificationsService {
     return out;
   }
 
-
-
   /** Идэвхтэй тодорхой эрхтэй хэрэглэгчдийн id */
   private async activeByRole(roles: Role[]): Promise<string[]> {
     const users = await this.prisma.user.findMany({
@@ -185,7 +183,10 @@ export class NotificationsService {
   }
 
   /** Захиалга хуваарилагдахад — жолоочид */
-  async notifyDriverAssigned(driverId: string, order: { id: string; orderNo: string }) {
+  async notifyDriverAssigned(
+    driverId: string,
+    order: { id: string; orderNo: string },
+  ) {
     await this.notify([driverId], {
       type: 'DELIVERY_ASSIGNED',
       title: `Шинэ хүргэлт: ${order.orderNo}`,
@@ -311,7 +312,12 @@ export class NotificationsService {
 
   // ── Хэрэглэгчийн endpoint-ууд (зөвхөн өөрийнх) ──
 
-  async list(userId: string, unread: boolean | undefined, page = 1, limit = 20) {
+  async list(
+    userId: string,
+    unread: boolean | undefined,
+    page = 1,
+    limit = 20,
+  ) {
     const where = { userId, ...(unread ? { isRead: false } : {}) };
     const [items, total] = await Promise.all([
       this.prisma.notification.findMany({

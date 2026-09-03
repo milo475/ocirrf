@@ -242,7 +242,8 @@ export class FinanceService {
 
     return groups.map((g) => {
       const driver = byId.get(g.assignedDriverId!);
-      const fee = driver?.driverProfile?.feePerDelivery ?? new Prisma.Decimal(0);
+      const fee =
+        driver?.driverProfile?.feePerDelivery ?? new Prisma.Decimal(0);
       return {
         driverId: g.assignedDriverId,
         driverName: driver?.fullName ?? '?',
@@ -359,7 +360,6 @@ export class FinanceService {
       orderBy: { periodEnd: 'desc' },
     });
   }
-
 
   /**
    * САНХҮҮГИЙН БАЙРЛАЛ — «одоо юу байна» гэдгийг харуулна.

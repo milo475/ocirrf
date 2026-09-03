@@ -136,9 +136,7 @@ export class DeliveryService {
       customerName: full.customerName,
       phone: full.phone,
       address: formatShortAddress(full),
-      items: full.items
-        .map((i) => `${i.productName} ×${i.qty}`)
-        .join(', '),
+      items: full.items.map((i) => `${i.productName} ×${i.qty}`).join(', '),
       total: money(full.totalAmount),
       driverName,
       priorOrders: prior._count._all,
@@ -225,59 +223,63 @@ export class DeliveryService {
     };
     const [orders, deliveredToday, drivers, activeGroups, todayGroups] =
       await Promise.all([
-      this.prisma.order.findMany({
-        where: {
-          deliveryStatus: {
-            in: [
-              DeliveryStatus.PENDING,
-              DeliveryStatus.ASSIGNED,
-              DeliveryStatus.ON_THE_WAY,
-              DeliveryStatus.FAILED,
-            ],
+        this.prisma.order.findMany({
+          where: {
+            deliveryStatus: {
+              in: [
+                DeliveryStatus.PENDING,
+                DeliveryStatus.ASSIGNED,
+                DeliveryStatus.ON_THE_WAY,
+                DeliveryStatus.FAILED,
+              ],
+            },
+            orderStatus: {
+              notIn: [
+                OrderStatus.CANCELLED,
+                OrderStatus.COMPLETED,
+                OrderStatus.NEW,
+              ],
+            },
           },
-          orderStatus: {
-            notIn: [OrderStatus.CANCELLED, OrderStatus.COMPLETED, OrderStatus.NEW],
+          select: BOARD_SELECT,
+          orderBy: { createdAt: 'asc' },
+        }),
+        this.prisma.order.findMany({
+          where: {
+            deliveryStatus: DeliveryStatus.DELIVERED,
+            deliveredAt: { gte: today },
           },
-        },
-        select: BOARD_SELECT,
-        orderBy: { createdAt: 'asc' },
-      }),
-      this.prisma.order.findMany({
-        where: {
-          deliveryStatus: DeliveryStatus.DELIVERED,
-          deliveredAt: { gte: today },
-        },
-        select: BOARD_SELECT,
-        orderBy: { deliveredAt: 'desc' },
-      }),
-      this.prisma.user.findMany({
-        where: { role: 'DRIVER', isActive: true },
-        select: {
-          id: true,
-          fullName: true,
-          driverProfile: { select: { isAvailable: true } },
-        },
-      }),
-      this.prisma.order.groupBy({
-        by: ['assignedDriverId'],
-        where: {
-          assignedDriverId: { not: null },
-          deliveryStatus: {
-            in: [DeliveryStatus.ASSIGNED, DeliveryStatus.ON_THE_WAY],
+          select: BOARD_SELECT,
+          orderBy: { deliveredAt: 'desc' },
+        }),
+        this.prisma.user.findMany({
+          where: { role: 'DRIVER', isActive: true },
+          select: {
+            id: true,
+            fullName: true,
+            driverProfile: { select: { isAvailable: true } },
           },
-        },
-        _count: { _all: true },
-      }),
-      this.prisma.order.groupBy({
-        by: ['assignedDriverId'],
-        where: {
-          assignedDriverId: { not: null },
-          deliveryStatus: DeliveryStatus.DELIVERED,
-          deliveredAt: { gte: today },
-        },
-        _count: { _all: true },
-      }),
-    ]);
+        }),
+        this.prisma.order.groupBy({
+          by: ['assignedDriverId'],
+          where: {
+            assignedDriverId: { not: null },
+            deliveryStatus: {
+              in: [DeliveryStatus.ASSIGNED, DeliveryStatus.ON_THE_WAY],
+            },
+          },
+          _count: { _all: true },
+        }),
+        this.prisma.order.groupBy({
+          by: ['assignedDriverId'],
+          where: {
+            assignedDriverId: { not: null },
+            deliveryStatus: DeliveryStatus.DELIVERED,
+            deliveredAt: { gte: today },
+          },
+          _count: { _all: true },
+        }),
+      ]);
 
     const board: Record<string, unknown[]> = {
       PENDING: [],
@@ -325,63 +327,64 @@ export class DeliveryService {
 
     const [users, activeGroups, todayGroups, totalGroups, assignedGroups] =
       await Promise.all([
-      this.prisma.user.findMany({
-        where: { role: 'DRIVER' },
-        select: {
-          id: true,
-          fullName: true,
-          username: true,
-          isActive: true,
-          createdAt: true,
-          driverProfile: {
-            select: {
-              feePerDelivery: true,
-              vehicleInfo: true,
-              isAvailable: true,
-              employmentType: true,
-              zones: true,
+        this.prisma.user.findMany({
+          where: { role: 'DRIVER' },
+          select: {
+            id: true,
+            fullName: true,
+            username: true,
+            isActive: true,
+            createdAt: true,
+            driverProfile: {
+              select: {
+                feePerDelivery: true,
+                vehicleInfo: true,
+                isAvailable: true,
+                employmentType: true,
+                zones: true,
+              },
             },
           },
-        },
-        orderBy: { createdAt: 'asc' },
-      }),
-      this.prisma.order.groupBy({
-        by: ['assignedDriverId'],
-        where: {
-          assignedDriverId: { not: null },
-          deliveryStatus: {
-            in: [DeliveryStatus.ASSIGNED, DeliveryStatus.ON_THE_WAY],
+          orderBy: { createdAt: 'asc' },
+        }),
+        this.prisma.order.groupBy({
+          by: ['assignedDriverId'],
+          where: {
+            assignedDriverId: { not: null },
+            deliveryStatus: {
+              in: [DeliveryStatus.ASSIGNED, DeliveryStatus.ON_THE_WAY],
+            },
           },
-        },
-        _count: { _all: true },
-      }),
-      this.prisma.order.groupBy({
-        by: ['assignedDriverId'],
-        where: {
-          assignedDriverId: { not: null },
-          deliveryStatus: DeliveryStatus.DELIVERED,
-          deliveredAt: { gte: today },
-        },
-        _count: { _all: true },
-      }),
-      this.prisma.order.groupBy({
-        by: ['assignedDriverId'],
-        where: {
-          assignedDriverId: { not: null },
-          deliveryStatus: DeliveryStatus.DELIVERED,
-        },
-        _count: { _all: true },
-      }),
-      // Хуваарилагдсан нийт (DR% = хүргэсэн ÷ хуваарилагдсан)
-      this.prisma.order.groupBy({
-        by: ['assignedDriverId'],
-        where: { assignedDriverId: { not: null } },
-        _count: { _all: true },
-      }),
-    ]);
+          _count: { _all: true },
+        }),
+        this.prisma.order.groupBy({
+          by: ['assignedDriverId'],
+          where: {
+            assignedDriverId: { not: null },
+            deliveryStatus: DeliveryStatus.DELIVERED,
+            deliveredAt: { gte: today },
+          },
+          _count: { _all: true },
+        }),
+        this.prisma.order.groupBy({
+          by: ['assignedDriverId'],
+          where: {
+            assignedDriverId: { not: null },
+            deliveryStatus: DeliveryStatus.DELIVERED,
+          },
+          _count: { _all: true },
+        }),
+        // Хуваарилагдсан нийт (DR% = хүргэсэн ÷ хуваарилагдсан)
+        this.prisma.order.groupBy({
+          by: ['assignedDriverId'],
+          where: { assignedDriverId: { not: null } },
+          _count: { _all: true },
+        }),
+      ]);
 
-    const countBy = (groups: { assignedDriverId: string | null; _count: { _all: number } }[]) =>
-      new Map(groups.map((g) => [g.assignedDriverId, g._count._all]));
+    const countBy = (
+      groups: { assignedDriverId: string | null; _count: { _all: number } }[],
+    ) => new Map(groups.map((g) => [g.assignedDriverId, g._count._all]));
     const activeBy = countBy(activeGroups);
     const todayBy = countBy(todayGroups);
     const totalBy = countBy(totalGroups);
@@ -525,9 +528,7 @@ export class DeliveryService {
         });
         continue;
       }
-      candidates.sort(
-        (a, b) => (load.get(a.id) ?? 0) - (load.get(b.id) ?? 0),
-      );
+      candidates.sort((a, b) => (load.get(a.id) ?? 0) - (load.get(b.id) ?? 0));
       const pick = candidates[0];
       try {
         await this.assignDriver(o.id, pick.id);

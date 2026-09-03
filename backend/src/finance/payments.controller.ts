@@ -7,12 +7,7 @@ import {
   ParseUUIDPipe,
   Post,
 } from '@nestjs/common';
-import {
-  IsEnum,
-  IsOptional,
-  IsString,
-  Matches,
-} from 'class-validator';
+import { IsEnum, IsOptional, IsString, Matches } from 'class-validator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../auth/decorators/current-user.decorator';
 import { PaymentMethod } from '../generated/prisma/client';
@@ -30,7 +25,9 @@ class CreatePaymentDto {
   })
   amount: string;
 
-  @IsEnum(PaymentMethod, { message: 'Хэлбэр буруу — зөвхөн TRANSFER (бэлэн мөнгө байхгүй)' })
+  @IsEnum(PaymentMethod, {
+    message: 'Хэлбэр буруу — зөвхөн TRANSFER (бэлэн мөнгө байхгүй)',
+  })
   method: PaymentMethod;
 
   @IsOptional()

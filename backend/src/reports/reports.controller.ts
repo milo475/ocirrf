@@ -33,7 +33,11 @@ export class ReportsController {
   @Get('delivery.csv')
   @RequirePermission(PERM.REPORTS_DELIVERY)
   async delivery(@Query() q: RangeDto, @Res() res: Response) {
-    sendCsv(res, 'delivery', await this.reportsService.deliveryCsv(q.from, q.to));
+    sendCsv(
+      res,
+      'delivery',
+      await this.reportsService.deliveryCsv(q.from, q.to),
+    );
   }
 
   @Get('inventory.csv')
@@ -60,6 +64,10 @@ export class ReportsController {
     @CurrentUser() user: AuthUser,
     @Res() res: Response,
   ) {
-    sendCsv(res, 'orlogo-tailan', await this.reportsService.pnlCsv(q.from, q.to, user));
+    sendCsv(
+      res,
+      'orlogo-tailan',
+      await this.reportsService.pnlCsv(q.from, q.to, user),
+    );
   }
 }

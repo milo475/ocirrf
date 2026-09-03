@@ -153,7 +153,6 @@ export class AuthService {
     return this.issueTokens(updated);
   }
 
-
   /**
    * БАЙГУУЛЛАГЫН НЭЭЛТТЭЙ БҮРТГЭЛ (Multi-tenancy). Байгууллага + эхний
    * ADMIN хэрэглэгч + companyName тохиргоо нэг transaction-д үүсээд

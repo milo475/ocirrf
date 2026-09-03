@@ -40,7 +40,9 @@ export class CreateApplicationDto {
 
   /** hex өнгө, жишээ #8b2635 */
   @IsString()
-  @Matches(/^#[0-9a-fA-F]{6}$/, { message: 'Өнгө hex хэлбэртэй байна (#rrggbb)' })
+  @Matches(/^#[0-9a-fA-F]{6}$/, {
+    message: 'Өнгө hex хэлбэртэй байна (#rrggbb)',
+  })
   color: string;
 
   @IsOptional()

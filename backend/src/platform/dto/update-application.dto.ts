@@ -41,7 +41,9 @@ export class UpdateApplicationDto {
 
   @IsOptional()
   @IsString()
-  @Matches(/^#[0-9a-fA-F]{6}$/, { message: 'Өнгө hex хэлбэртэй байна (#rrggbb)' })
+  @Matches(/^#[0-9a-fA-F]{6}$/, {
+    message: 'Өнгө hex хэлбэртэй байна (#rrggbb)',
+  })
   color?: string;
 
   @IsOptional()

@@ -36,7 +36,9 @@ describe('SUPERADMIN платформ консол (e2e)', () => {
     }).compile();
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix('api');
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     await app.init();
     http = app.getHttpServer();
     prisma = new PrismaClient({
@@ -114,9 +116,7 @@ describe('SUPERADMIN платформ консол (e2e)', () => {
     const names = res.body.map((o: { name: string }) => o.name);
     expect(names).toContain(`ПА-Супер ${T}`);
     expect(names).toContain(`ПА-Энгийн ${T}`);
-    const plain = res.body.find(
-      (o: { id: string }) => o.id === orgPlainId,
-    );
+    const plain = res.body.find((o: { id: string }) => o.id === orgPlainId);
     expect(plain.userCount).toBe(1);
     expect(plain.apps.some((a: { key: string }) => a.key === 'ursgal')).toBe(
       true,

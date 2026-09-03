@@ -97,14 +97,13 @@ export class AnalyticsService {
         zero,
       );
       const key = keyOf(o.createdAt);
-      const row =
-        buckets.get(key) ?? {
-          bucket: key,
-          count: 0,
-          amount: zero,
-          cost: zero,
-          profit: zero,
-        };
+      const row = buckets.get(key) ?? {
+        bucket: key,
+        count: 0,
+        amount: zero,
+        cost: zero,
+        profit: zero,
+      };
       row.count += 1;
       row.amount = row.amount.add(orderAmount);
       row.cost = row.cost.add(orderCost);

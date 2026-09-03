@@ -49,19 +49,21 @@ export class PlatformService {
       include: { application: true },
       orderBy: { application: { sortOrder: 'asc' } },
     });
-    return rows
-      // Каталогоос DISABLED болгосон app идэвхжүүлэлттэй ч харагдахгүй
-      .filter((r) => r.application.status === AppStatus.ACTIVE)
-      .map((r) => ({
-        key: r.application.key,
-        nameMn: r.application.nameMn,
-        nameEn: r.application.nameEn,
-        descriptionMn: r.application.descriptionMn,
-        icon: r.application.icon,
-        color: r.application.color,
-        sortOrder: r.application.sortOrder,
-        enabledAt: r.enabledAt,
-      }));
+    return (
+      rows
+        // Каталогоос DISABLED болгосон app идэвхжүүлэлттэй ч харагдахгүй
+        .filter((r) => r.application.status === AppStatus.ACTIVE)
+        .map((r) => ({
+          key: r.application.key,
+          nameMn: r.application.nameMn,
+          nameEn: r.application.nameEn,
+          descriptionMn: r.application.descriptionMn,
+          icon: r.application.icon,
+          color: r.application.color,
+          sortOrder: r.application.sortOrder,
+          enabledAt: r.enabledAt,
+        }))
+    );
   }
 
   /**

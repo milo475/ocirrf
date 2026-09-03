@@ -151,7 +151,9 @@ export class ProductsService {
   /** Байршуулсан зургийг барааны imageUrl-д холбоно (V5) */
   async setImage(id: string, filename?: string) {
     if (!filename) {
-      throw new BadRequestException('Зураг илгээнэ үү (jpg/png/webp, 3MB хүртэл)');
+      throw new BadRequestException(
+        'Зураг илгээнэ үү (jpg/png/webp, 3MB хүртэл)',
+      );
     }
     await this.findOne(id);
     return this.prisma.product.update({

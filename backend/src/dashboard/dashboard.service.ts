@@ -181,9 +181,9 @@ export class DashboardService {
       deliveriesInProgress,
       deliveredTotal,
       totalIncome: incomeAgg._sum.amount ?? 0,
-      totalProfit: new Prisma.Decimal(
-        String(profitRows[0]?.revenue ?? 0),
-      ).sub(new Prisma.Decimal(String(profitRows[0]?.cost ?? 0))),
+      totalProfit: new Prisma.Decimal(String(profitRows[0]?.revenue ?? 0)).sub(
+        new Prisma.Decimal(String(profitRows[0]?.cost ?? 0)),
+      ),
       last7Days: [...days.values()],
       topDrivers,
     };
@@ -318,7 +318,9 @@ export class DashboardService {
       this.prisma.order.findMany({
         where: {
           deliveryStatus: DeliveryStatus.FAILED,
-          orderStatus: { notIn: [OrderStatus.COMPLETED, OrderStatus.CANCELLED] },
+          orderStatus: {
+            notIn: [OrderStatus.COMPLETED, OrderStatus.CANCELLED],
+          },
         },
         include: { assignedDriver: { select: { fullName: true } } },
         orderBy: { updatedAt: 'desc' },
@@ -452,7 +454,12 @@ export class DashboardService {
       this.prisma.stockMovement.findMany({
         where: { createdAt: { gte: since90 } },
         orderBy: { createdAt: 'asc' },
-        select: { productId: true, qtyChange: true, reason: true, createdAt: true },
+        select: {
+          productId: true,
+          qtyChange: true,
+          reason: true,
+          createdAt: true,
+        },
       }),
     ]);
 
@@ -479,7 +486,8 @@ export class DashboardService {
         );
         if (weeksAgo < 4) weeklyOut[weeksAgo] += -m.qtyChange;
       }
-      const weeklyAvgOut = (weeklyOut[0] + weeklyOut[1] + weeklyOut[2] + weeklyOut[3]) / 4;
+      const weeklyAvgOut =
+        (weeklyOut[0] + weeklyOut[1] + weeklyOut[2] + weeklyOut[3]) / 4;
       const reorderLevel = Math.max(5, Math.ceil(weeklyAvgOut * 2));
 
       // Сүүлийн нөхөн дүүргэлт: эерэг, цуцлалт биш movement
@@ -503,13 +511,17 @@ export class DashboardService {
         if (ratio >= 0.5) return -10;
         return -30;
       };
-      drivers.push({ label: 'Үлдэгдлийн хүрэлцээ', points: adequacy(p.stockQty) });
+      drivers.push({
+        label: 'Үлдэгдлийн хүрэлцээ',
+        points: adequacy(p.stockQty),
+      });
 
       // Зарлагын хурд: сүүлийн 2 долоо хоног vs өмнөх 2 долоо хоног
       const recent = weeklyOut[0] + weeklyOut[1];
       const prev = weeklyOut[2] + weeklyOut[3];
       let trendPoints = 0;
-      if (prev > 0 && recent < prev * 0.8) trendPoints = 8; // буурч байгаа
+      if (prev > 0 && recent < prev * 0.8)
+        trendPoints = 8; // буурч байгаа
       else if (recent > Math.max(prev, 1) * 1.5) trendPoints = -15; // огцом өссөн
       drivers.push({ label: 'Зарлагын хурд', points: trendPoints });
 
@@ -541,9 +553,7 @@ export class DashboardService {
       }
 
       // --- 13 долоо хоногийн түүх: үлдэгдлийг ухраан сэргээнэ ---
-      const otherPoints = drivers
-        .slice(1)
-        .reduce((a, d) => a + d.points, 0);
+      const otherPoints = drivers.slice(1).reduce((a, d) => a + d.points, 0);
       const healthHistory: number[] = [];
       for (let w = 12; w >= 1; w--) {
         const t = now.getTime() - w * WEEK_MS;
@@ -553,7 +563,11 @@ export class DashboardService {
           .reduce((a, m) => a + m.qtyChange, 0);
         const qtyAtT = p.stockQty - changeAfterT;
         healthHistory.push(
-          clamp(BASE_SCORE + adequacy(Math.max(0, qtyAtT)) + otherPoints, 0, 100),
+          clamp(
+            BASE_SCORE + adequacy(Math.max(0, qtyAtT)) + otherPoints,
+            0,
+            100,
+          ),
         );
       }
       healthHistory.push(stockHealth); // сүүлийнх нь ЯГ одоогийн оноо

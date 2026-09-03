@@ -1,11 +1,5 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
-import {
-  appendFile,
-  mkdir,
-  readFile,
-  readdir,
-  unlink,
-} from 'node:fs/promises';
+import { appendFile, mkdir, readFile, readdir, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 
 /**

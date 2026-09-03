@@ -56,7 +56,6 @@ export class AuthController {
     );
   }
 
-
   /**
    * Байгууллагын нээлттэй бүртгэл (Multi-tenancy) — байгууллага +
    * эхний ADMIN нэг алхамд үүсээд шууд нэвтэрнэ.
@@ -89,7 +88,10 @@ export class AuthController {
   @AllowTempPassword()
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: CHANGE_PASSWORD_LIMIT, ttl: 60_000 } })
-  changePassword(@Body() dto: ChangePasswordDto, @CurrentUser() user: AuthUser) {
+  changePassword(
+    @Body() dto: ChangePasswordDto,
+    @CurrentUser() user: AuthUser,
+  ) {
     return this.authService.changePassword(user.id, dto);
   }
 

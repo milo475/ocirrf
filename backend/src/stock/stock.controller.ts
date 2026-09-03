@@ -4,10 +4,7 @@ import type { AuthUser } from '../auth/decorators/current-user.decorator';
 import { PERM } from '../permissions/permission-keys';
 import { RequirePermission } from '../permissions/require-permission.decorator';
 import { AdjustStockDto } from './dto/adjust-stock.dto';
-import {
-  QueryMovementsDto,
-  QuerySummaryDto,
-} from './dto/query-movements.dto';
+import { QueryMovementsDto, QuerySummaryDto } from './dto/query-movements.dto';
 import { StockService } from './stock.service';
 
 @Controller('stock')

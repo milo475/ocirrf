@@ -45,11 +45,7 @@ const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
     OrderStatus.COMPLETED,
     OrderStatus.CANCELLED,
   ],
-  PREPARING: [
-    OrderStatus.READY,
-    OrderStatus.COMPLETED,
-    OrderStatus.CANCELLED,
-  ],
+  PREPARING: [OrderStatus.READY, OrderStatus.COMPLETED, OrderStatus.CANCELLED],
   READY: [OrderStatus.COMPLETED],
   COMPLETED: [],
   CANCELLED: [],
@@ -105,7 +101,6 @@ export class OrdersService {
     if (new Set(ids).size !== ids.length) {
       throw new BadRequestException('Нэг бараа давхардаж орсон байна');
     }
-
 
     const MAX_ATTEMPTS = 3;
     for (let attempt = 1; ; attempt++) {

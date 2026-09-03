@@ -26,7 +26,6 @@ export class SettingsController {
     return { companyName: 'ocirrf', companyPhone: '' };
   }
 
-
   @Put()
   @RequirePermission(PERM.SETTINGS_EDIT)
   update(@Body() body: Record<string, string>) {

@@ -4,7 +4,6 @@ import { PERM } from '../permissions/permission-keys';
 import { RequirePermission } from '../permissions/require-permission.decorator';
 import { PrismaService } from '../prisma/prisma.service';
 
-
 @Controller('customers')
 export class CustomersController {
   constructor(private readonly prisma: PrismaService) {}
@@ -54,7 +53,6 @@ export class CustomersController {
     });
   }
 
-
   /**
    * Нэг хэрэглэгчийн ХУДАЛДАН АВАЛТЫН ТҮҮХ утсаар нь (V5).
    *
@@ -89,7 +87,10 @@ export class CustomersController {
       liveTotal = liveTotal.plus(o.totalAmount);
       paidTotal = paidTotal.plus(o.paidAmount);
       for (const i of o.items) {
-        const cur = byProduct.get(i.productId) ?? { name: i.productName, qty: 0 };
+        const cur = byProduct.get(i.productId) ?? {
+          name: i.productName,
+          qty: 0,
+        };
         cur.qty += i.qty;
         byProduct.set(i.productId, cur);
       }
@@ -97,9 +98,7 @@ export class CustomersController {
 
     return {
       phone: value,
-      names: [
-        ...new Set(orders.map((o) => o.customerName).filter(Boolean)),
-      ],
+      names: [...new Set(orders.map((o) => o.customerName).filter(Boolean))],
       orders: orders.map((o) => ({
         id: o.id,
         orderNo: o.orderNo,
@@ -161,5 +160,4 @@ export class CustomersController {
       lastOrderAt: g._max.createdAt,
     }));
   }
-
 }

@@ -68,26 +68,24 @@ import { WarehouseModule } from './warehouse/warehouse.module';
     // uploads/ нь ЭНД БИШ — UploadsModule-ээр эрхийн хамгаалалттай
     // үйлчлэгдэнэ (V5). ServeStatic нь guard-аар дамждаггүй тул
     // гүйлгээний баримт, хүргэлтийн зураг нэвтрэлтгүй задардаг байв.
-    ServeStaticModule.forRoot(
-      {
-        rootPath: join(__dirname, '..', '..', 'frontend', 'dist'),
-        exclude: ['/api/{*path}'],
-        serveStaticOptions: {
-          setHeaders: (res: ServerResponse, path: string) => {
-            if (path.endsWith('.html')) {
-              // index.html хэзээ ч cache-лэгдэхгүй — шинэ build шууд очно
-              res.setHeader('Cache-Control', 'no-store');
-            } else if (path.includes('/assets/')) {
-              // hash-тай asset-ууд — урт хугацааны cache
-              res.setHeader(
-                'Cache-Control',
-                'public, max-age=31536000, immutable',
-              );
-            }
-          },
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', '..', 'frontend', 'dist'),
+      exclude: ['/api/{*path}'],
+      serveStaticOptions: {
+        setHeaders: (res: ServerResponse, path: string) => {
+          if (path.endsWith('.html')) {
+            // index.html хэзээ ч cache-лэгдэхгүй — шинэ build шууд очно
+            res.setHeader('Cache-Control', 'no-store');
+          } else if (path.includes('/assets/')) {
+            // hash-тай asset-ууд — урт хугацааны cache
+            res.setHeader(
+              'Cache-Control',
+              'public, max-age=31536000, immutable',
+            );
+          }
         },
       },
-    ),
+    }),
     PrismaModule,
     PermissionsModule,
     PlatformModule,

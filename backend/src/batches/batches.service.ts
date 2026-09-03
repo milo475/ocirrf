@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { OrgContext } from '../org/org-context';
 import { PrismaService } from '../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.service';
@@ -71,7 +75,10 @@ export class BatchesService {
       orderBy: { expiryDate: 'asc' },
     });
 
-    const buckets: Record<ExpiryState, { batches: number; qty: number; value: number }> = {
+    const buckets: Record<
+      ExpiryState,
+      { batches: number; qty: number; value: number }
+    > = {
       EXPIRED: { batches: 0, qty: 0, value: 0 },
       CRITICAL: { batches: 0, qty: 0, value: 0 },
       WARNING: { batches: 0, qty: 0, value: 0 },
@@ -108,7 +115,9 @@ export class BatchesService {
    */
   async create(dto: CreateBatchDto, user: AuthUser) {
     return this.prisma.$transaction(async (tx) => {
-      const product = await tx.product.findUnique({ where: { id: dto.productId } });
+      const product = await tx.product.findUnique({
+        where: { id: dto.productId },
+      });
       if (!product) throw new NotFoundException('Бараа олдсонгүй');
 
       const open = await tx.productBatch.aggregate({

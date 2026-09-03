@@ -79,7 +79,10 @@ export function countsInPnl(type: 'INCOME' | 'EXPENSE', code: string): boolean {
 }
 
 /** DB-д байгаа код → харагдах нэр (танихгүй бол кодоо буцаана) */
-export function categoryLabel(type: 'INCOME' | 'EXPENSE', code: string): string {
+export function categoryLabel(
+  type: 'INCOME' | 'EXPENSE',
+  code: string,
+): string {
   const all = type === 'INCOME' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
   return all[code]?.label ?? code;
 }

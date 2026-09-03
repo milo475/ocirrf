@@ -110,7 +110,15 @@ export class ReportsService {
       orderBy: { createdAt: 'asc' },
     });
     return toCsv(
-      ['Огноо', 'Бараа', 'SKU', 'Өөрчлөлт', 'Шалтгаан', 'Тэмдэглэл', 'Хэрэглэгч'],
+      [
+        'Огноо',
+        'Бараа',
+        'SKU',
+        'Өөрчлөлт',
+        'Шалтгаан',
+        'Тэмдэглэл',
+        'Хэрэглэгч',
+      ],
       moves.map((m) => [
         fmtDate(m.createdAt),
         m.product?.name ?? '—',
@@ -151,7 +159,11 @@ export class ReportsService {
    * ОРООГҮЙ мөнгөн гүйлгээг тусад нь жагсаана — нягтлан яагаад
    * хасагдсаныг харж, өөрийн бүртгэлдээ зөв тусгана.
    */
-  async pnlCsv(from: string | undefined, to: string | undefined, user: AuthUser) {
+  async pnlCsv(
+    from: string | undefined,
+    to: string | undefined,
+    user: AuthUser,
+  ) {
     const { start, end } = range(from, to);
     const d = await this.finance.pnl(start, end, user);
 
@@ -171,7 +183,10 @@ export class ReportsService {
     }
 
     return toCsv(
-      [`Орлого тайлан ${fmtDate(start).slice(0, 10)} — ${fmtDate(end).slice(0, 10)}`, '₮'],
+      [
+        `Орлого тайлан ${fmtDate(start).slice(0, 10)} — ${fmtDate(end).slice(0, 10)}`,
+        '₮',
+      ],
       rows,
     );
   }

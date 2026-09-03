@@ -146,7 +146,9 @@ describe('ocirrf v2 API (e2e)', () => {
     }).compile();
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix('api');
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     await app.init();
     http = app.getHttpServer();
     prisma = new PrismaClient({
@@ -327,7 +329,10 @@ describe('ocirrf v2 API (e2e)', () => {
         ['operator', 'OPERATOR'],
         ['driver', 'DRIVER'],
       ] as const) {
-        const res = await api().get('/api/auth/me').set(auth(tok[u])).expect(200);
+        const res = await api()
+          .get('/api/auth/me')
+          .set(auth(tok[u]))
+          .expect(200);
         expect(res.body.role).toBe(role);
         expect(res.body.passwordHash).toBeUndefined();
       }
@@ -364,7 +369,12 @@ describe('ocirrf v2 API (e2e)', () => {
       ['manager admin dashboard', 'get', '/api/dashboard/admin', 'manager'],
       ['admin driver dashboard', 'get', '/api/dashboard/driver', 'admin'],
       ['operator stock summary', 'get', '/api/stock/summary', 'operator'],
-      ['driver өөрийн хүргэлт БОЛНО (баталгаа)', 'get', '/api/deliveries/my', 'driver'],
+      [
+        'driver өөрийн хүргэлт БОЛНО (баталгаа)',
+        'get',
+        '/api/deliveries/my',
+        'driver',
+      ],
     ];
     for (const [name, method, path, user] of cases) {
       it(name, async () => {
@@ -481,7 +491,9 @@ describe('ocirrf v2 API (e2e)', () => {
         .get('/api/products?lowStock=true&limit=100')
         .set(auth(tok.seller))
         .expect(200);
-      expect(res.body.items.some((p: { id: string }) => p.id === productId)).toBe(true);
+      expect(
+        res.body.items.some((p: { id: string }) => p.id === productId),
+      ).toBe(true);
     });
   });
 
@@ -491,7 +503,12 @@ describe('ocirrf v2 API (e2e)', () => {
       const res = await api()
         .post('/api/stock/adjust')
         .set(auth(tok.manager))
-        .send({ productId, qtyChange: 10, reason: 'PURCHASE_IN', note: 'e2e орлого' })
+        .send({
+          productId,
+          qtyChange: 10,
+          reason: 'PURCHASE_IN',
+          note: 'e2e орлого',
+        })
         .expect(201);
       expect(res.body.product.stockQty).toBe(10);
       expect(res.body.movement.note).toBe('e2e орлого');
@@ -923,7 +940,9 @@ describe('ocirrf v2 API (e2e)', () => {
         .expect(201);
       expect(res.body.orderStatus).toBe('COMPLETED');
       expect(res.body.deliveryStatus).toBe('DELIVERED');
-      expect(res.body.deliveryProofUrl).toMatch(/^\/api\/uploads\/[0-9a-f]{32}\.png$/);
+      expect(res.body.deliveryProofUrl).toMatch(
+        /^\/api\/uploads\/[0-9a-f]{32}\.png$/,
+      );
       const fname = res.body.deliveryProofUrl.split('/').pop();
       proofFiles.push(fname);
       // Файл диск дээр бодитоор хадгалагдсан (HTTP serve нь production
@@ -1027,7 +1046,11 @@ describe('ocirrf v2 API (e2e)', () => {
       await api()
         .post('/api/stock/adjust')
         .set(auth(tok.manager))
-        .send({ productId: readyProductId, qtyChange: 3, reason: 'PURCHASE_IN' })
+        .send({
+          productId: readyProductId,
+          qtyChange: 3,
+          reason: 'PURCHASE_IN',
+        })
         .expect(201);
       const ord = await api()
         .post('/api/orders')
@@ -1246,9 +1269,7 @@ describe('ocirrf v2 API (e2e)', () => {
         allItems.find((i) => i.key === key)?.label;
       expect(labelOf('drivers.assign')).toBe('Маршрутын дараалал тавих');
       expect(labelOf('orders.assign_driver')).toBe('Жолооч хуваарилах');
-      expect(labelOf('orders.record_payment')).toBe(
-        'Захиалгын төлбөр бүртгэх',
-      );
+      expect(labelOf('orders.record_payment')).toBe('Захиалгын төлбөр бүртгэх');
 
       // Хасагдсан түлхүүрийг олгох гэвэл валидацид унана
       await api()
@@ -1464,10 +1485,7 @@ describe('ocirrf v2 API (e2e)', () => {
         .set(auth(tok.admin))
         .send({ changes: [{ key: 'inventory.view', allowed: null }] })
         .expect(200);
-      await api()
-        .get('/api/categories')
-        .set(auth(permUserToken))
-        .expect(200);
+      await api().get('/api/categories').set(auth(permUserToken)).expect(200);
     });
 
     /**
@@ -1541,10 +1559,7 @@ describe('ocirrf v2 API (e2e)', () => {
         .set(auth(tok.admin))
         .send({ role: 'OPERATOR' })
         .expect(200);
-      await api()
-        .get('/api/auth/me')
-        .set(auth(permUserToken))
-        .expect(200);
+      await api().get('/api/auth/me').set(auth(permUserToken)).expect(200);
       await api().get('/api/drivers').set(auth(permUserToken)).expect(403);
 
       // 2. MANAGER болгоно (token хэвээр — role нь DB-ээс уншигдана)
@@ -1577,10 +1592,7 @@ describe('ocirrf v2 API (e2e)', () => {
   // ────────────────────────────────────────────── FINANCE (V3)
   describe('V3: Finance ⭐', () => {
     it('эрхгүй хандалт: driver жагсаалт → 403, operator бүртгэх → 403', async () => {
-      await api()
-        .get('/api/finance/entries')
-        .set(auth(tok.driver))
-        .expect(403);
+      await api().get('/api/finance/entries').set(auth(tok.driver)).expect(403);
       await api()
         .post('/api/finance/entries')
         .set(auth(tok.operator))
@@ -1644,9 +1656,9 @@ describe('ocirrf v2 API (e2e)', () => {
         'RENT',
       );
       // Автомат ангиллууд сонголтод ГАРАХГҮЙ
-      expect(cats.body.EXPENSE.map((c: { code: string }) => c.code)).not.toContain(
-        'SUPPLY',
-      );
+      expect(
+        cats.body.EXPENSE.map((c: { code: string }) => c.code),
+      ).not.toContain('SUPPLY');
     });
 
     it('жагсаалт type шүүлтүүртэй', async () => {
@@ -1655,9 +1667,7 @@ describe('ocirrf v2 API (e2e)', () => {
         .set(auth(tok.manager))
         .expect(200);
       expect(
-        res.body.items.some(
-          (e: { id: string }) => e.id === financeEntryIds[1],
-        ),
+        res.body.items.some((e: { id: string }) => e.id === financeEntryIds[1]),
       ).toBe(true);
       expect(
         res.body.items.every((e: { type: string }) => e.type === 'EXPENSE'),
@@ -1684,9 +1694,7 @@ describe('ocirrf v2 API (e2e)', () => {
         .get('/api/finance/receivables')
         .set(auth(tok.manager))
         .expect(200);
-      const row = rec.body.items.find(
-        (r: { id: string }) => r.id === orderId,
-      );
+      const row = rec.body.items.find((r: { id: string }) => r.id === orderId);
       expect(row).toBeDefined();
       expect(row.remaining).toBe('4000');
       expect(row.paymentStatus).toBe('UNPAID');
@@ -1732,9 +1740,9 @@ describe('ocirrf v2 API (e2e)', () => {
         .get('/api/finance/receivables')
         .set(auth(tok.manager))
         .expect(200);
-      expect(
-        rec.body.items.some((r: { id: string }) => r.id === orderId),
-      ).toBe(false);
+      expect(rec.body.items.some((r: { id: string }) => r.id === orderId)).toBe(
+        false,
+      );
 
       // PAID дээр дахин төлөх → 400
       await api()
@@ -1761,8 +1769,7 @@ describe('ocirrf v2 API (e2e)', () => {
         .expect(200);
       expect(
         inc2.body.items.some(
-          (e: { refPaymentId: string | null }) =>
-            e.refPaymentId === p2.body.id,
+          (e: { refPaymentId: string | null }) => e.refPaymentId === p2.body.id,
         ),
       ).toBe(false);
 
@@ -1902,8 +1909,7 @@ describe('ocirrf v2 API (e2e)', () => {
         .expect(200);
       expect(
         res.body.items.filter(
-          (e: { refOrderId: string | null }) =>
-            e.refOrderId === financeOrderId,
+          (e: { refOrderId: string | null }) => e.refOrderId === financeOrderId,
         ),
       ).toHaveLength(0);
       const rec = await api()
@@ -2290,9 +2296,7 @@ describe('ocirrf v2 API (e2e)', () => {
         .set(auth(tok.manager))
         .expect(200);
       expect(
-        list.body.items.some(
-          (p: { id: string }) => p.id === lowStockProductId,
-        ),
+        list.body.items.some((p: { id: string }) => p.id === lowStockProductId),
       ).toBe(true);
     });
 
@@ -2314,10 +2318,7 @@ describe('ocirrf v2 API (e2e)', () => {
 
     it('activity-log: бичилтүүд + permission_change + эрхийн шалгалт', async () => {
       // operator-т эрх байхгүй
-      await api()
-        .get('/api/activity-log')
-        .set(auth(tok.operator))
-        .expect(403);
+      await api().get('/api/activity-log').set(auth(tok.operator)).expect(403);
 
       const orders = await api()
         .get('/api/activity-log?entity=orders&limit=100')
@@ -2366,9 +2367,7 @@ describe('ocirrf v2 API (e2e)', () => {
         .get('/api/drivers')
         .set(auth(tok.manager))
         .expect(200);
-      const drv = res.body.find(
-        (d: { id: string }) => d.id === e2eDriverId,
-      );
+      const drv = res.body.find((d: { id: string }) => d.id === e2eDriverId);
       expect(drv).toBeDefined();
       expect(drv.totalDelivered).toBeGreaterThanOrEqual(1);
       expect(drv.feePerDelivery).toBe('1800');
@@ -2529,7 +2528,13 @@ describe('ocirrf v2 API (e2e)', () => {
         expect(pub.body).toHaveProperty(k);
       }
       // Анхны загварт орлуулгууд байх ёстой — эс тэгвэл мессеж хоосон
-      for (const token of ['{нэр}', '{дугаар}', '{бараа}', '{нийт}', '{данс}']) {
+      for (const token of [
+        '{нэр}',
+        '{дугаар}',
+        '{бараа}',
+        '{нийт}',
+        '{данс}',
+      ]) {
         expect(pub.body.dmTemplate).toContain(token);
       }
       expect(pub.body.expiryWarnDays).toBe('30');
@@ -2605,9 +2610,7 @@ describe('ocirrf v2 API (e2e)', () => {
         .get('/api/analytics/drivers')
         .set(auth(tok.manager))
         .expect(200);
-      const d = drivers.body.find(
-        (x: { id: string }) => x.id === e2eDriverId,
-      );
+      const d = drivers.body.find((x: { id: string }) => x.id === e2eDriverId);
       expect(d.delivered).toBeGreaterThanOrEqual(1);
       expect(Number(d.earnings)).toBe(d.delivered * 1800);
 
@@ -3462,10 +3465,7 @@ describe('ocirrf v2 API (e2e)', () => {
     });
 
     it('operator алдааны лог харахгүй (403); буруу огноо 400', async () => {
-      await api()
-        .get('/api/admin/errors')
-        .set(auth(tok.operator))
-        .expect(403);
+      await api().get('/api/admin/errors').set(auth(tok.operator)).expect(403);
       await api()
         .get('/api/admin/errors?date=27-08-2026')
         .set(auth(tok.admin))
@@ -3598,7 +3598,10 @@ describe('ocirrf v2 API (e2e)', () => {
         .field('district', 'ХУД')
         .field('khoroo', '11')
         .field('building', 'Э2Э байр')
-        .attach('proof', PNG, { filename: 'proof.png', contentType: 'image/png' })
+        .attach('proof', PNG, {
+          filename: 'proof.png',
+          contentType: 'image/png',
+        })
         .field('items', JSON.stringify([{ productId, qty: 1 }]))
         .expect(201);
       requestId = res.body.id;
@@ -3865,9 +3868,7 @@ describe('ocirrf v2 API (e2e)', () => {
       const reasons = auto.body.skipped.map(
         (x: { reason: string }) => x.reason,
       );
-      expect(reasons).toContain(
-        'Орон нутгийн захиалга — бүсээр хуваарилахгүй',
-      );
+      expect(reasons).toContain('Орон нутгийн захиалга — бүсээр хуваарилахгүй');
 
       if (freeDistrict) {
         expect(reasons).toContain(
@@ -4096,7 +4097,9 @@ describe('ocirrf v2 API (e2e)', () => {
 
     afterAll(async () => {
       if (reqId) {
-        await prisma.orderRequestItem.deleteMany({ where: { requestId: reqId } });
+        await prisma.orderRequestItem.deleteMany({
+          where: { requestId: reqId },
+        });
         await prisma.orderRequest.deleteMany({ where: { id: reqId } });
       }
     });
@@ -4150,7 +4153,10 @@ describe('ocirrf v2 API (e2e)', () => {
         .field('district', 'ХУД')
         .field('khoroo', '11')
         .field('building', 'Э2Э байр')
-        .attach('proof', PNG, { filename: 'proof.png', contentType: 'image/png' })
+        .attach('proof', PNG, {
+          filename: 'proof.png',
+          contentType: 'image/png',
+        })
         .field('items', JSON.stringify([{ productId, qty: 1 }]))
         .expect(201);
       reqId = res.body.id;
@@ -4412,7 +4418,11 @@ describe('ocirrf v2 API (e2e)', () => {
       await api()
         .post('/api/stock/adjust')
         .set(auth(tok.admin))
-        .send({ productId: secondProductId, qtyChange: 10, reason: 'PURCHASE_IN' })
+        .send({
+          productId: secondProductId,
+          qtyChange: 10,
+          reason: 'PURCHASE_IN',
+        })
         .expect(201);
 
       const res = await api()
@@ -4507,7 +4517,9 @@ describe('ocirrf v2 API (e2e)', () => {
 
       // Хөдөлгөөн ORDER_EDIT шалтгаантай бүртгэгдсэн
       const moves = await api()
-        .get(`/api/stock/movements?productId=${secondProductId}&reason=ORDER_EDIT`)
+        .get(
+          `/api/stock/movements?productId=${secondProductId}&reason=ORDER_EDIT`,
+        )
         .set(auth(tok.manager))
         .expect(200);
       expect(moves.body.items.length).toBeGreaterThan(0);
@@ -4874,10 +4886,7 @@ describe('ocirrf v2 API (e2e)', () => {
       const lone = seed.body.accessToken;
       expect(seed.body.user.companyId).toBeNull();
 
-      const list = await api()
-        .get('/api/supplies')
-        .set(auth(lone))
-        .expect(200);
+      const list = await api().get('/api/supplies').set(auth(lone)).expect(200);
       expect(list.body).toEqual([]);
 
       const bal = await api()
@@ -5200,10 +5209,7 @@ describe('ocirrf v2 API (e2e)', () => {
       );
 
       // Гэхдээ санхүүгийн модуль нээгдэхгүй хэвээр
-      await api()
-        .get('/api/finance/summary')
-        .set(auth(tok.seller))
-        .expect(403);
+      await api().get('/api/finance/summary').set(auth(tok.seller)).expect(403);
       await api()
         .get('/api/finance/receivables')
         .set(auth(tok.seller))
@@ -5409,13 +5415,17 @@ describe('ocirrf v2 API (e2e)', () => {
 
   // ────────────────────────────────────────────── V4-16: EDGE ГҮЙЦЭЭЛТ
   describe('V4-16: Edge гүйцээлт ⭐', () => {
-
     it('4 буруу оролдлого түгжихгүй — амжилттай нэвтрэлт counter-ийг 0 болгоно', async () => {
       const email = `e2e-cnt-${T}@ocirrf.mn`;
       const created = await api()
         .post('/api/users')
         .set(auth(tok.admin))
-        .send({ name: 'Э2Э Counter', email, password: 'cntpass1', role: 'OPERATOR' })
+        .send({
+          name: 'Э2Э Counter',
+          email,
+          password: 'cntpass1',
+          role: 'OPERATOR',
+        })
         .expect(201);
       for (let i = 0; i < 4; i++) {
         await api()
@@ -5468,7 +5478,6 @@ describe('ocirrf v2 API (e2e)', () => {
       expect(income?.type).toBe('INCOME');
     });
 
-
     it('Харилцагчид (түнш = OPERATOR эрхтэй): жагсаалт статистиктай, operator 403', async () => {
       await api()
         .get('/api/customers/partners')
@@ -5503,11 +5512,9 @@ describe('ocirrf v2 API (e2e)', () => {
         .send({
           items: [
             {
-              orderItemId: (
-                await prisma.orderItem.findFirst({
-                  where: { orderId: noPhotoOrderId },
-                })
-              )!.id,
+              orderItemId: (await prisma.orderItem.findFirst({
+                where: { orderId: noPhotoOrderId },
+              }))!.id,
               qty: 1,
             },
           ],
@@ -5654,9 +5661,7 @@ describe('ocirrf v2 API (e2e)', () => {
         .set(auth(tok.admin))
         .send({
           companyId: batchCompanyId,
-          items: [
-            { productId: batchProductId, qty: 5, unitCost: '4000' },
-          ],
+          items: [{ productId: batchProductId, qty: 5, unitCost: '4000' }],
         })
         .expect(201);
       batchSupplyIds.push(sup.body.id);
@@ -5829,7 +5834,6 @@ describe('ocirrf v2 API (e2e)', () => {
         .expect(403);
     });
   });
-
 
   describe('V5: Давтан захиалгын сануулга ⭐', () => {
     let roProductId: string; // 10 хоног хүрдэг бараа
@@ -6038,7 +6042,6 @@ describe('ocirrf v2 API (e2e)', () => {
     });
   });
 
-
   describe('V5: Нягтлангийн тайлан ⭐', () => {
     /**
      * Хамгийн чухал нь ДАВХАРДАХГҮЙ байх: бараа худалдан авалт нь
@@ -6056,7 +6059,9 @@ describe('ocirrf v2 API (e2e)', () => {
       // Цэвэр = мөнгө + авлага + бараа − өглөг
       const n = (v: string) => Number(v);
       expect(n(res.body.net)).toBeCloseTo(
-        n(res.body.cash) + n(res.body.receivable) + n(res.body.inventory) -
+        n(res.body.cash) +
+          n(res.body.receivable) +
+          n(res.body.inventory) -
           n(res.body.payable),
         2,
       );
@@ -6064,7 +6069,10 @@ describe('ocirrf v2 API (e2e)', () => {
     });
 
     it('байрлал нь орлогын эрхгүй хүнд хаалттай', async () => {
-      await api().get('/api/finance/position').set(auth(tok.driver)).expect(403);
+      await api()
+        .get('/api/finance/position')
+        .set(auth(tok.driver))
+        .expect(403);
       await api().get('/api/finance/pnl').set(auth(tok.driver)).expect(403);
     });
 
@@ -6079,7 +6087,8 @@ describe('ocirrf v2 API (e2e)', () => {
         2,
       );
       expect(n(res.body.netProfit)).toBeCloseTo(
-        n(res.body.grossProfit) + n(res.body.otherIncome) -
+        n(res.body.grossProfit) +
+          n(res.body.otherIncome) -
           n(res.body.expenseTotal),
         2,
       );
@@ -6135,7 +6144,6 @@ describe('ocirrf v2 API (e2e)', () => {
       expect(res.text).not.toContain('OTHER_INCOME');
     });
   });
-
 
   describe('V5: ОРЛОГО = ТӨЛБӨР хамгаалалт ⭐', () => {
     let paidOrderId: string;
@@ -6258,7 +6266,6 @@ describe('ocirrf v2 API (e2e)', () => {
     });
   });
 
-
   describe('V5: Зөвхөн шилжүүлэг — залилангаас хамгаалах ⭐', () => {
     let fraudProductId: string;
     let fraudRequestId: string;
@@ -6279,7 +6286,9 @@ describe('ocirrf v2 API (e2e)', () => {
           where: { refOrderId: honestOrderId },
         });
         await prisma.payment.deleteMany({ where: { orderId: honestOrderId } });
-        await prisma.notification.deleteMany({ where: { refId: honestOrderId } });
+        await prisma.notification.deleteMany({
+          where: { refId: honestOrderId },
+        });
         await prisma.orderItem.deleteMany({
           where: { orderId: honestOrderId },
         });
@@ -6303,7 +6312,10 @@ describe('ocirrf v2 API (e2e)', () => {
         .field('district', 'ХУД')
         .field('khoroo', '1')
         .field('building', '1')
-        .attach('proof', PNG, { filename: 'proof.png', contentType: 'image/png' })
+        .attach('proof', PNG, {
+          filename: 'proof.png',
+          contentType: 'image/png',
+        })
         .field('items', JSON.stringify([{ productId: fraudProductId, qty: 1 }]))
         .expect(201);
       requestIds.push(res.body.id);
@@ -6320,7 +6332,11 @@ describe('ocirrf v2 API (e2e)', () => {
       await api()
         .post('/api/stock/adjust')
         .set(auth(tok.admin))
-        .send({ productId: fraudProductId, qtyChange: 10, reason: 'PURCHASE_IN' })
+        .send({
+          productId: fraudProductId,
+          qtyChange: 10,
+          reason: 'PURCHASE_IN',
+        })
         .expect(201);
 
       const link = await api()
@@ -6432,7 +6448,6 @@ describe('ocirrf v2 API (e2e)', () => {
     });
   });
 
-
   describe('V5: Аюулгүй байдал — файл ба толгой ⭐', () => {
     let secProductId: string;
     let productImageUrl: string;
@@ -6440,7 +6455,9 @@ describe('ocirrf v2 API (e2e)', () => {
 
     afterAll(async () => {
       if (proofOrderId) {
-        await prisma.notification.deleteMany({ where: { refId: proofOrderId } });
+        await prisma.notification.deleteMany({
+          where: { refId: proofOrderId },
+        });
         await prisma.orderItem.deleteMany({ where: { orderId: proofOrderId } });
         await prisma.order.deleteMany({ where: { id: proofOrderId } });
       }
@@ -6504,10 +6521,7 @@ describe('ocirrf v2 API (e2e)', () => {
 
       await api().get(`/api/uploads/${other}`).expect(401);
       // Нэвтэрсэн хүнд 404 (файл байхгүй) — 401 биш
-      await api()
-        .get(`/api/uploads/${other}`)
-        .set(auth(tok.admin))
-        .expect(404);
+      await api().get(`/api/uploads/${other}`).set(auth(tok.admin)).expect(404);
     });
 
     it('зам гарах оролдлого таслагдана', async () => {
@@ -6549,7 +6563,6 @@ describe('ocirrf v2 API (e2e)', () => {
       expect(res.headers['x-powered-by']).toBeUndefined();
     });
   });
-
 
   describe('V5: Талбарын уртын хязгаар ⭐', () => {
     /**
@@ -6628,7 +6641,6 @@ describe('ocirrf v2 API (e2e)', () => {
       expect(JSON.stringify(res.body.message)).toContain('zones');
     });
   });
-
 
   describe('V5: Аюулгүй байдлын мөшгилт ⭐', () => {
     const SEC_EMAIL = `e2e-sec-${T}@ocirrf.mn`;
@@ -6719,7 +6731,6 @@ describe('ocirrf v2 API (e2e)', () => {
       ).toBe(before);
     });
   });
-
 
   describe('V5: Нэвтрэлтийн түүх ⭐', () => {
     let histUserId: string;
@@ -6827,5 +6838,4 @@ describe('ocirrf v2 API (e2e)', () => {
       ).toBe(before);
     });
   });
-
 });

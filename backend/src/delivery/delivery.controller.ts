@@ -98,10 +98,7 @@ export class DeliveryController {
    */
   @Patch('drivers/:id/zones')
   @RequirePermission(PERM.DRIVERS_ZONES)
-  setZones(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: SetZonesDto,
-  ) {
+  setZones(@Param('id', ParseUUIDPipe) id: string, @Body() dto: SetZonesDto) {
     return this.deliveryService.setZones(id, dto.zones);
   }
 

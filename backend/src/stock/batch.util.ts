@@ -77,7 +77,11 @@ export type ExpiryState = 'EXPIRED' | 'CRITICAL' | 'WARNING' | 'OK';
  * `warnDays` нь тохиргооноос ирнэ (үндсэн 30) — компани «дуусахаас
  * 30 хоногийн өмнө устгалд гаргана» гэсэн дүрэмтэй.
  */
-export function expiryState(expiry: Date, warnDays: number, now = new Date()): ExpiryState {
+export function expiryState(
+  expiry: Date,
+  warnDays: number,
+  now = new Date(),
+): ExpiryState {
   const days = daysUntil(expiry, now);
   if (days < 0) return 'EXPIRED';
   if (days <= warnDays) return 'CRITICAL';
@@ -87,7 +91,11 @@ export function expiryState(expiry: Date, warnDays: number, now = new Date()): E
 
 /** Өнөөдрөөс хэдэн хоногийн дараа дуусах вэ (өнгөрсөн бол сөрөг). */
 export function daysUntil(expiry: Date, now = new Date()): number {
-  const a = Date.UTC(expiry.getUTCFullYear(), expiry.getUTCMonth(), expiry.getUTCDate());
+  const a = Date.UTC(
+    expiry.getUTCFullYear(),
+    expiry.getUTCMonth(),
+    expiry.getUTCDate(),
+  );
   const b = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
   return Math.round((a - b) / 86_400_000);
 }

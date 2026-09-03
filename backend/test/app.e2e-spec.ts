@@ -14,7 +14,9 @@ describe('App (e2e) — суурь', () => {
 
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix('api');
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     await app.init();
   });
 
@@ -23,7 +25,9 @@ describe('App (e2e) — суурь', () => {
   });
 
   it('GET /api/health → ok + db', async () => {
-    const res = await request(app.getHttpServer()).get('/api/health').expect(200);
+    const res = await request(app.getHttpServer())
+      .get('/api/health')
+      .expect(200);
     expect(res.body).toEqual({ status: 'ok', db: true });
   });
 
