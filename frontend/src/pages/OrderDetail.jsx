@@ -522,7 +522,10 @@ function PaymentSection({ order, onChanged, t, toast, hasPerm }) {
   const [error, setError] = useState(null)
   const [deleting, setDeleting] = useState(null) // устгах гэж буй төлбөр
 
-  const canPay = hasPerm('finance.create_income')
+  // Backend-ийн RequireAnyPermission-тэй ижил OR: санхүүгийн өргөн эрх
+  // ЭСВЭЛ борлуулагчийн нарийн orders.record_payment
+  const canPay =
+    hasPerm('finance.create_income') || hasPerm('orders.record_payment')
   const remaining =
     Number(order.totalAmount) - Number(order.paidAmount ?? 0)
 

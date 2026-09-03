@@ -17,7 +17,10 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../auth/decorators/current-user.decorator';
 import { PaymentMethod } from '../generated/prisma/client';
 import { PERM } from '../permissions/permission-keys';
-import { RequirePermission } from '../permissions/require-permission.decorator';
+import {
+  RequireAnyPermission,
+  RequirePermission,
+} from '../permissions/require-permission.decorator';
 import { PaymentsService } from './payments.service';
 
 class CreatePaymentDto {
@@ -39,8 +42,14 @@ class CreatePaymentDto {
 export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
 
+  /**
+   * Захиалгын төлбөрийг санхүүгийн өргөн эрхтэй хүн ЭСВЭЛ зориулалтын
+   * нарийн orders.record_payment эрхтэй хүн (борлуулагч) бүртгэнэ.
+   * Устгах нь мөн адил — буруу бүртгэлээ засах, цуцлалтын өмнөх
+   * мөнгө буцаалт хоёулаа энэ урсгалын хэсэг.
+   */
   @Post('orders/:id/payments')
-  @RequirePermission(PERM.FINANCE_CREATE_INCOME)
+  @RequireAnyPermission(PERM.FINANCE_CREATE_INCOME, PERM.ORDERS_RECORD_PAYMENT)
   addPayment(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CreatePaymentDto,
@@ -50,7 +59,7 @@ export class PaymentsController {
   }
 
   @Delete('payments/:id')
-  @RequirePermission(PERM.FINANCE_CREATE_INCOME)
+  @RequireAnyPermission(PERM.FINANCE_CREATE_INCOME, PERM.ORDERS_RECORD_PAYMENT)
   deletePayment(@Param('id', ParseUUIDPipe) id: string) {
     return this.paymentsService.deletePayment(id);
   }

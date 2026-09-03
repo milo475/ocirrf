@@ -19,6 +19,16 @@ export const PERM = {
    * (PREPARING→READY) байх боловч цуцлахгүй.
    */
   ORDERS_CANCEL: 'orders.cancel',
+  /**
+   * Захиалга дээр төлбөр бүртгэх/буруу бүртгэлээ устгах — санхүүгийн
+   * өргөн эрхээс САЛГАСАН нарийн түлхүүр. Гүйлгээний баримтыг шалгадаг
+   * борлуулагч үүгээр орж ирнэ; finance.create_income (гар оруулга
+   * /finance/entries-ийг ч нээдэг) шаардлагагүй. Payment endpoint-ууд
+   * ХОЁУЛАНГ нь хүлээн зөвшөөрнө (RequireAnyPermission) тул санхүүгийн
+   * ажилтны одоогийн урсгал өөрчлөгдөхгүй. ЗӨВХӨН захиалгын төлбөрт
+   * үйлчилнэ — санхүүгийн бусад endpoint-д хамаагүй.
+   */
+  ORDERS_RECORD_PAYMENT: 'orders.record_payment',
   ORDERS_REFUND: 'orders.refund',
   ORDERS_ASSIGN_WAREHOUSE: 'orders.assign_warehouse',
   WAREHOUSE_HANDOVER: 'warehouse.handover',
@@ -94,6 +104,7 @@ export const PERM_LABELS: Record<PermKey, string> = {
   [PERM.ORDERS_CHANGE_STATUS]: 'Захиалгын статус солих',
   [PERM.ORDERS_EDIT]: 'Захиалга засах (хаяг, бараа)',
   [PERM.ORDERS_CANCEL]: 'Захиалга цуцлах',
+  [PERM.ORDERS_RECORD_PAYMENT]: 'Захиалгын төлбөр бүртгэх',
   [PERM.ORDERS_REFUND]: 'Буцаалт бүртгэх',
   [PERM.ORDERS_ASSIGN_WAREHOUSE]: 'Нярав хуваарилах',
   [PERM.WAREHOUSE_HANDOVER]: 'Жолоочид хүлээлгэн өгөх',
@@ -140,6 +151,7 @@ export const PERM_GROUPS: { group: string; keys: PermKey[] }[] = [
       PERM.ORDERS_CHANGE_STATUS,
       PERM.ORDERS_EDIT,
       PERM.ORDERS_CANCEL,
+      PERM.ORDERS_RECORD_PAYMENT,
       PERM.ORDERS_REFUND,
       PERM.ORDERS_ASSIGN_WAREHOUSE,
       PERM.WAREHOUSE_HANDOVER,
@@ -210,6 +222,7 @@ export const ROLE_DEFAULTS: Record<Role, PermKey[]> = {
     PERM.ORDERS_ASSIGN_DRIVER,
     PERM.ORDERS_EDIT, // V5: хаяг/бараа засах
     PERM.ORDERS_CANCEL, // V5: цуцлалт нь арилжааны шийдвэр
+    PERM.ORDERS_RECORD_PAYMENT, // захиалгын төлбөр (finance-ээс тусдаа)
     PERM.ORDERS_REFUND, // V4: буцаалт ADMIN+MANAGER
     PERM.ORDERS_ASSIGN_WAREHOUSE, // V5: няравт хуваарилах
     PERM.INVENTORY_VIEW,
@@ -284,9 +297,13 @@ export const ROLE_DEFAULTS: Record<Role, PermKey[]> = {
     PERM.ORDERS_CANCEL,
     PERM.ORDERS_ASSIGN_DRIVER,
     PERM.ORDERS_ASSIGN_WAREHOUSE,
-    // Гүйлгээний баримтыг ШАЛГАДАГ нь борлуулагч — дараа орсон
-    // мөнгийг бүртгэхийн тулд менежер рүү явах шаардлагагүй
-    PERM.FINANCE_CREATE_INCOME,
+    // Гүйлгээний баримтыг ШАЛГАДАГ нь борлуулагч — дараа орсон мөнгийг
+    // бүртгэхийн тулд менежер рүү явах шаардлагагүй. Өмнө нь энд өргөн
+    // finance.create_income олгогдож /finance/entries-ийн гар оруулга
+    // давхар нээгдэж байсныг нарийн түлхүүрээр сольсон (least privilege).
+    // DB-ийн UserPermission override-ууд хөндөгдөөгүй — өөрчлөлт нь
+    // зөвхөн role-ийн default түвшинд.
+    PERM.ORDERS_RECORD_PAYMENT,
     PERM.CUSTOMERS_VIEW,
     PERM.INVENTORY_VIEW,
     PERM.DRIVERS_VIEW,

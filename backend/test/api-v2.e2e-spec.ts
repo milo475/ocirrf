@@ -1218,10 +1218,12 @@ describe('ocirrf v2 API (e2e)', () => {
       }
       // Панелын түлхүүр бүр backend-ийн ямар нэг route-д хэрэглэгддэг
       // (V5-д нярав нэмэгдэхэд +2: orders.assign_warehouse, warehouse.handover)
-      // 34 = 33 (v2 сүүлчийн байдал) + platform.manage_apps (App Registry)
-      expect(allKeys).toHaveLength(34);
+      // 35 = 33 (v2 сүүлчийн байдал) + platform.manage_apps (App Registry)
+      //      + orders.record_payment (борлуулагчийн нарийн төлбөрийн эрх)
+      expect(allKeys).toHaveLength(35);
       expect(allKeys).toContain('drivers.zones');
       expect(allKeys).toContain('orders.cancel');
+      expect(allKeys).toContain('orders.record_payment');
       expect(allKeys).toContain('supplies.create');
       expect(allKeys).toContain('orders.assign_warehouse');
       expect(allKeys).toContain('warehouse.handover');
@@ -5184,6 +5186,22 @@ describe('ocirrf v2 API (e2e)', () => {
       await api()
         .get('/api/finance/receivables')
         .set(auth(tok.seller))
+        .expect(403);
+
+      // ⭐ Нарийн эрх нь санхүүгийн ГАР ОРУУЛГЫГ нээгээгүй: өмнө нь
+      // борлуулагчид өргөн finance.create_income олгогдож энэ endpoint
+      // давхар нээгдэж байсан — orders.record_payment-д сольсноор хаагдав
+      await api()
+        .post('/api/finance/entries')
+        .set(auth(tok.seller))
+        .send({ type: 'INCOME', category: 'OTHER_INCOME', amount: '500.00' })
+        .expect(403);
+
+      // Жолоочид захиалгын төлбөрийн эрх огт байхгүй
+      await api()
+        .post(`/api/orders/${boundaryOrderId}/payments`)
+        .set(auth(tok.driver))
+        .send({ amount: '1.00', method: 'TRANSFER' })
         .expect(403);
     });
 
