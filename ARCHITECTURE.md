@@ -157,3 +157,86 @@ bundle-д, ursgal-ийн 28 хуудас `app-ursgal-*.js`-д (≈308 kB / gzip 
 | `platform-flow.e2e-spec.ts` | Бүтэн урсгал нэг integration тестээр |
 
 Тестүүд тусдаа `ocirrf_test` DB дээр ажиллана (`test/jest-e2e.setup.js`).
+
+## 8. Масштабын дүрмүүд (олон app-ийн өмнөх суурь)
+
+Платформ дээр Санхүү, HR зэрэг app нэмэгдэхээс ӨМНӨ тогтоосон дүрмүүд.
+Одоогийн кодыг албадан refactor хийхгүй; шинэ app болон шинэ endpoint бүр
+эдгээрийг дагана (README-ийн "Шинэ app нэмэх" checklist-д товчоор).
+
+### 8.1 Pagination заавал
+
+Жагсаалт буцаадаг endpoint бүр ЭХНЭЭСЭЭ pagination-тай. Стандарт нь
+ursgal-ийн одоогийн хэв маяг (`QueryOrdersDto`, `OrdersService.findAll`,
+`FinanceService.findEntries`, `NotificationsService.list`):
+
+```ts
+// Query DTO
+@IsOptional() @Type(() => Number) @IsInt() @Min(1)           page?: number = 1;
+@IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) limit?: number = 20;
+// Service
+const [items, total] = await Promise.all([
+  prisma.x.findMany({ where, orderBy, skip: (page - 1) * limit, take: limit }),
+  prisma.x.count({ where }),
+]);
+return { items, total, page, limit };
+```
+
+`take`-гүй `findMany` нь зөвхөн байгууллага дотроо хязгаартай өсөлттэй
+reference жагсаалтад (ангилал, компани, ажилтан — арваар хэмжигддэг)
+тайлбартайгаар зөвшөөрөгдөнө. Хэрэглэгчийн үйлдлээр хязгааргүй өсдөг
+хүснэгт (захиалга, хөдөлгөөн, мэдэгдэл, санхүүгийн бичилт) бүхэлдээ
+буцаагдахгүй. Cursor pagination нь төгсгөлгүй гүйлгээтэй feed-д
+(мэдэгдэл г.м.) сонголтоор — page/limit нь default.
+
+### 8.2 Module-ийн хил
+
+- **Backend:** app = NestJS module. Бусад app-тай зөвхөн тухайн module-ийн
+  `exports`-д зарласан public service/interface-ээр харилцана — module-ийг
+  `imports`-д нэмж, service-ийг DI-аар авна (загвар: `OrderRequestsModule`
+  → `OrdersModule` → `OrdersService`). `../<өөр-app>/<x>.service` файлыг
+  шууд import хийх нь тухайн service `exports`-д БАЙГАА үед л зөвшөөрөгдөнө.
+  Бусад app-ийн Prisma model руу шууд бичихгүй — тэр app-ийн service-ээр
+  (stock хөдөлгөөн → StockService/applyBatchDelta, төлбөр → PaymentsService).
+  Платформын дундын дэд бүтэц (PrismaService, OrgContext, PermissionsService,
+  NotificationsService, uploads util) бүх app-д нээлттэй.
+- **Frontend:** `src/apps/<key>/` дотроос `src/apps/<өөр-key>/…` import
+  хийхгүй (lazy chunk-ууд бие биенээ татаж эхэлнэ). Хуваалцах компонент,
+  туслах, context нь `src/components`, `src/lib`, `src/context`-д.
+
+### 8.3 Удаан ажиллагааны дүрэм (background job)
+
+3-5 секундээс удаан үргэлжлэх БОЛОМЖТОЙ үйлдэл — том CSV/XLSX export, олон
+мянган мөрийн нэгтгэл тайлан, зураг боловсруулалт, олон хүлээн авагчид
+илгээх мессеж — синхрон HTTP endpoint дотор хийгдэхгүй. Ийм endpoint-ийг
+кодод `// TODO(background-job)` гэж тэмдэглэж, хэрэгжилтийг тусдаа шийднэ:
+хүсэлт 202 + job id буцааж, ажил worker дээр гүйцэтгэгдэж, үр дүн (файл,
+төлөв) тусдаа endpoint-оос уншигдана. Дэд бүтэц нь **BullMQ + Redis** —
+ирээдүйд нэмэгдэнэ, одоо суулгаагүй (нэг Postgres + нэг Node процесс
+хэвээр). Одоогийн CSV тайлангууд огнооны мужаар (default 30 хоног)
+хязгаарлагдсан тул босго доор байна; муж/мөрийн тоо өсвөл энэ дүрэмд
+шилжинэ.
+
+### 8.4 Index дүрэм
+
+Org-scope extension query бүрт `organizationId = ?` шүүлт нэмдэг. Тиймээс
+org-scoped model бүр **organizationId-ээр ЭХЭЛСЭН** index-тэй байна — тэр
+хүснэгтийн үндсэн жагсаалтын эрэмбэ/шүүлттэй composite
+(`@@index([organizationId, createdAt])`, `[organizationId, status, createdAt]`
+г.м.). `@@unique([organizationId, X])` / `@@id([organizationId, key])`
+байвал index-ийн үүргийг давхар гүйцэтгэдэг тул дан `[organizationId]`
+давхардуулахгүй. 2026-09-03-ны аудит (`*_org_scoped_indexes` migration)
+бүх 16 scoped model-ийг энэ дүрэмд нийцүүлсэн; шинэ model нэмэхэд
+`prisma migrate diff --from-config-datasource --to-schema` зөрүү 0 гэдгийг
+батална.
+
+### 8.5 SSE дүрэм (нэг нэгдсэн суваг)
+
+App бүр өөрийн EventSource/SSE endpoint нээхгүй. Бодит цагийн мэдэгдэл
+платформын НЭГ сувгаар дамжина: backend-д `NotificationsService` (хэрэглэгч
+тутам Subject-ийн олонлог, дээд тал нь 8 холболт, access token дуусахад
+хаагдана) → `/api/notifications/stream`; app-ууд зөвхөн
+`NotificationsService.notify*` методуудыг дуудна, frontend-д AppShell нэг
+EventSource барьж `notif:push` event-ээр хуудсуудад тараана. Одоогийн
+notification бүтэц энэ зарчимд бүрэн нийцэж байна (ursgal-ийн бүх модуль
+нэг service-ээр дамжуулдаг, тусдаа stream байхгүй) — өөрчлөлт хэрэггүй.

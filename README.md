@@ -23,8 +23,12 @@ migration-аар default 'ocirrf' байгууллагад (UUID
 `00000000-0000-4000-8000-000000000001`) харьяалагдсан.
 
 **Шинэ model нэмэхдээ (checklist):**
-1. `schema.prisma`-д `organizationId` + `organization` relation (+ index,
-   байгууллага доторх unique бол `@@unique([organizationId, X])`)
+1. `schema.prisma`-д `organizationId` + `organization` relation +
+   **organizationId-ээр ЭХЭЛСЭН index** — жагсаалтын үндсэн эрэмбэтэй
+   composite (`@@index([organizationId, createdAt])` маягаар); байгууллага
+   доторх unique бол `@@unique([organizationId, X])` — энэ нь index-ийн
+   үүргийг давхар гүйцэтгэдэг тул дан `@@index([organizationId])`
+   давхардуулж нэмэхгүй
 2. `org-scope.extension.ts`-ийн `SCOPED_MODELS`-д нэрийг нь нэмэх
 3. create call site бүрт `organizationId: OrgContext.require()` тодоор өгөх
 4. Raw SQL бичвэл `"organizationId" = ...` шүүлтийг ГАРААР нэмэх
@@ -56,7 +60,8 @@ ocirrf нь Odoo маягийн ОЛОН системийн платформ: `/
    controller-ууд @RequirePermission-той.
 4. **Prisma model-ууд** — org-scoped: дээрх Multi-tenancy checklist-ийг
    ЗААВАЛ дага (organizationId + relation + SCOPED_MODELS + create бүрт
-   explicit orgId + байгууллага доторх unique бол composite).
+   explicit orgId + байгууллага доторх unique бол composite +
+   organizationId-ээр эхэлсэн composite index — масштабын дүрэм 4).
 5. **Frontend манифест (LAZY)** — `frontend/src/apps/<key>/manifest.js` +
    `routes.jsx`. `key` нь Application.key-тэй ЯГ ижил. Манифест route
    модоо СТАТИКААР import хийхгүй — `loadRoutes`-оор lazy ачаална, ингэж
@@ -99,6 +104,29 @@ ocirrf нь Odoo маягийн ОЛОН системийн платформ: `/
    tenant-isolation.e2e-spec.ts-ийн загвараар).
 8. **DEPLOY тэмдэглэл** — migration-тэй бол DEPLOY.md-ийн runbook-д
    дараалал, шалгалтыг нь бичнэ.
+
+**Масштабын дүрмүүд (app бүрт заавал — дэлгэрэнгүй ARCHITECTURE.md §8):**
+
+1. **PAGINATION ЗААВАЛ** — жагсаалт буцаадаг endpoint бүр эхнээсээ
+   `page`/`limit` query (`@Type(() => Number) @IsInt @Min(1)`, `limit`
+   `@Max(100)`, default 1/20) авч `{ items, total, page, limit }` буцаана
+   (загвар: `QueryOrdersDto` + `OrdersService.findAll`). `take`-гүй
+   `findMany` зөвхөн байгууллага дотроо хязгаартай reference жагсаалтад
+   (ангилал, компани, ажилтан) тайлбартайгаар зөвшөөрөгдөнө.
+2. **MODULE-ИЙН ХИЛ** — app бусад app-ийн дотоод service/файлыг шууд import
+   хийхгүй; зөвхөн тухайн NestJS module-ийн `exports`-д зарласан public
+   service/interface-ээр (module-ийг import хийж) харилцана. Бусад app-ийн
+   Prisma model руу шууд бичихгүй. Frontend-д `src/apps/<өөр app>/…` import
+   хийхгүй — хуваалцах зүйл `src/components`, `src/lib`, `src/context`-д.
+3. **УДААН АЖИЛЛАГАА** — 3-5 секундээс удаан үргэлжилж болох үйлдэл (том
+   export, олон мянган мөрийн тайлан, зураг боловсруулалт) синхрон endpoint
+   дотор хийгдэхгүй: `// TODO(background-job)` гэж тэмдэглэж, 202 + job id
+   загвараар тусдаа шийднэ (BullMQ + Redis ирээдүйд — одоо суулгахгүй).
+4. **INDEX** — шинэ org-scoped model бүр organizationId-ээр эхэлсэн, үндсэн
+   жагсаалтын эрэмбэтэй composite index-тэй (`prisma migrate diff`-ээр
+   схем ба DB-ийн зөрүүг 0 болгож батална).
+5. **SSE** — app өөрийн SSE суваг нээхгүй; мэдэгдэл платформын нэг сувгаар
+   (`NotificationsService.notify*` → `/api/notifications/stream`) дамжина.
 
 Дэлгэрэнгүй архитектур: [ARCHITECTURE.md](ARCHITECTURE.md)
 
