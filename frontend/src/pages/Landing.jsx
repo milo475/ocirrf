@@ -47,7 +47,22 @@ export default function Landing() {
   const soon = (apps ?? []).filter((a) => a.status !== 'ACTIVE')
 
   return (
-    <main className="min-h-screen bg-bg text-ink flex flex-col">
+    <main className="relative isolate min-h-screen text-ink flex flex-col">
+      {/*
+       * ДЭВСГЭР ЗУРАГ — frontend/public/landing-bg.jpg (build-д dist/ руу хуулагдана).
+       * Файл байхгүй бол background-image чимээгүй алгасаж зөвхөн bg-bg өнгө
+       * харагдана. Дээр нь темийн өнгийн градиент (дээд талд зураг илүү
+       * харагдаж, доошоо контент уншигдахуйц болтол бүдгэрнэ) — цайвар/харанхуй
+       * хоёуланд ажиллана. Зургийг солихдоо файлаа л солино, код хөндөхгүй.
+       */}
+      <div aria-hidden="true" className="fixed inset-0 -z-10 bg-bg">
+        <div
+          className="absolute inset-0 bg-center bg-cover"
+          style={{ backgroundImage: "url('/landing-bg.jpg')" }}
+        />
+        <div className="absolute inset-0 bg-linear-to-b from-bg/60 via-bg/85 to-bg" />
+      </div>
+
       {/* ── Navbar: нэвтрэлт баруун дээд буланд ── */}
       <header className="sticky top-0 z-30 bg-bg/85 backdrop-blur border-b border-rule">
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center gap-4">
