@@ -1,4 +1,8 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
+
+/** Query-гийн хоосон утга ('') → undefined: @IsOptional үүнийг алгасдаг тул */
+const EmptyToUndefined = () =>
+  Transform(({ value }) => (value === '' ? undefined : (value as unknown)));
 import {
   ArrayMaxSize,
   IsArray,
@@ -85,7 +89,10 @@ export class QueryStudentsDto {
   @IsOptional() @IsString() @MaxLength(100) q?: string;
   /** '__none__' — бүлэггүй сурагчид */
   @IsOptional() @IsString() @MaxLength(100) group?: string;
-  @IsOptional() @IsEnum(StudexaPayState) payment?: StudexaPayState;
+  @EmptyToUndefined()
+  @IsOptional()
+  @IsEnum(StudexaPayState)
+  payment?: StudexaPayState;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number = 1;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) limit?: number =
     20;
@@ -147,8 +154,12 @@ export class JoinApproveDto {
 // ───────────────────────────── Ирц
 
 export class AttendanceQueryDto {
-  @IsOptional() @IsString() @Matches(DATE, { message: DATE_MSG }) date?: string;
-  @IsOptional() @IsUUID('4') lessonId?: string;
+  @EmptyToUndefined()
+  @IsOptional()
+  @IsString()
+  @Matches(DATE, { message: DATE_MSG })
+  date?: string;
+  @EmptyToUndefined() @IsOptional() @IsUUID('4') lessonId?: string;
   @IsOptional() @IsString() @MaxLength(100) group?: string;
 }
 
@@ -291,7 +302,10 @@ export class JoinDto {
 }
 
 export class PortalQueryDto {
-  @IsOptional() @IsUUID('4') t?: string;
+  @EmptyToUndefined()
+  @IsOptional()
+  @IsUUID('4')
+  t?: string;
 }
 
 /** Сурагчийн нээлттэй бүртгэл — багшийн кодоор тухайн байгууллагад */

@@ -18,7 +18,10 @@ export default function Students() {
   const group = params.get('group') ?? ''
   const payment = params.get('payment') ?? ''
   const page = Number(params.get('page') ?? 1)
-  const qs = new URLSearchParams({ q, group, payment, page: String(page), limit: '50' })
+  const qs = new URLSearchParams({ page: String(page), limit: '50' })
+  if (q) qs.set('q', q)
+  if (group) qs.set('group', group)
+  if (payment) qs.set('payment', payment)
   const { data, error, loading, reload } = useApi(`/studexa/students?${qs}`)
   const { data: me } = useApi('/studexa/me')
   const { data: table, reload: reloadTable } = useApi('/studexa/class-table')
