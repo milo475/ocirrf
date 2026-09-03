@@ -34,10 +34,10 @@ import {
  * хуудас утга учиртай ажиллах нөхцөл бүрдээгүй бол харуулахгүй.
  */
 /**
- * Цөм «Урсгал» app-ийн нүүр. Нэвтэрсний дараа staff шууд ЭНД орно —
- * Launcher (/launcher) нь дундын алхам БИШ, зөвхөн app switcher-ийн
- * «Бүх апп»-аас нээгддэг каталог (V5). RoleRoute.homeFor болон
- * ursgal манифестийн basePath хоёулаа энэ тогтмолыг ашиглана.
+ * Цөм «Урсгал» app-ийн нүүр — хабын card, app switcher, nav-ийн «Нүүр»
+ * энд заана; ursgal манифестийн basePath мөн энэ тогтмол. Нэвтэрсний
+ * дараах нүүр нь ocirrf ХАБ (/launcher, RoleRoute.homeFor) — тэндээс
+ * системээ сонгож энд орно.
  */
 export const CORE_APP_HOME = '/dashboard'
 

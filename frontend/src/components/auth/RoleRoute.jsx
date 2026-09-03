@@ -1,19 +1,18 @@
 import { Navigate, Outlet } from 'react-router'
-import { CORE_APP_HOME, navFor } from '../../config/nav'
+import { navFor } from '../../config/nav'
 import { useAuth } from '../../context/AuthContext'
 
 /**
  * Хэрэглэгчийн эрхээс хамаарсан "нүүр" зам.
  *
- * Нэвтэрсний дараа ШУУД ажлын орчин руу — Launcher (/launcher) дундын
- * алхам биш. Өмнө нь staff бүгд launcher дээр буугаад app-аа дахин
- * сонгодог байсан нь ганц app-тай байгууллагад илүү дарах алхам байв;
- * launcher одоо зөвхөн switcher-ийн «Бүх апп»-аас нээгдэнэ.
+ * ocirrf нь олон системийн платформ: нэвтэрсний дараа ХАБ (/launcher —
+ * каталогийн 10 системийн card) дээр буугаад системээ сонгоно. «Урсгал»
+ * нь тэдгээрийн нэг. Жолоочийн mobile урсгал л шууд хүргэлт рүүгээ
+ * (хаб нь түүнд нэмэлт алхам).
  */
 export function homeFor(role) {
-  // Жолоочийн mobile урсгал шууд хүргэлт рүүгээ
   if (role === 'DRIVER') return '/deliveries'
-  return CORE_APP_HOME
+  return '/launcher'
 }
 
 /**

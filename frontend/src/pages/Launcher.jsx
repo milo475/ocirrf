@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { LogOut } from 'lucide-react'
+import { ArrowRight, LogOut } from 'lucide-react'
+import ThemeToggle from '../components/layout/ThemeToggle'
 import { manifestFor } from '../apps'
 import { useAuth } from '../context/AuthContext'
 import { useLang } from '../context/LanguageContext'
@@ -8,37 +9,49 @@ import { api } from '../lib/api'
 import { appIcon } from '../lib/appIcon'
 
 /**
- * APP LAUNCHER — байгууллагын app-уудын каталог (платформ бүрхүүл).
- * Байгууллагын идэвхтэй app-ууд + идэвхжүүлж болох ACTIVE app-ууд.
+ * OCIRRF ХАБ — нэвтэрсний дараах нүүр хуудас.
  *
- * Нэвтэрсний дараах анхны хуудас БИШ: login шууд цөм app руу
- * (RoleRoute.homeFor) ордог; энд topbar-ын app switcher-ийн
- * «Бүх апп» болон /platform-admin-ийн холбоосоор л ирнэ.
+ * ocirrf нь олон системийн платформ: каталогийн 10 систем тус бүр өөрийн
+ * module (backend NestJS module + frontend манифест/lazy chunk). Энэ хуудас
+ * тэдгээрийг card-аар харуулж, байгууллагын төлөвөөр ялгана:
+ *   enabled   — байгууллагад идэвхтэй → card дарахад системийн нүүр
+ *               (манифестийн basePath; манифестгүй бол /apps/:key)
+ *   available — каталогт ACTIVE, гэхдээ байгууллага идэвхжүүлээгүй →
+ *               platform.manage_apps эрхтэй хүн энд шууд идэвхжүүлнэ
+ *   soon      — COMING_SOON → танилцуулга хуудас, «Тун удахгүй»
+ * «Урсгал» (ursgal) нь эдгээрийн зөвхөн нэг нь.
  */
 export default function Launcher() {
   const { user, hasPerm, logout } = useAuth()
   const { t } = useLang()
   const navigate = useNavigate()
+  const [catalog, setCatalog] = useState(null)
   const [myApps, setMyApps] = useState(null)
-  const [catalog, setCatalog] = useState([])
   const [enabling, setEnabling] = useState(null)
   const [error, setError] = useState(null)
 
   const load = () => {
-    api('/platform/my-apps')
-      .then(setMyApps)
-      .catch(() => setMyApps([]))
     api('/platform/apps')
       .then(setCatalog)
       .catch(() => setCatalog([]))
+    api('/platform/my-apps')
+      .then(setMyApps)
+      .catch(() => setMyApps([]))
   }
   useEffect(load, [])
 
   const enabledKeys = new Set((myApps ?? []).map((a) => a.key))
-  const available = catalog.filter(
-    (a) => a.status === 'ACTIVE' && !enabledKeys.has(a.key),
-  )
   const canManage = hasPerm('platform.manage_apps')
+  const loading = catalog === null || myApps === null
+  const systems = (catalog ?? []).map((app) => ({
+    ...app,
+    state: enabledKeys.has(app.key)
+      ? 'enabled'
+      : app.status === 'ACTIVE'
+        ? 'available'
+        : 'soon',
+  }))
+  const enabledCount = systems.filter((s) => s.state === 'enabled').length
 
   async function enable(key) {
     setError(null)
@@ -58,8 +71,13 @@ export default function Launcher() {
       {/* ── Платформын толгой ── */}
       <header className="h-12 border-b border-rule flex items-center gap-3 px-4 md:px-6">
         <span className="font-serif text-xl font-medium tracking-tight">
-          {user?.organizationName ?? 'ocirrf'}
+          ocirrf
         </span>
+        {user?.organizationName && (
+          <span className="hidden sm:inline text-sm text-ink-muted truncate">
+            · {user.organizationName}
+          </span>
+        )}
         <div className="ml-auto flex items-center gap-3">
           {user?.isSuperAdmin && (
             <Link
@@ -69,7 +87,8 @@ export default function Launcher() {
               {t('Платформ удирдлага')}
             </Link>
           )}
-          <span className="text-sm text-ink-muted hidden sm:inline">
+          <ThemeToggle />
+          <span className="text-sm text-ink-muted hidden md:inline">
             {user?.name}
           </span>
           <button
@@ -85,103 +104,146 @@ export default function Launcher() {
         </div>
       </header>
 
-      <div className="max-w-4xl mx-auto px-6 py-10">
-        <h1 className="font-serif text-2xl font-medium">
+      <div className="max-w-6xl mx-auto px-6 py-10">
+        <h1 className="font-serif text-3xl font-medium">
           {t('Сайн байна уу')}, {user?.name}
         </h1>
         <p className="mt-1 text-sm text-ink-muted">
           {t('Ажиллах системээ сонгоно уу')}
+          {!loading && (
+            <>
+              {' · '}
+              {t('{n} систем, {m} идэвхтэй', {
+                n: systems.length,
+                m: enabledCount,
+              })}
+            </>
+          )}
         </p>
 
-        {/* ── Идэвхтэй app-ууд ── */}
-        {myApps === null ? (
+        {error && (
+          <p className="mt-4 text-sm text-alarm border border-alarm rounded px-3 py-2">
+            {error}
+          </p>
+        )}
+
+        {loading ? (
           <p className="mt-8 font-mono text-sm text-ink-muted">
             {t('ачаалж байна…')}
           </p>
         ) : (
-          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {myApps.map((app) => {
-              const Icon = appIcon(app.icon)
-              const manifest = manifestFor(app.key)
-              return (
-                <Link
-                  key={app.key}
-                  to={manifest?.basePath ?? '/launcher'}
-                  className="block border border-rule rounded-lg p-5 bg-surface hover:border-ink-muted hover:shadow-lg transition-all"
-                >
-                  <span
-                    className="w-11 h-11 rounded-md flex items-center justify-center text-white"
-                    style={{ backgroundColor: app.color }}
-                  >
-                    <Icon size={22} strokeWidth={1.75} />
-                  </span>
-                  <h2 className="mt-3 font-medium">{app.nameMn}</h2>
-                  <p className="mt-1 text-sm text-ink-muted leading-snug">
-                    {app.descriptionMn}
-                  </p>
-                </Link>
-              )
-            })}
-            {myApps.length === 0 && (
+          <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+            {systems.map((app, i) => (
+              <SystemCard
+                key={app.key}
+                app={app}
+                index={i + 1}
+                t={t}
+                canManage={canManage}
+                enabling={enabling === app.key}
+                onEnable={() => enable(app.key)}
+              />
+            ))}
+            {systems.length === 0 && (
               <p className="text-sm text-ink-muted col-span-full">
-                {t('Идэвхтэй app алга — админдаа хандана уу.')}
+                {t('Каталогт систем алга — платформын админд хандана уу.')}
               </p>
             )}
           </div>
         )}
-
-        {/* ── Идэвхжүүлэх боломжтой ── */}
-        {available.length > 0 && (
-          <section className="mt-12">
-            <h2 className="text-xs font-mono uppercase tracking-widest text-ink-muted">
-              {t('Идэвхжүүлэх боломжтой')}
-            </h2>
-            {error && (
-              <p className="mt-3 text-sm text-alarm border border-alarm rounded px-3 py-2">
-                {error}
-              </p>
-            )}
-            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {available.map((app) => {
-                const Icon = appIcon(app.icon)
-                return (
-                  <div
-                    key={app.key}
-                    className="border border-rule rounded-lg p-5 bg-surface opacity-75"
-                  >
-                    <span
-                      className="w-11 h-11 rounded-md flex items-center justify-center text-white"
-                      style={{ backgroundColor: app.color }}
-                    >
-                      <Icon size={22} strokeWidth={1.75} />
-                    </span>
-                    <h3 className="mt-3 font-medium">{app.nameMn}</h3>
-                    <p className="mt-1 text-sm text-ink-muted leading-snug">
-                      {app.descriptionMn}
-                    </p>
-                    {canManage ? (
-                      <button
-                        type="button"
-                        disabled={enabling === app.key}
-                        onClick={() => enable(app.key)}
-                        className="mt-3 text-sm border border-rule rounded px-3 py-1.5 hover:border-ink-muted disabled:opacity-60"
-                      >
-                        {enabling === app.key
-                          ? t('Идэвхжүүлж байна…')
-                          : t('Идэвхжүүлэх')}
-                      </button>
-                    ) : (
-                      <p className="mt-3 text-xs text-ink-muted">
-                        {t('Идэвхжүүлэхийг админ хийнэ')}
-                      </p>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </section>
-        )}
       </div>
     </main>
+  )
+}
+
+/**
+ * Нэг системийн card. enabled → Link (системийн нүүр), soon → Link
+ * (танилцуулга /apps/:key), available → идэвхжүүлэх товчтой div.
+ */
+function SystemCard({ app, index, t, canManage, enabling, onEnable }) {
+  const Icon = appIcon(app.icon)
+  const enabled = app.state === 'enabled'
+  const soon = app.state === 'soon'
+  const href = enabled
+    ? (manifestFor(app.key)?.basePath ?? `/apps/${app.key}`)
+    : `/apps/${app.key}`
+
+  const body = (
+    <>
+      <div className="flex items-start justify-between gap-2">
+        <span
+          className="w-11 h-11 rounded-md flex items-center justify-center text-white"
+          style={{ backgroundColor: app.color }}
+        >
+          <Icon size={22} strokeWidth={1.75} />
+        </span>
+        <span className="font-mono text-[11px] text-ink-muted/70">
+          {String(index).padStart(2, '0')}
+        </span>
+      </div>
+      <h2 className="mt-3 font-medium leading-snug">{app.nameMn}</h2>
+      <p className="font-mono text-[11px] text-ink-muted">{app.nameEn}</p>
+      <p className="mt-2 text-sm text-ink-muted leading-snug line-clamp-3">
+        {app.descriptionMn}
+      </p>
+      <div className="mt-auto pt-4 flex items-center justify-between gap-2 text-xs">
+        {enabled && (
+          <>
+            <span className="font-mono uppercase tracking-wide text-safe">
+              {t('Идэвхтэй')}
+            </span>
+            <span className="flex items-center gap-1 text-ink group-hover:translate-x-0.5 transition-transform">
+              {t('Нээх')} <ArrowRight size={14} />
+            </span>
+          </>
+        )}
+        {soon && (
+          <span className="font-mono uppercase tracking-wide border border-rule rounded px-1.5 py-0.5 text-ink-muted">
+            {t('Тун удахгүй')}
+          </span>
+        )}
+        {app.state === 'available' &&
+          (canManage ? (
+            <button
+              type="button"
+              disabled={enabling}
+              onClick={onEnable}
+              className="border border-rule rounded px-3 py-1.5 text-sm hover:border-ink-muted disabled:opacity-60"
+            >
+              {enabling ? t('Идэвхжүүлж байна…') : t('Идэвхжүүлэх')}
+            </button>
+          ) : (
+            <span className="text-ink-muted">{t('Идэвхжүүлэхийг админ хийнэ')}</span>
+          ))}
+      </div>
+    </>
+  )
+
+  const base =
+    'group flex flex-col h-full border rounded-lg p-5 bg-surface transition-all'
+  if (app.state === 'available') {
+    return (
+      <div
+        data-testid="system-card"
+        data-state={app.state}
+        className={`${base} border-rule`}
+      >
+        {body}
+      </div>
+    )
+  }
+  return (
+    <Link
+      to={href}
+      data-testid="system-card"
+      data-state={app.state}
+      className={`${base} ${
+        enabled
+          ? 'border-rule hover:border-ink-muted hover:shadow-lg'
+          : 'border-rule/60 opacity-60 hover:opacity-90'
+      }`}
+    >
+      {body}
+    </Link>
   )
 }

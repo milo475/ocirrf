@@ -41,7 +41,7 @@ function App() {
                 <Route path="/change-password" element={<ChangePassword />} />
 
                 <Route element={<ProtectedRoute />}>
-                  {/* App Launcher — бүх app-ийн каталог (switcher-ийн «Бүх апп») */}
+                  {/* ocirrf ХАБ — нэвтэрсний дараах нүүр: 10 системийн card */}
                   <Route path="/launcher" element={<Launcher />} />
                   {/* SUPERADMIN консол — бусдад 404 харагдана */}
                   <Route path="/platform-admin" element={<PlatformAdmin />} />
