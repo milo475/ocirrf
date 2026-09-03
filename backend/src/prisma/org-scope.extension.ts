@@ -95,7 +95,7 @@ export const orgScopeExtension = Prisma.defineExtension({
           );
         }
 
-        const a: AnyArgs = { ...(args as AnyArgs) };
+        const a: AnyArgs = { ...args };
 
         if (operation === 'create') {
           const data = (a.data ?? {}) as AnyArgs;
@@ -107,7 +107,7 @@ export const orgScopeExtension = Prisma.defineExtension({
           operation === 'createMany' ||
           operation === 'createManyAndReturn'
         ) {
-          const rows: AnyArgs[] = Array.isArray(a.data) ? a.data : [a.data];
+          const rows = (Array.isArray(a.data) ? a.data : [a.data]) as AnyArgs[];
           for (const row of rows) {
             if (row.organizationId && row.organizationId !== orgId) {
               throw new Error(
@@ -117,14 +117,14 @@ export const orgScopeExtension = Prisma.defineExtension({
           }
           a.data = rows.map((row) => ({ ...row, organizationId: orgId }));
         } else if (operation === 'upsert') {
-          a.where = { ...a.where, organizationId: orgId };
+          a.where = { ...(a.where as AnyArgs), organizationId: orgId };
           const create = (a.create ?? {}) as AnyArgs;
           if (create.organizationId && create.organizationId !== orgId) {
             throw new Error(`Өөр байгууллага руу бичихийг хориглоно: ${model}`);
           }
           a.create = { ...create, organizationId: orgId };
         } else if (WHERE_OPS.has(operation)) {
-          a.where = { ...a.where, organizationId: orgId };
+          a.where = { ...(a.where as AnyArgs), organizationId: orgId };
         }
 
         return query(a);

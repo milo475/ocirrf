@@ -6,7 +6,6 @@ import {
   HttpStatus,
   Post,
   Req,
-  UseGuards,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { PermissionsService } from '../permissions/permissions.service';

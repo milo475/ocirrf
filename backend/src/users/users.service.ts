@@ -1,11 +1,13 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'node:crypto';
+import type { AuthUser } from '../auth/decorators/current-user.decorator';
 import { DeliveryStatus } from '../generated/prisma/client';
 import { PermissionsService } from '../permissions/permissions.service';
 import { OrgContext } from '../org/org-context';
@@ -51,6 +53,37 @@ export class UsersService {
     private readonly permissions: PermissionsService,
   ) {}
 
+  /**
+   * ПЛАТФОРМЫН SUPERADMIN-ЫГ ХАМГААЛНА. Superadmin ямар нэг байгууллагад
+   * харьяалагддаг тул тэр байгууллагын ADMIN нь users.manage эрхээрээ
+   * түүний нууц үгийг сэргээж, идэвхгүй болгож эсвэл эрхийг нь сольж
+   * платформын консолыг бүхэлд нь авах боломжтой байв. Superadmin-ыг
+   * зөвхөн superadmin удирдана.
+   */
+  private assertCanManage(target: { isSuperAdmin: boolean }, actor: AuthUser) {
+    if (target.isSuperAdmin && !actor.isSuperAdmin) {
+      throw new ForbiddenException(
+        'Платформын админы бүртгэлийг зөвхөн платформын админ удирдана',
+      );
+    }
+  }
+
+  /**
+   * companyId нь ӨӨРИЙН байгууллагын Company байх ёстой. Өмнө нь шууд
+   * бичигддэг тул өөр байгууллагын компанийн id-г (FK глобал) холбож
+   * болдог байв.
+   */
+  private async assertCompanyInOrg(companyId?: string | null) {
+    if (!companyId) return;
+    const company = await this.prisma.company.findUnique({
+      where: { id: companyId },
+      select: { id: true },
+    });
+    if (!company) {
+      throw new BadRequestException('Харилцагч компани олдсонгүй');
+    }
+  }
+
   findAll(query: QueryUsersDto) {
     return this.prisma.user.findMany({
       where: {
@@ -63,6 +96,7 @@ export class UsersService {
   }
 
   async create(dto: CreateUserDto) {
+    await this.assertCompanyInOrg(dto.companyId);
     const passwordHash = await bcrypt.hash(dto.password, 10);
     try {
       return await this.prisma.$transaction(async (tx) => {
@@ -104,7 +138,8 @@ export class UsersService {
     }
   }
 
-  async update(id: string, dto: UpdateUserDto, currentUserId: string) {
+  async update(id: string, dto: UpdateUserDto, actor: AuthUser) {
+    const currentUserId = actor.id;
     const user = await this.prisma.user.findUnique({
       where: { id },
       include: { driverProfile: true },
@@ -112,6 +147,8 @@ export class UsersService {
     if (!user) {
       throw new NotFoundException('Хэрэглэгч олдсонгүй');
     }
+    this.assertCanManage(user, actor);
+    await this.assertCompanyInOrg(dto.companyId);
 
     // Өөрийгөө хамгаалах дүрмүүд
     if (id === currentUserId) {
@@ -155,8 +192,10 @@ export class UsersService {
     const result = await this.prisma.$transaction(async (tx) => {
       await tx.user.update({ where: { id }, data });
 
-      // Идэвхгүй болгоход бүх refresh token шууд унтарна (V4-08)
-      if (dto.isActive === false) {
+      // Идэвхгүй болгох эсвэл АДМИН НУУЦ ҮГ СОЛИХОД бүх refresh token
+      // шууд унтарна (V4-08). Өмнө нь нууц үг солиход хуучин session
+      // 7 хоног хүчинтэй хэвээр үлддэг байв.
+      if (dto.isActive === false || dto.password !== undefined) {
         await tx.refreshToken.updateMany({
           where: { userId: id, revokedAt: null },
           data: { revokedAt: new Date() },
@@ -214,11 +253,12 @@ export class UsersService {
    * ActivityLog interceptor үйлдлийг бичнэ — түр нууц үг response-д тул
    * лог руу ОРОХГҮЙ.
    */
-  async resetPassword(id: string) {
+  async resetPassword(id: string, actor: AuthUser) {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) {
       throw new NotFoundException('Хэрэглэгч олдсонгүй');
     }
+    this.assertCanManage(user, actor);
     // Төстэй харагддаг тэмдэгтгүй (0/O, 1/l/I) цагаан толгой
     const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
     const tempPassword = Array.from(randomBytes(8))
@@ -241,11 +281,12 @@ export class UsersService {
   }
 
   /** Түгжээ тайлах (V4-07) — counter 0, lockedUntil арилна */
-  async unlock(id: string) {
+  async unlock(id: string, actor: AuthUser) {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) {
       throw new NotFoundException('Хэрэглэгч олдсонгүй');
     }
+    this.assertCanManage(user, actor);
     return this.prisma.user.update({
       where: { id },
       data: { failedLoginCount: 0, lockedUntil: null },

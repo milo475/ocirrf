@@ -5,10 +5,11 @@ import {
   PublicOrderController,
 } from './order-requests.controller';
 import { OrderRequestsService } from './order-requests.service';
+import { PublicOrderTokenGuard } from './public-order-token.guard';
 
 @Module({
   imports: [OrdersModule],
   controllers: [PublicOrderController, OrderRequestsController],
-  providers: [OrderRequestsService],
+  providers: [OrderRequestsService, PublicOrderTokenGuard],
 })
 export class OrderRequestsModule {}

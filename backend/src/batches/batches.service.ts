@@ -171,10 +171,18 @@ export class BatchesService {
         throw new BadRequestException('Үлдэгдэлгүй цуврал — устгах юм алга');
       }
 
-      await tx.product.update({
+      const updated = await tx.product.update({
         where: { id: batch.productId },
         data: { stockQty: { decrement: batch.remaining } },
       });
+      // Цуврал ба барааны үлдэгдэл зөрсөн бол (гар тохируулга) сөрөг
+      // үлдэгдэл үүсгэхгүй — transaction бүхэлдээ буцна
+      if (updated.stockQty < 0) {
+        throw new BadRequestException(
+          'Барааны үлдэгдэл цувралын үлдэгдлээс бага байна — эхлээд ' +
+            'үлдэгдлээ тохируулна уу',
+        );
+      }
       await tx.stockMovement.create({
         data: {
           organizationId: OrgContext.require(),

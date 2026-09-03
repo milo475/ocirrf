@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   ArrayMinSize,
   IsArray,
   IsBoolean,
@@ -16,11 +17,7 @@ import {
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
-import {
-  DeliveryRegion,
-  OrderChannel,
-  PaymentMethod,
-} from '../../generated/prisma/client';
+import { DeliveryRegion, OrderChannel } from '../../generated/prisma/client';
 
 export class OrderItemInput {
   @IsUUID('4', { message: 'productId буруу форматтай' })
@@ -143,6 +140,7 @@ export class CreateOrderDto {
 
   @IsArray()
   @ArrayMinSize(1, { message: 'Дор хаяж 1 бараа сонгоно' })
+  @ArrayMaxSize(200, { message: 'Нэг захиалгад дээд тал нь 200 мөр' })
   @ValidateNested({ each: true })
   @Type(() => OrderItemInput)
   items: OrderItemInput[];

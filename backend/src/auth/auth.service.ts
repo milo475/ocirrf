@@ -25,6 +25,13 @@ export type JwtPayload = { sub: string; role: string; jti?: string };
 
 const REFRESH_TTL_MS = 7 * 24 * 60 * 60_000; // 7 хоног — token-ий expiresIn-тэй ижил
 
+/**
+ * Бүртгэлгүй имэйлд ч bcrypt ажиллуулахад зориулсан hash: байхгүй
+ * хэрэглэгчийн хариу шууд, байгаагийнх ~100мс удаан ирдэг байсан нь
+ * хугацааны ялгаагаар бүртгэлтэй имэйл таах боломж олгож байв.
+ */
+const DUMMY_HASH = bcrypt.hashSync('timing-equalizer', 10);
+
 function sha256(value: string): string {
   return createHash('sha256').update(value).digest('hex');
 }
@@ -66,9 +73,12 @@ export class AuthService {
     // Аль шалтгаанаар амжилтгүй болсныг ялгаж мэдэгдэхгүй
     const invalid = new UnauthorizedException('Нэвтрэх мэдээлэл буруу');
 
+    if (!user) {
+      await bcrypt.compare(dto.password, DUMMY_HASH);
+    }
     if (!user || !user.isActive) {
       // Бүртгэлгүй/идэвхгүй хаягаар оролдсон нь ч дохио
-      this.securityLog.loginFailed(
+      await this.securityLog.loginFailed(
         dto.email,
         ip,
         user?.id ?? null,
@@ -83,7 +93,12 @@ export class AuthService {
       HttpStatus.LOCKED,
     );
     if (user.lockedUntil && user.lockedUntil > new Date()) {
-      this.securityLog.loginFailed(dto.email, ip, user.id, user.organizationId);
+      await this.securityLog.loginFailed(
+        dto.email,
+        ip,
+        user.id,
+        user.organizationId,
+      );
       throw locked;
     }
 
@@ -102,14 +117,14 @@ export class AuthService {
           : { failedLoginCount: count },
       });
       if (willLock) {
-        this.securityLog.loginLocked(
+        await this.securityLog.loginLocked(
           dto.email,
           ip,
           user.id,
           user.organizationId,
         );
       } else {
-        this.securityLog.loginFailed(
+        await this.securityLog.loginFailed(
           dto.email,
           ip,
           user.id,

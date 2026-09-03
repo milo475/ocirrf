@@ -5,6 +5,7 @@ import Input from '../components/ui/Input'
 import Spinner from '../components/ui/Spinner'
 import Table from '../components/ui/Table'
 import { useLang } from '../context/LanguageContext'
+import { useAuth } from '../context/AuthContext'
 import { api } from '../lib/api'
 import { formatDateTime } from '../lib/format'
 
@@ -58,6 +59,7 @@ const ACTION_LABEL = {
 
 export default function ActivityLog() {
   const { t } = useLang()
+  const { user } = useAuth()
   const [tab, setTab] = useState('log') // log | errors
 
   const [entity, setEntity] = useState('')
@@ -159,7 +161,8 @@ export default function ActivityLog() {
       <div className="mt-6 flex gap-1 border-b border-rule pb-3">
         {[
           ['log', 'Үйлдлийн түүх'],
-          ['errors', 'Системийн алдаа'],
+          // Алдааны лог платформын түвшнийх — зөвхөн superadmin (backend ч мөн)
+          ...(user?.isSuperAdmin ? [['errors', 'Системийн алдаа']] : []),
         ].map(([key, label]) => (
           <button
             key={key}

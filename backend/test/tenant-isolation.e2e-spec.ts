@@ -258,6 +258,25 @@ describe('Байгууллагын тусгаарлалт (multi-tenancy e2e)', 
       await api().get(`/api/orders/${orderAId}`).set(auth(tokA)).expect(200);
     });
 
+    it('аналитик top-products өөр байгууллагын борлуулалтыг нэгтгэхгүй ⭐', async () => {
+      // OrderItem нь org-scoped биш тул relation filter-т байгууллага
+      // заагаагүй бол бүх байгууллагын борлуулалт нэг жагсаалтад орно
+      const a = await api()
+        .get('/api/analytics/top-products')
+        .set(auth(tokA))
+        .expect(200);
+      expect(
+        a.body.some((x: { productId: string }) => x.productId === productAId),
+      ).toBe(true);
+      const b = await api()
+        .get('/api/analytics/top-products')
+        .set(auth(tokB))
+        .expect(200);
+      expect(
+        b.body.some((x: { productId: string }) => x.productId === productAId),
+      ).toBe(false);
+    });
+
     it('ижил SKU хоёр байгууллагад зэрэг оршино (composite unique) ⭐', async () => {
       const p = await api()
         .post('/api/products')

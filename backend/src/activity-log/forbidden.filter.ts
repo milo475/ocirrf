@@ -33,7 +33,7 @@ export class ForbiddenLogFilter implements ExceptionFilter {
     const req = ctx.getRequest<Request & { user?: AuthUser }>();
     const res = ctx.getResponse<Response>();
 
-    this.securityLog.forbidden(
+    void this.securityLog.forbidden(
       req.user?.id ?? null,
       req.method,
       req.originalUrl ?? req.url,

@@ -134,6 +134,9 @@ export class AnalyticsService {
       by: ['productId'],
       where: {
         order: {
+          // OrderItem нь org-scoped БИШ тул relation filter-т байгууллагыг
+          // ГАРААР өгнө — эс тэгвэл бүх байгууллагын борлуулалт нэгтгэгдэнэ
+          organizationId: OrgContext.require(),
           createdAt: { gte: start, lte: end },
           orderStatus: { not: OrderStatus.CANCELLED },
         },

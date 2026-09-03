@@ -564,6 +564,7 @@ describe('ocirrf v2 API (e2e)', () => {
   // ────────────────────────────────────────────── ORDERS
   describe('Orders — transaction ⭐', () => {
     it('УБ горимд дүүрэггүй → 400 «Дүүрэг заавал»', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { district: _d, ...noDistrict } = UB_ADDR;
       const res = await api()
         .post('/api/orders')
@@ -3411,7 +3412,22 @@ describe('ocirrf v2 API (e2e)', () => {
 
   // ────────────────────────────────────────────── V4: АЛДААНЫ ЛОГ
   describe('V4: Алдааны төвлөрсөн лог ⭐', () => {
+    // Алдааны лог ПЛАТФОРМЫН түвшнийх (бүх байгууллагын мэдээлэл) тул
+    // multi-tenancy-ийн дараа зөвхөн SUPERADMIN уншина — seed админыг
+    // энэ блокийн хугацаанд superadmin болгоно (JwtStrategy DB-ээс уншдаг
+    // тул дахин нэвтрэх шаардлагагүй)
+    beforeAll(async () => {
+      await prisma.user.update({
+        where: { username: 'admin@ocirrf.mn' },
+        data: { isSuperAdmin: true },
+      });
+    });
+
     afterAll(async () => {
+      await prisma.user.update({
+        where: { username: 'admin@ocirrf.mn' },
+        data: { isSuperAdmin: false },
+      });
       // Тестийн "Тест алдаа" мөрүүдийг өнөөдрийн лог файлаас арилгана
       const d = new Date();
       const today = new Date(d.getTime() - d.getTimezoneOffset() * 60_000)
@@ -3466,6 +3482,16 @@ describe('ocirrf v2 API (e2e)', () => {
 
     it('operator алдааны лог харахгүй (403); буруу огноо 400', async () => {
       await api().get('/api/admin/errors').set(auth(tok.operator)).expect(403);
+      // Байгууллагын ADMIN ч superadmin биш бол харахгүй (платформын лог)
+      await prisma.user.update({
+        where: { username: 'admin@ocirrf.mn' },
+        data: { isSuperAdmin: false },
+      });
+      await api().get('/api/admin/errors').set(auth(tok.admin)).expect(403);
+      await prisma.user.update({
+        where: { username: 'admin@ocirrf.mn' },
+        data: { isSuperAdmin: true },
+      });
       await api()
         .get('/api/admin/errors?date=27-08-2026')
         .set(auth(tok.admin))

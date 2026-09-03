@@ -42,13 +42,21 @@ export class SecurityLogService {
     return `${head}***${email.slice(at)}`;
   }
 
+  /**
+   * Бичилт хэзээ ч reject хийхгүй (алдаа залгигдана) — дуудагч
+   * `await` хийвэл бичигдэж дууссаныг баталгаажуулна, `void` хийвэл
+   * fire-and-forget хэвээр. Нэвтрэлтийн замд await хийдэг: хариу
+   * буцахаас өмнө бичигдсэн байх нь мөшгилтийн лог найдвартай
+   * (сервер шууд унасан ч алдагдахгүй) байхад чухал; зардал нь нэг
+   * insert (~мс).
+   */
   private write(entry: {
     userId?: string | null;
     organizationId?: string | null;
     action: string;
     meta: Prisma.InputJsonValue;
-  }) {
-    void this.prisma.activityLog
+  }): Promise<void> {
+    return this.prisma.activityLog
       .create({
         data: {
           userId: entry.userId ?? null,
@@ -65,7 +73,10 @@ export class SecurityLogService {
           meta: entry.meta,
         },
       })
-      .catch(() => undefined);
+      .then(
+        () => undefined,
+        () => undefined,
+      );
   }
 
   /** Нууц үг буруу оруулсан */
@@ -74,8 +85,8 @@ export class SecurityLogService {
     ip: string | null,
     userId?: string | null,
     organizationId?: string | null,
-  ) {
-    this.write({
+  ): Promise<void> {
+    return this.write({
       userId,
       organizationId,
       action: 'LOGIN_FAILED',
@@ -89,8 +100,8 @@ export class SecurityLogService {
     ip: string | null,
     userId?: string | null,
     organizationId?: string | null,
-  ) {
-    this.write({
+  ): Promise<void> {
+    return this.write({
       userId,
       organizationId,
       action: 'LOGIN_LOCKED',
@@ -104,8 +115,8 @@ export class SecurityLogService {
     method: string,
     path: string,
     ip: string | null,
-  ) {
-    this.write({
+  ): Promise<void> {
+    return this.write({
       userId,
       action: 'FORBIDDEN',
       meta: { method, path, ip },

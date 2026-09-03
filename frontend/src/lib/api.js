@@ -34,6 +34,13 @@ export function clearTokens() {
   } catch {
     /* үл тоомсорлоно */
   }
+  // PWA-ийн runtime cache (жолоочийн хүргэлтийн жагсаалт) — нэг
+  // төхөөрөмж дээр дараагийн хэрэглэгчид өмнөхийн өгөгдөл харагдахгүй
+  try {
+    if (typeof caches !== 'undefined') void caches.delete('deliveries-my')
+  } catch {
+    /* cache API байхгүй орчин */
+  }
 }
 
 function getRefreshToken() {

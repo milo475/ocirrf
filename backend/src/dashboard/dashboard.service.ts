@@ -123,7 +123,7 @@ export class DashboardService {
       // цуцлагдаагүй бүх захиалгын орлого − борлуулсан барааны
       // snapshot өртөг (costAtOrder × qty)
       this.prisma.$queryRaw<
-        { revenue: unknown; cost: unknown }[]
+        { revenue: string | number | null; cost: string | number | null }[]
       >`SELECT COALESCE(SUM(oi."priceAtOrder" * (oi.qty - COALESCE(r.qty, 0))), 0) AS revenue,
                COALESCE(SUM(oi."costAtOrder" * (oi.qty - COALESCE(r.qty, 0))), 0) AS cost
         FROM "OrderItem" oi
@@ -445,6 +445,8 @@ export class DashboardService {
         by: ['productId'],
         where: {
           order: {
+            // OrderItem unscoped — relation filter-т байгууллагыг гараар (Multi-tenancy)
+            organizationId: OrgContext.require(),
             createdAt: { gte: since30 },
             orderStatus: { not: OrderStatus.CANCELLED },
           },

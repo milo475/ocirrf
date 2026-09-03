@@ -29,6 +29,13 @@ export class NotificationsService {
    */
   private readonly streams = new Map<string, Set<Subject<SseEvent>>>();
 
+  /**
+   * Нэг хэрэглэгчийн зэрэг нээлттэй stream-ийн дээд хязгаар. Хязгааргүй
+   * бол нэг бүртгэлээр мянган EventSource нээж серверийн санах ойг
+   * дүүргэж болно; хэтэрвэл хамгийн хуучин холболт хаагдана.
+   */
+  private static readonly MAX_STREAMS_PER_USER = 8;
+
   /** Нэг хэрэглэгчийн SSE stream — 25с тутамд ping (proxy timeout-аас сэргийлнэ) */
   subscribe(userId: string): Observable<SseEvent> {
     const subj = new Subject<SseEvent>();
@@ -38,6 +45,13 @@ export class NotificationsService {
       this.streams.set(userId, set);
     }
     set.add(subj);
+    // Set нь insertion order хадгалдаг — эхнийх нь хамгийн хуучин
+    while (set.size > NotificationsService.MAX_STREAMS_PER_USER) {
+      const [oldest] = set;
+      if (!oldest) break;
+      set.delete(oldest);
+      oldest.complete();
+    }
 
     const heartbeat = interval(25_000).pipe(
       map((): SseEvent => ({ data: '{"type":"ping"}' })),

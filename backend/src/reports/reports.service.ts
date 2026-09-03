@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '../generated/prisma/client';
 import { parseDateRange } from '../date-range.util';
 import { formatShortAddress } from '../orders/address.util';
 import { PrismaService } from '../prisma/prisma.service';
@@ -16,16 +17,45 @@ const fmtDate = (d: Date | null) =>
         .replace('T', ' ')
     : '';
 
-/** CSV escape: хашилт, таслал, мөр агуулбал давхар хашилтад */
+function stringify(v: unknown): string {
+  if (v === null || v === undefined) return '';
+  if (typeof v === 'string') return v;
+  if (
+    typeof v === 'number' ||
+    typeof v === 'boolean' ||
+    typeof v === 'bigint'
+  ) {
+    return String(v);
+  }
+  if (v instanceof Date) return v.toISOString();
+  if (v instanceof Prisma.Decimal) return v.toString();
+  return JSON.stringify(v);
+}
+
+/**
+ * CSV escape: хашилт, таслал, мөр агуулбал давхар хашилтад.
+ *
+ * ФОРМУЛ INJECTION: хэрэглэгчийн бичсэн текст (нэр, хаяг, тэмдэглэл)
+ * `=`, `+`, `-`, `@` эсвэл tab/CR-ээр эхэлбэл Excel/LibreOffice үүнийг
+ * ФОРМУЛ гэж гүйцэтгэдэг (`=HYPERLINK`, DDE). Тоон утгыг хөндөхгүйн
+ * тулд зөвхөн ТЕКСТ утгад, тоо биш үед `'` угтвар нэмнэ.
+ */
 function cell(v: unknown): string {
-  const s = String(v ?? '');
+  let s = stringify(v);
+  if (
+    typeof v === 'string' &&
+    /^[=+\-@\t\r]/.test(s) &&
+    !/^[+-]?\d+([.,]\d+)?$/.test(s)
+  ) {
+    s = `'${s}`;
+  }
   return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
 /** Excel-д кирилл зөв гарахын тулд UTF-8 BOM-той CSV угсарна */
 export function toCsv(header: string[], rows: unknown[][]): string {
   const lines = [header, ...rows].map((r) => r.map(cell).join(','));
-  return '﻿' + lines.join('\r\n') + '\r\n';
+  return '\uFEFF' + lines.join('\r\n') + '\r\n';
 }
 
 const STATUS_MN: Record<string, string> = {

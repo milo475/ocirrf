@@ -32,7 +32,7 @@ export class AutoAssignDriverDto {
  */
 export class SetZonesDto {
   @IsArray()
-  @IsIn(DISTRICTS as unknown as string[], {
+  @IsIn(DISTRICTS, {
     each: true,
     message: 'Дүүргийн товчлол буруу байна',
   })

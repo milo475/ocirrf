@@ -188,7 +188,7 @@ export class ProductsService {
   /** UTF-8 BOM загвар — Excel-д кирилл зөв нээгдэнэ */
   importTemplate(): string {
     return (
-      '﻿' +
+      '\uFEFF' +
       'SKU,Нэр,Ангилал,Үнэ,Өртөг,Barcode,Доод хязгаар,Эхний үлдэгдэл\n' +
       'UG-0101,Жишээ бараа,Хүнс,5000,3500,4870000000001,5,20\n'
     );
@@ -203,7 +203,7 @@ export class ProductsService {
     if (!buffer || buffer.length === 0) {
       throw new BadRequestException('CSV файл илгээнэ үү (file талбар)');
     }
-    const text = buffer.toString('utf8').replace(/^﻿/, '');
+    const text = buffer.toString('utf8').replace(/^\uFEFF/, '');
     const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
     // Толгой мөрийг алгасна
     const start = lines[0]?.toUpperCase().includes('SKU') ? 1 : 0;

@@ -45,19 +45,25 @@ export class UsersController {
     @Body() dto: UpdateUserDto,
     @CurrentUser() user: AuthUser,
   ) {
-    return this.usersService.update(id, dto, user.id);
+    return this.usersService.update(id, dto, user);
   }
 
   /** V4-07: нэвтрэлтийн түгжээ тайлах */
   @Patch(':id/unlock')
-  unlock(@Param('id', ParseUUIDPipe) id: string) {
-    return this.usersService.unlock(id);
+  unlock(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.usersService.unlock(id, user);
   }
 
   /** V4-06: түр нууц үг үүсгэнэ — хариунд НЭГ УДАА л ил ирнэ */
   @Post(':id/reset-password')
-  resetPassword(@Param('id', ParseUUIDPipe) id: string) {
-    return this.usersService.resetPassword(id);
+  resetPassword(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.usersService.resetPassword(id, user);
   }
 
   /**

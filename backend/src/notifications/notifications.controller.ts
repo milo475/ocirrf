@@ -12,7 +12,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { Type } from 'class-transformer';
 import { IsBooleanString, IsInt, IsOptional, Max, Min } from 'class-validator';
-import { Observable, defer, switchMap } from 'rxjs';
+import { Observable, defer, switchMap, takeUntil, timer } from 'rxjs';
 import type { JwtPayload } from '../auth/auth.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../auth/decorators/current-user.decorator';
@@ -60,12 +60,17 @@ export class NotificationsController {
   @Sse('stream')
   stream(@Query('token') token: string): Observable<SseEvent> {
     return defer(async () => {
-      let payload: JwtPayload;
+      let payload: JwtPayload & { exp?: number };
       try {
-        payload = await this.jwt.verifyAsync<JwtPayload>(token ?? '', {
-          secret: process.env.JWT_SECRET,
-        });
+        payload = await this.jwt.verifyAsync<JwtPayload & { exp?: number }>(
+          token ?? '',
+          { secret: process.env.JWT_SECRET },
+        );
       } catch {
+        throw new UnauthorizedException('Stream token хүчингүй');
+      }
+      // Зөвхөн ACCESS token (jti-гүй) — refresh token энд хүчингүй
+      if (payload.jti) {
         throw new UnauthorizedException('Stream token хүчингүй');
       }
       // @Public route тул байгууллагын context тавигдаагүй — auth
@@ -74,14 +79,31 @@ export class NotificationsController {
       const user = await OrgContext.runBypassed(() =>
         this.prisma.user.findUnique({
           where: { id: payload.sub },
-          select: { id: true, isActive: true },
+          select: {
+            id: true,
+            isActive: true,
+            organization: { select: { isActive: true } },
+          },
         }),
       );
-      if (!user?.isActive) {
+      if (!user?.isActive || !user.organization.isActive) {
         throw new UnauthorizedException('Stream token хүчингүй');
       }
-      return user.id;
-    }).pipe(switchMap((userId) => this.notificationsService.subscribe(userId)));
+      return {
+        userId: user.id,
+        expiresAt: payload.exp ? payload.exp * 1000 : null,
+      };
+    }).pipe(
+      switchMap(({ userId, expiresAt }) => {
+        const stream$ = this.notificationsService.subscribe(userId);
+        // Token-ий хугацаа дуусахад stream хаагдана — идэвхгүй болгосон
+        // хэрэглэгчийн холболт хязгааргүй амьдрахгүй; frontend шинэ
+        // token-оор дахин холбогдоно (AppShell-ийн reconnect).
+        return expiresAt
+          ? stream$.pipe(takeUntil(timer(Math.max(0, expiresAt - Date.now()))))
+          : stream$;
+      }),
+    );
   }
 
   @Get()

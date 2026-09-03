@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  ParseEnumPipe,
   ParseUUIDPipe,
   Post,
   Query,
@@ -24,6 +25,8 @@ import { RequirePermission } from '../permissions/require-permission.decorator';
 import { PublicOrderRequestDto } from './dto/public-order-request.dto';
 import { OrderRequestsService } from './order-requests.service';
 import { assertRealImage } from '../uploads/image-content.util';
+import { withUploadCleanup } from '../uploads/upload-cleanup.util';
+import { PublicOrderTokenGuard } from './public-order-token.guard';
 import { ConvertRequestDto, RejectRequestDto } from './dto/handle-request.dto';
 
 const IMAGE_MIME: Record<string, string> = {
@@ -53,7 +56,14 @@ export class PublicOrderController {
     return this.service.publicForm(token);
   }
 
+  /**
+   * Guard нь interceptor-оос ӨМНӨ ажилладаг тул хүчингүй token-той
+   * хүсэлт файлаа дискэнд бичихээс өмнө таслагдана — өмнө нь multer
+   * файлыг эхлээд хадгалж, дараа нь service 404 өгөхөд файл orphan
+   * үлддэг (нэвтрэлтгүй диск дүүргэх зам) байв.
+   */
   @Public()
+  @UseGuards(PublicOrderTokenGuard)
   @Post('order-requests')
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @UseInterceptors(
@@ -68,8 +78,11 @@ export class PublicOrderController {
     @Body() dto: PublicOrderRequestDto,
     @UploadedFile() proof?: Express.Multer.File,
   ) {
-    if (proof) assertRealImage(proof.path);
-    return this.service.submit(token, dto, proof?.filename);
+    // Validation/бизнес алдаанд хадгалагдсан файл orphan үлдэхгүй
+    return withUploadCleanup(proof, () => {
+      if (proof) assertRealImage(proof.path);
+      return this.service.submit(token, dto, proof?.filename);
+    });
   }
 }
 
@@ -80,7 +93,11 @@ export class OrderRequestsController {
 
   @Get()
   @RequirePermission(PERM.ORDERS_VIEW)
-  list(@Query('status') status?: OrderRequestStatus) {
+  list(
+    // Enum-ээс гадуурх утга Prisma validation алдаагаар 500 өгдөг байв
+    @Query('status', new ParseEnumPipe(OrderRequestStatus, { optional: true }))
+    status?: OrderRequestStatus,
+  ) {
     return this.service.list(status ?? OrderRequestStatus.NEW);
   }
 

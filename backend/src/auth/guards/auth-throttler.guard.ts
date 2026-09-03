@@ -1,17 +1,10 @@
-import { ExecutionContext, Injectable } from '@nestjs/common';
-import {
-  ThrottlerGuard,
-  ThrottlerException,
-  ThrottlerLimitDetail,
-} from '@nestjs/throttler';
+import { Injectable } from '@nestjs/common';
+import { ThrottlerGuard, ThrottlerException } from '@nestjs/throttler';
 
 /** Auth route-уудын rate limit — 429-ийн мессежийг монголоор (V4-07) */
 @Injectable()
 export class AuthThrottlerGuard extends ThrottlerGuard {
-  protected throwThrottlingException(
-    _context: ExecutionContext,
-    _detail: ThrottlerLimitDetail,
-  ): Promise<void> {
+  protected throwThrottlingException(): Promise<void> {
     throw new ThrottlerException('Хэт олон оролдлого — түр хүлээнэ үү');
   }
 }

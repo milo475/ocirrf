@@ -1,8 +1,8 @@
-import { Transform, Type } from 'class-transformer';
+import { Transform } from 'class-transformer';
 import {
+  ArrayMaxSize,
   ArrayMinSize,
   IsArray,
-  IsBoolean,
   IsEnum,
   IsInt,
   IsNotEmpty,
@@ -145,21 +145,23 @@ export class PublicOrderRequestDto {
    * ажиллана.
    */
   @Transform(
-    ({ obj }) => {
+    ({ obj }: { obj: { items?: unknown } }) => {
       const raw =
         typeof obj.items === 'string' ? safeJson(obj.items) : obj.items;
       if (!Array.isArray(raw)) return raw;
-      return raw.map((i: { productId?: string; qty?: unknown }) =>
-        Object.assign(new RequestItemInput(), {
-          productId: i?.productId,
-          qty: Number(i?.qty),
-        }),
+      return (raw as Array<{ productId?: unknown; qty?: unknown } | null>).map(
+        (i) =>
+          Object.assign(new RequestItemInput(), {
+            productId: i?.productId,
+            qty: Number(i?.qty),
+          }),
       );
     },
     { toClassOnly: true },
   )
   @IsArray()
   @ArrayMinSize(1, { message: 'Дор хаяж 1 бараа сонгоно' })
+  @ArrayMaxSize(200, { message: 'Нэг хүсэлтэд дээд тал нь 200 мөр' })
   @ValidateNested({ each: true })
   items: RequestItemInput[];
 }

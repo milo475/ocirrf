@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -141,6 +142,12 @@ export class PermissionsService {
     }
     if (target.role === Role.ADMIN) {
       throw new BadRequestException('Админы эрхийг хязгаарлах боломжгүй');
+    }
+    // Платформын superadmin-ы эрхийг байгууллагын админ хөндөхгүй
+    if (target.isSuperAdmin && !actor.isSuperAdmin) {
+      throw new ForbiddenException(
+        'Платформын админы эрхийг зөвхөн платформын админ удирдана',
+      );
     }
 
     // Өөрийнхөө permissions.manage-ийг хасаж түгжирэхээс хамгаална

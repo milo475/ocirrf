@@ -26,6 +26,7 @@ import { QueryProductsDto } from './dto/query-products.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductsService } from './products.service';
 import { assertRealImage } from '../uploads/image-content.util';
+import { withUploadCleanup } from '../uploads/upload-cleanup.util';
 
 /** Зөвшөөрөгдсөн зургийн төрлүүд — өргөтгөлийг MIME-ээс тодорхойлно */
 const IMAGE_MIME: Record<string, string> = {
@@ -127,8 +128,10 @@ export class ProductsController {
     @Param('id', ParseUUIDPipe) id: string,
     @UploadedFile() file: Express.Multer.File | undefined,
   ) {
-    if (file) assertRealImage(file.path);
-    return this.productsService.setImage(id, file?.filename);
+    return withUploadCleanup(file, () => {
+      if (file) assertRealImage(file.path);
+      return this.productsService.setImage(id, file?.filename);
+    });
   }
 
   @Delete(':id')

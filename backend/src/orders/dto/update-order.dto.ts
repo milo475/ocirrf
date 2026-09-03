@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   ArrayMinSize,
   IsArray,
   IsEnum,
@@ -116,6 +117,7 @@ export class UpdateOrderDto {
   @IsOptional()
   @IsArray()
   @ArrayMinSize(1, { message: 'Захиалгад дор хаяж 1 бараа байна' })
+  @ArrayMaxSize(200, { message: 'Нэг захиалгад дээд тал нь 200 мөр' })
   @ValidateNested({ each: true })
   @Type(() => OrderItemInput)
   items?: OrderItemInput[];

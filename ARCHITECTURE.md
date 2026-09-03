@@ -23,6 +23,8 @@ ocirrf нь Odoo маягийн **олон дотоод системийн пл�
 - **App дотор** — app бүр өөрийн nav/route-тэй; topbar-ын app switcher
   (grid icon) app хооронд шилжүүлнэ.
 - **`/platform-admin`** — зөвхөн SUPERADMIN: байгууллагууд, каталог.
+  Системийн алдааны лог (`GET /api/admin/errors`) мөн зөвхөн SUPERADMIN —
+  лог нь платформын түвшний файл тул байгууллагын админд задлахгүй.
 
 ## 2. Multi-tenancy (байгууллагын тусгаарлалт)
 

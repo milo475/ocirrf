@@ -4,13 +4,23 @@ import {
   Get,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import { PERM } from '../permissions/permission-keys';
 import { RequirePermission } from '../permissions/require-permission.decorator';
+import { SuperAdminGuard } from '../platform/super-admin.guard';
 import { ErrorLogService } from './error-log.service';
 
-/** Системийн алдааны лог (V4-14) — activity_log.view эрхтэйд */
+/**
+ * Системийн алдааны лог (V4-14).
+ *
+ * Лог нь ПЛАТФОРМЫН түвшний файл: бүх байгууллагын хүсэлтийн зам,
+ * userId, алдааны мессеж нэг дор. Multi-tenancy-ийн дараа үүнийг
+ * байгууллагын админд харуулах нь бусад байгууллагын мэдээлэл задлах
+ * тул зөвхөн платформын SUPERADMIN уншина.
+ */
 @Controller('admin/errors')
+@UseGuards(SuperAdminGuard)
 @RequirePermission(PERM.ACTIVITY_LOG_VIEW)
 export class ErrorsController {
   constructor(private readonly errorLog: ErrorLogService) {}
