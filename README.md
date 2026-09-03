@@ -57,9 +57,41 @@ ocirrf нь Odoo маягийн ОЛОН системийн платформ: `/
 4. **Prisma model-ууд** — org-scoped: дээрх Multi-tenancy checklist-ийг
    ЗААВАЛ дага (organizationId + relation + SCOPED_MODELS + create бүрт
    explicit orgId + байгууллага доторх unique бол composite).
-5. **Frontend манифест** — `frontend/src/apps/<key>/manifest.js` +
-   `routes.jsx`: `{ key, nameMn, icon, color, basePath, routes, navItems,
-   requiredPermissions }`. `key` нь Application.key-тэй ЯГ ижил.
+5. **Frontend манифест (LAZY)** — `frontend/src/apps/<key>/manifest.js` +
+   `routes.jsx`. `key` нь Application.key-тэй ЯГ ижил. Манифест route
+   модоо СТАТИКААР import хийхгүй — `loadRoutes`-оор lazy ачаална, ингэж
+   app бүр өөрийн chunk (`assets/app-<key>-*.js`)-тэй болж зөвхөн тухайн
+   app руу ороход татагдана:
+
+   ```js
+   // src/apps/<key>/manifest.js
+   export const sankhuuManifest = {
+     key: 'sankhuu',
+     nameMn: 'Санхүү', icon: 'landmark', color: '#1e6091',
+     basePath: '/sankhuu',           // app-ийн нүүр (switcher/launcher)
+     mountPath: '/sankhuu/*',        // App.jsx энэ prefix дор угсарна
+     loadRoutes: () => import('./routes'),   // ← lazy chunk-ийн entry
+     navItems: SANKHUU_NAV,
+     requiredPermissions: [],
+   }
+
+   // src/apps/<key>/routes.jsx — default export, ХАРЬЦАНГУЙ замууд
+   export default function SankhuuRoutes() {
+     return (
+       <Routes>
+         <Route index element={<SankhuuHome />} />          {/* /sankhuu */}
+         <Route element={<PermRoute perm="sankhuu.view" />}>
+           <Route path="accounts" element={<Accounts />} />  {/* /sankhuu/accounts */}
+         </Route>
+       </Routes>
+     )
+   }
+   ```
+
+   Дүрэм: (а) `routes.jsx`-ийг App.jsx/AppShell/launcher статикаар import
+   хийхгүй (chunk үндсэн bundle-д нийлнэ); (б) хуудсууд өөрийн app-ийн
+   `routes.jsx`-ээс л import хийгдэнэ; (в) `vite build`-ийн гаралтад
+   `app-<key>-*.js` тусдаа харагдаж байгааг шалгана.
 6. **Launcher/nav бүртгэл** — `frontend/src/apps/index.js`-ийн
    APP_MANIFESTS-д нэмнэ. App.jsx-д гар хүрэхгүй — бүрхүүл өөрөө угсарна.
 7. **e2e тест** — app-ийн ажиллагаа + **cross-tenant тусгаарлалт ЗААВАЛ**

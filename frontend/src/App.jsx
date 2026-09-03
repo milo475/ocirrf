@@ -1,6 +1,7 @@
 import { BrowserRouter, Route, Routes } from 'react-router'
-import { APP_MANIFESTS } from './apps'
+import { manifestsInMountOrder } from './apps'
 import ProtectedRoute from './components/auth/ProtectedRoute'
+import AppRoutes from './components/layout/AppRoutes'
 import AppShell from './components/layout/AppShell'
 import { ToastProvider } from './components/ui/Toast'
 import { AuthProvider } from './context/AuthContext'
@@ -51,8 +52,18 @@ function App() {
                      * (dashboard, захиалга, агуулах…) тэндээс ирдэг.
                      * Шинэ app нэмэхдээ App.jsx-д ГАР ХҮРЭХГҮЙ —
                      * src/apps/index.js-д манифестээ л бүртгэнэ.
+                     *
+                     * LAZY: app бүр manifest.mountPath дээр Suspense-тэй
+                     * угсрагдаж, route/хуудасны код нь тусдаа chunk-аар
+                     * (app-<key>-*.js) зөвхөн тэр app руу ороход татагдана.
                      */}
-                    {APP_MANIFESTS.map((m) => m.routes)}
+                    {manifestsInMountOrder().map((m) => (
+                      <Route
+                        key={m.key}
+                        path={m.mountPath}
+                        element={<AppRoutes manifest={m} />}
+                      />
+                    ))}
                   </Route>
                 </Route>
               </Routes>

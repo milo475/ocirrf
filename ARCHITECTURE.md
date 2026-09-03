@@ -127,12 +127,24 @@ erDiagram
 `frontend/src/apps/<key>/` — app бүр manifest-тэй:
 
 ```js
-{ key, nameMn, icon, color, basePath, routes, navItems, requiredPermissions }
+{ key, nameMn, icon, color, basePath, mountPath, loadRoutes, navItems, requiredPermissions }
 ```
 
 `src/apps/index.js`-ийн `APP_MANIFESTS`-ээс платформ бүрхүүл (App.jsx)
 route-уудаа, AppShell nav/switcher-ээ угсарна — шинэ app нэмэхэд App.jsx-д
 гар хүрдэггүй. Бүрэн дараалал README-ийн "Шинэ app нэмэх" хэсэгт.
+
+**Lazy loading (app бүр өөрийн bundle):** манифест `routes`-оо статикаар
+биш `loadRoutes: () => import('./routes')`-ээр өгнө. App.jsx нь app бүрийг
+`<Route path={mountPath} element={<AppRoutes manifest/>}>` дор угсарч,
+`AppRoutes` нь `React.lazy` + `Suspense` (fallback: шилэн `AppLoading`)-ээр
+route модыг татна. Vite `routes.jsx`-ээс эхэлсэн бүх модулийг
+`assets/app-<key>-<hash>.js` chunk болгодог (vite.config.js-ийн
+`chunkFileNames`). Үр дүн: login/launcher зэрэг платформын хуудсууд үндсэн
+bundle-д, ursgal-ийн 28 хуудас `app-ursgal-*.js`-д (≈308 kB / gzip 74 kB);
+дараагийн app бүр автоматаар өөрийн chunk-той. `mountPath` нь prefix-тэй
+(`/<key>/*`) байх ёстой; ursgal нь түүхэн шалтгаанаар `/*` тул
+`manifestsInMountOrder()` түүнийг хамгийн сүүлд угсардаг.
 
 ## 7. Тестийн бүтэц
 

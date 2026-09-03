@@ -1,4 +1,4 @@
-import { Route } from 'react-router'
+import { Route, Routes } from 'react-router'
 import PermRoute from '../../components/auth/PermRoute'
 import RoleRoute from '../../components/auth/RoleRoute'
 import ActivityLog from '../../pages/ActivityLog'
@@ -31,17 +31,26 @@ import Warehouse from '../../pages/Warehouse'
 /**
  * УРСГАЛ app-ийн route-ууд (модулийн манифестийн нэг хэсэг).
  *
- * App.jsx-ийн платформ бүрхүүл эдгээрийг AppShell доторх байрлалд нь
+ * LAZY CHUNK-ИЙН ENTRY: манифест энэ файлыг `loadRoutes: () => import()`
+ * -ээр дуудна, тиймээс энд import хийгдсэн бүх хуудас (src/pages/…)
+ * ursgal-ийн ТУСДАА bundle-д (app-ursgal-*.js) орж, зөвхөн хэрэглэгч
+ * app руу орох үед татагдана. Платформын бүрхүүл (App.jsx, AppShell,
+ * launcher) энэ файлыг статикаар import хийх ЁСГҮЙ — тэгвэл chunk
+ * үндсэн bundle-д нийлнэ.
+ *
+ * Default export нь ХАРЬЦАНГУЙ замтай <Routes> — App.jsx үүнийг
+ * `<Route path={manifest.mountPath}>` (ursgal: "/*") дор Suspense-тэй
  * угсардаг. Хуудасны файлууд өөрсдөө src/pages-д ХЭВЭЭРЭЭ — манифест
- * зөвхөн ЗААДАГ (том refactor-гүй). Шинэ app нэмэхдээ ийм routes +
- * manifest хослол үүсгээд src/apps/index.js-д бүртгэнэ.
+ * зөвхөн ЗААДАГ. Шинэ app нэмэхдээ ийм routes + manifest хослол үүсгээд
+ * src/apps/index.js-д бүртгэнэ.
  */
-export const ursgalRoutes = (
-  <Route key="ursgal">
+export default function UrsgalRoutes() {
+  return (
+  <Routes>
     {/* Бүх эрхэд нээлттэй (dashboard эрхээрээ өөр агуулгатай) */}
-    <Route path="/dashboard" element={<Dashboard />} />
-    <Route path="/settings" element={<Settings />} />
-    <Route path="/notifications" element={<Notifications />} />
+    <Route path="dashboard" element={<Dashboard />} />
+    <Route path="settings" element={<Settings />} />
+    <Route path="notifications" element={<Notifications />} />
 
     {/*
      * Staff хуудсууд — effective PERMISSION-ээр (Permission Panel-аас
@@ -49,23 +58,23 @@ export const ursgalRoutes = (
      * давхар шалгадаг).
      */}
     <Route element={<PermRoute perm="orders.view" />}>
-      <Route path="/orders" element={<Orders />} />
-      <Route path="/order-requests" element={<OrderRequests />} />
-      <Route path="/orders/:id" element={<OrderDetail />} />
+      <Route path="orders" element={<Orders />} />
+      <Route path="order-requests" element={<OrderRequests />} />
+      <Route path="orders/:id" element={<OrderDetail />} />
     </Route>
     <Route element={<PermRoute perm="orders.create" />}>
-      <Route path="/orders/new" element={<OrderNew />} />
+      <Route path="orders/new" element={<OrderNew />} />
     </Route>
     <Route element={<PermRoute perm="warehouse.handover" />}>
-      <Route path="/warehouse" element={<Warehouse />} />
+      <Route path="warehouse" element={<Warehouse />} />
     </Route>
     <Route element={<PermRoute perm="supplies.view" />}>
-      <Route path="/supplies" element={<Supplies />} />
+      <Route path="supplies" element={<Supplies />} />
     </Route>
     <Route element={<PermRoute perm="inventory.view" />}>
-      <Route path="/products" element={<Products />} />
-      <Route path="/stock" element={<Stock />} />
-      <Route path="/expiry" element={<Expiry />} />
+      <Route path="products" element={<Products />} />
+      <Route path="stock" element={<Stock />} />
+      <Route path="expiry" element={<Expiry />} />
     </Route>
     <Route
       element={
@@ -78,18 +87,18 @@ export const ursgalRoutes = (
         />
       }
     >
-      <Route path="/finance" element={<Finance />} />
-      <Route path="/finance/report" element={<FinanceReport />} />
+      <Route path="finance" element={<Finance />} />
+      <Route path="finance/report" element={<FinanceReport />} />
     </Route>
     <Route element={<PermRoute perm="finance.driver_payroll" />}>
-      <Route path="/finance/payroll" element={<Payroll />} />
+      <Route path="finance/payroll" element={<Payroll />} />
     </Route>
     <Route element={<PermRoute perm="drivers.view" />}>
-      <Route path="/delivery-ops" element={<DeliveryOps />} />
-      <Route path="/drivers" element={<Drivers />} />
+      <Route path="delivery-ops" element={<DeliveryOps />} />
+      <Route path="drivers" element={<Drivers />} />
     </Route>
     <Route element={<PermRoute perm="analytics.view" />}>
-      <Route path="/analytics" element={<Analytics />} />
+      <Route path="analytics" element={<Analytics />} />
     </Route>
     <Route
       element={
@@ -98,31 +107,32 @@ export const ursgalRoutes = (
         />
       }
     >
-      <Route path="/reports" element={<Reports />} />
+      <Route path="reports" element={<Reports />} />
     </Route>
     <Route element={<PermRoute perm="customers.view" />}>
-      <Route path="/customers" element={<Customers />} />
-      <Route path="/reorders" element={<Reorders />} />
+      <Route path="customers" element={<Customers />} />
+      <Route path="reorders" element={<Reorders />} />
     </Route>
     <Route element={<PermRoute perm="users.manage" />}>
-      <Route path="/users" element={<Users />} />
+      <Route path="users" element={<Users />} />
     </Route>
     <Route
       element={<PermRoute allOf={['users.manage', 'permissions.manage']} />}
     >
-      <Route path="/users/:id/permissions" element={<UserPermissions />} />
+      <Route path="users/:id/permissions" element={<UserPermissions />} />
     </Route>
     <Route element={<PermRoute perm="activity_log.view" />}>
-      <Route path="/activity-log" element={<ActivityLog />} />
+      <Route path="activity-log" element={<ActivityLog />} />
     </Route>
     {/* Байгууллагын app удирдлага (платформ, Prompt 4) */}
     <Route element={<PermRoute perm="platform.manage_apps" />}>
-      <Route path="/settings/apps" element={<AppsSettings />} />
+      <Route path="settings/apps" element={<AppsSettings />} />
     </Route>
 
     {/* Хүргэлт — зөвхөн DRIVER */}
     <Route element={<RoleRoute roles={['DRIVER']} />}>
-      <Route path="/deliveries" element={<MyDeliveries />} />
+      <Route path="deliveries" element={<MyDeliveries />} />
     </Route>
-  </Route>
-)
+  </Routes>
+  )
+}

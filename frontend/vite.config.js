@@ -52,6 +52,24 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        /**
+         * App бүрийн lazy chunk-ийг танигдахуйц нэрлэнэ: манифестийн
+         * loadRoutes нь src/apps/<key>/routes.jsx-ийг dynamic import
+         * хийдэг тул тэр файлын chunk → assets/app-<key>-<hash>.js.
+         * Build-ийн гаралтаас app бүрийн bundle хэмжээ шууд харагдана.
+         */
+        chunkFileNames: (chunk) => {
+          const m = /\/src\/apps\/([^/]+)\/routes\.jsx$/.exec(
+            chunk.facadeModuleId ?? '',
+          )
+          return m ? `assets/app-${m[1]}-[hash].js` : 'assets/[name]-[hash].js'
+        },
+      },
+    },
+  },
   server: {
     proxy: {
       // /api гэсэн хүсэлтүүдийг NestJS backend (порт 3000) руу дамжуулна
