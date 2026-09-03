@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+
+/*
+ * Цайвар темийн variant (`light:`): тема нь <html data-theme="light">-аар
+ * тавигддаг (ThemeContext); харанхуй нь default. Хоёр темд өөр өөр утга
+ * шаардлагатай газарт (жишээ: landing-ийн дэвсгэр зургийн overlay) хэрэглэнэ.
+ */
+@custom-variant light (&:where([data-theme="light"], [data-theme="light"] *));
 /* Serif — PT Serif (кирилл бүрэн: Ө/Ү нь cyrillic-ext-д байдаг тул заавал) */
 @import "@fontsource/pt-serif/latin-400.css";
 @import "@fontsource/pt-serif/cyrillic-400.css";

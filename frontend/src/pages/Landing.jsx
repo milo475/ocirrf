@@ -60,7 +60,9 @@ export default function Landing() {
           className="absolute inset-0 bg-center bg-cover"
           style={{ backgroundImage: "url('/landing-bg.jpg')" }}
         />
-        <div className="absolute inset-0 bg-linear-to-b from-bg/60 via-bg/85 to-bg" />
+        {/* Харанхуй темд зураг тод (overlay сул), цайварт бараан зураг дээр
+            бараан текст уншигдахуйц болтол хүчтэй overlay */}
+        <div className="absolute inset-0 bg-linear-to-b from-bg/20 via-bg/65 to-bg light:from-bg/75 light:via-bg/90 light:to-bg" />
       </div>
 
       {/* ── Navbar: нэвтрэлт баруун дээд буланд ── */}
