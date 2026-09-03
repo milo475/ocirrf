@@ -31,6 +31,16 @@ const ROLE_LABELS = {
 }
 
 /**
+ * Эрхийн шошго. Studexa-гийн сурагч платформын OPERATOR role-тэй (Role
+ * enum-д сурагчийн role байхгүй) боловч ажлын үүрэг нь «Харилцагч» биш —
+ * studexa.portal эрхтэй OPERATOR-ыг «Сурагч» гэж харуулна.
+ */
+function roleLabelFor(user, hasPerm) {
+  if (user.role === 'OPERATOR' && hasPerm('studexa.portal')) return 'Сурагч'
+  return ROLE_LABELS[user.role] ?? user.role
+}
+
+/**
  * Layout: зүүн талд эвхэгддэг sidebar (md+), дээд талд нимгэн topbar,
  * mobile дээр sidebar-ын оронд доод tab bar (жолоочийн mobile-first хэвээр).
  */
@@ -233,7 +243,7 @@ export default function AppShell() {
             <div className="px-3 py-2">
               <p className="text-sm truncate">{user.name}</p>
               <span className="mt-1 inline-flex font-mono text-[11px] uppercase tracking-wide border rounded px-1.5 py-0.5 text-accent border-accent/40 bg-accent/12">
-                {t(ROLE_LABELS[user.role] ?? user.role)}
+                {t(roleLabelFor(user, hasPerm))}
               </span>
             </div>
           )}
@@ -409,7 +419,7 @@ export default function AppShell() {
                 <div className="px-3 py-2">
                   <p className="text-sm truncate">{user.name}</p>
                   <span className="mt-1 inline-flex font-mono text-[11px] uppercase tracking-wide border rounded px-1.5 py-0.5 text-accent border-accent/40 bg-accent/12">
-                    {t(ROLE_LABELS[user.role] ?? user.role)}
+                    {t(roleLabelFor(user, hasPerm))}
                   </span>
                 </div>
               )}

@@ -61,6 +61,7 @@ const DICT = {
     'Админ': 'Admin',
     'Оператор': 'Operator',
     'Харилцагч': 'Partner',
+    'Сурагч': 'Student',
     'Харанхуй': 'Dark',
     'Цайвар': 'Light',
     'Тема солих': 'Toggle theme',
