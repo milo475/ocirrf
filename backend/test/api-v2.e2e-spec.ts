@@ -132,6 +132,8 @@ describe('ocirrf v2 API (e2e)', () => {
   let keeperId: string; // няравын тест хэрэглэгч (V5)
   let keeperToken: string;
   let handoverId: string;
+  /** Менежерийн өөрийн гараар үүсгэсэн хүлээлгэлт (үүргийн хилийн тест) */
+  let mgrHandoverId: string;
   const testStartedAt = new Date(); // ActivityLog цэвэрлэгээнд
   const proofFiles: string[] = [];
 
@@ -241,12 +243,15 @@ describe('ocirrf v2 API (e2e)', () => {
       },
     });
     // Хүлээлгэн өгсөн хуудас — захиалгууд түүн рүү заадаг тул эхлээд салгана
-    if (handoverId) {
+    const handoverIds = [handoverId, mgrHandoverId].filter(Boolean);
+    if (handoverIds.length) {
       await prisma.order.updateMany({
-        where: { handoverId },
+        where: { handoverId: { in: handoverIds } },
         data: { handoverId: null },
       });
-      await prisma.driverHandover.deleteMany({ where: { id: handoverId } });
+      await prisma.driverHandover.deleteMany({
+        where: { id: { in: handoverIds } },
+      });
     }
     await prisma.order.deleteMany({ where: { id: { in: orderIds } } });
     if (productIds.length) {
@@ -1228,6 +1233,22 @@ describe('ocirrf v2 API (e2e)', () => {
       expect(allKeys).toContain('orders.assign_warehouse');
       expect(allKeys).toContain('warehouse.handover');
       expect(allKeys).toContain('orders.edit');
+
+      // Label солилцооны хамгаалалт: drivers.assign нь МАРШРУТЫН
+      // ДАРААЛЛЫГ (PATCH /deliveries/route-order) хамгаалдаг тул
+      // «Жолооч оноох» гэж харагдаж болохгүй; жолооч оноох нь
+      // orders.assign_driver. Түлхүүрийн нэрс өөрчлөгдөөгүй —
+      // зөвхөн UI-д харагдах текстийг батална.
+      const allItems: Item[] = panel.body.groups.flatMap(
+        (g: { items: Item[] }) => g.items,
+      );
+      const labelOf = (key: string) =>
+        allItems.find((i) => i.key === key)?.label;
+      expect(labelOf('drivers.assign')).toBe('Маршрутын дараалал тавих');
+      expect(labelOf('orders.assign_driver')).toBe('Жолооч хуваарилах');
+      expect(labelOf('orders.record_payment')).toBe(
+        'Захиалгын төлбөр бүртгэх',
+      );
 
       // Хасагдсан түлхүүрийг олгох гэвэл валидацид унана
       await api()
@@ -5223,6 +5244,57 @@ describe('ocirrf v2 API (e2e)', () => {
         .get('/api/warehouse/handovers')
         .set(auth(tok.manager))
         .expect(200);
+
+      // ⭐ Зөвхөн харах биш — менежер БОДИТООР хүлээлгэн өгч чадна.
+      // boundaryOrderId-г дараагийн цуцлалтын тест хэрэглэдэг тул
+      // энд тусдаа шинэ захиалгаар шалгана.
+      await api()
+        .post('/api/stock/adjust')
+        .set(auth(tok.manager))
+        .send({ productId, qtyChange: 1, reason: 'PURCHASE_IN' })
+        .expect(201);
+      const ord = await api()
+        .post('/api/orders')
+        .set(auth(tok.seller))
+        .send({
+          customerName: `Э2Э-МенХүлээлгэлт-${T}`,
+          customerPhone: `9${T}`,
+          ...UB_ADDR,
+          items: [{ productId, qty: 1 }],
+        })
+        .expect(201);
+      feeOrderIds.push(ord.body.id);
+      await api()
+        .patch(`/api/orders/${ord.body.id}/status`)
+        .set(auth(tok.manager))
+        .send({ status: 'CONFIRMED' })
+        .expect(200);
+
+      const mgrMe = await api()
+        .get('/api/auth/me')
+        .set(auth(tok.manager))
+        .expect(200);
+      const handover = await api()
+        .post('/api/warehouse/handovers')
+        .set(auth(tok.manager))
+        .send({
+          driverId: e2eDriverId,
+          orderIds: [ord.body.id],
+          note: 'Менежерийн хүлээлгэлт (нярав ирээгүй өдөр)',
+        })
+        .expect(201);
+      mgrHandoverId = handover.body.id;
+      expect(handover.body.number).toMatch(/^ХҮЛ-\d{8}-\d{3}$/);
+      expect(handover.body.keeper.id).toBe(mgrMe.body.id);
+      expect(handover.body.driver.id).toBe(e2eDriverId);
+
+      // Захиалга жолоочид гарсан
+      const after = await api()
+        .get(`/api/orders/${ord.body.id}`)
+        .set(auth(tok.manager))
+        .expect(200);
+      expect(after.body.orderStatus).toBe('READY');
+      expect(after.body.deliveryStatus).toBe('ASSIGNED');
     });
 
     it('БОРЛУУЛАГЧ цуцална, ХАРИЛЦАГЧ цуцлахгүй ⭐', async () => {

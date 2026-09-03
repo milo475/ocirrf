@@ -76,7 +76,7 @@ COMING_SOON ──(SUPERADMIN консол)──► ACTIVE ──► идэвх
               + permission key-үүд  WAREHOUSE / SELLER; ROLE_DEFAULTS
                                     матриц + хэрэглэгч бүрийн override
 3. APP ДОТОР  permission key-үүд    orders.view … platform.manage_apps
-                                    (34 key, permission-keys.ts)
+                                    (35 key, permission-keys.ts)
 ```
 
 - SUPERADMIN нь байгууллагын role-уудаас **бүрэн тусдаа** — зөвхөн
