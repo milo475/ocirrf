@@ -36,8 +36,11 @@ export default function Analytics() {
     setData(null)
     const q = new URLSearchParams()
     if (custom) {
-      q.set('from', new Date(custom.from).toISOString())
-      q.set('to', new Date(`${custom.to}T23:59:59`).toISOString())
+      // ХОЁУЛАА орон нутгийн цагаар (ActivityLog-той ижил засвар):
+      // `new Date('2026-01-05')` нь UTC шөнө дунд болдог тул эхний өдрийн
+      // эхний 8 цагийн борлуулалт нийлбэрээс унадаг байв.
+      q.set('from', new Date(`${custom.from}T00:00:00`).toISOString())
+      q.set('to', new Date(`${custom.to}T23:59:59.999`).toISOString())
     } else {
       q.set('from', fromFor(days))
     }

@@ -16,7 +16,7 @@ ocirrf нь Odoo маягийн **олон дотоод системийн пл�
   (`GET /api/platform/apps`). ACTIVE app дарж `/apps/:key` дэлгэрэнгүй рүү.
 - **`/signup`** — байгууллага + эхний ADMIN нэг transaction-д үүсээд шууд
   нэвтэрнэ; цөм "ursgal" app автоматаар идэвхжинэ.
-- **`/launcher`** — ocirrf ХАБ, нэвтэрсний дараах нүүр: каталогийн 10
+- **`/launcher`** — ocirrf ХАБ, нэвтэрсний дараах нүүр: каталогийн 11
   систем (`GET /api/platform/apps`) байгууллагын идэвхжүүлэлттэй
   (`GET /api/platform/my-apps`) нийлж card бүр enabled / available / soon
   төлөвтэй. Enabled card → манифестийн basePath (ursgal: `/dashboard`);
@@ -47,7 +47,9 @@ NOT NULL + FK нь мартагдсан бичилтийг DB түвшинд б�
 **Bypass хэзээ зөвшөөрөгдөх вэ** (`OrgContext.runBypassed`, grep-ээр
 аудитлагдана):
 1. Auth bootstrap — login/refresh/JwtStrategy (байгууллага ХАРААХАН
-   тодорхойгүй үе), SSE token шалгалт, uploads guard-ийн эзэмшил шалгалт
+   тодорхойгүй үе), SSE token шалгалт, uploads guard-ийн эзэмшил шалгалт,
+   `register-org` (байгууллага дөнгөж үүсэж буй тул context тавих
+   боломжгүй; блок доторх бичилт бүр `organizationId`-г тодоор өгнө)
 2. SUPERADMIN консолын route-ууд — бүх байгууллагыг харах нь зорилго
    (SuperAdminGuard-аар хамгаалагдсан)
 3. Глобал model-ууд (Application, Organization) bypass ШААРДДАГГҮЙ —

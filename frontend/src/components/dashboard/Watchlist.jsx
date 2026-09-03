@@ -42,7 +42,7 @@ export default function Watchlist({ products, selectedId, onSelect }) {
               <th className="text-right font-normal py-2 px-3">{t('Оноо')}</th>
               <th className="text-left font-normal py-2 px-3">{t('13 дол.хон')}</th>
               <th className="text-right font-normal py-2 px-3">{t('Уналт')}</th>
-              <th className="text-right font-normal py-2 px-3">{t('Дуусах')}</th>
+              <th className="text-right font-normal py-2 px-3">{t('stock.runway')}</th>
               <th className="text-right font-normal py-2 px-3">{t('Эргэц')}</th>
               <th className="text-right font-normal py-2 px-3">{t('7 хон. Δ')}</th>
               <th className="text-right font-normal py-2 px-3">{t('Сүүлд нөхсөн')}</th>

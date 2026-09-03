@@ -20,6 +20,17 @@ const HANDOVER_READY: OrderStatus[] = [
   OrderStatus.READY,
 ];
 
+/**
+ * Хуудсанд ОРУУЛЖ БОЛОХ захиалгын төлөвүүд — няравын самбар яг эдгээрийг
+ * харуулдаг (`board()`). COMPLETED/CANCELLED энд БАЙХГҮЙ нь чухал:
+ * тэдгээрийн үлдэгдэл аль хэдийн тооцогдсон/буцаагдсан тул дахин
+ * хүргэлтэд гарвал бараа хоёр удаа тоологдоно.
+ */
+const HANDOVER_ELIGIBLE: OrderStatus[] = [
+  OrderStatus.CONFIRMED,
+  ...HANDOVER_READY,
+];
+
 /** Дугаарын unique constraint зөрчил (P2002) — давхардсан дугаар */
 function isUniqueViolation(e: unknown): boolean {
   return (
@@ -214,6 +225,21 @@ export class WarehouseService {
         `${wrongDriver.orderNo} өөр жолоочид хуваарилагдсан байна`,
       );
     }
+    // ТӨЛӨВИЙН ШАЛГАЛТ (V5 засвар): өмнө нь `orderStatus`-ыг сонгож
+    // авдаг ч ХЭЗЭЭ Ч шалгадаггүй байсан. Улмаас цуцлагдсан эсвэл дууссан
+    // захиалгыг хуудсанд оруулахад доорх updateMany түүнийг НӨХЦӨЛГҮЙ
+    // READY болгож «амилуулж», ALLOWED_TRANSITIONS-ийг тойрдог байв
+    // (CANCELLED-аас гарах зам байхгүй атал). Тэр захиалгын үлдэгдэл
+    // цуцлалтаар аль хэдийн буцсан байдаг тул дахин хүргэгдэхэд бараа
+    // хоёр удаа тоологдож, P&L-д орлого давхар бичигддэг байсан.
+    const wrongStatus = orders.find(
+      (o) => !HANDOVER_ELIGIBLE.includes(o.orderStatus),
+    );
+    if (wrongStatus) {
+      throw new BadRequestException(
+        `${wrongStatus.orderNo} (${wrongStatus.orderStatus}) хүлээлгэн өгөх төлөвт байхгүй`,
+      );
+    }
 
     return withNumberRetry(() =>
       this.prisma.$transaction(async (tx) => {
@@ -250,9 +276,18 @@ export class WarehouseService {
           },
         });
 
-        // Захиалгууд хуудсанд холбогдож, гарахад бэлэн (READY) болно
-        await tx.order.updateMany({
-          where: { id: { in: dto.orderIds } },
+        // Захиалгууд хуудсанд холбогдож, гарахад бэлэн (READY) болно.
+        //
+        // НӨХЦӨЛТ шинэчлэлт: дээрх шалгалтууд транзакцаас ГАДНА хийгддэг
+        // тул хооронд нь захиалга цуцлагдах / өөр хуудсанд орох боломжтой.
+        // `where`-т төлөв ба `handoverId: null`-ыг давхар тавьж, өөрчлөгдсөн
+        // мөрийн ТООГ шалгана — зөрвөл бүх транзакц буцна.
+        const claimed = await tx.order.updateMany({
+          where: {
+            id: { in: dto.orderIds },
+            handoverId: null,
+            orderStatus: { in: HANDOVER_ELIGIBLE },
+          },
           data: {
             handoverId: handover.id,
             orderStatus: OrderStatus.READY,
@@ -260,6 +295,11 @@ export class WarehouseService {
             deliveryStatus: DeliveryStatus.ASSIGNED,
           },
         });
+        if (claimed.count !== dto.orderIds.length) {
+          throw new BadRequestException(
+            'Зарим захиалгын төлөв энэ хооронд өөрчлөгдсөн байна. Самбарыг сэргээгээд дахин оролдоно уу.',
+          );
+        }
 
         return this.findHandover(handover.id, tx);
       }),

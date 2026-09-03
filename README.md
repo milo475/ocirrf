@@ -35,7 +35,10 @@ migration-аар default 'ocirrf' байгууллагад (UUID
    (extension нь $queryRaw-д үйлчилдэггүй)
 
 `OrgContext.runBypassed` — зөвхөн auth bootstrap-д (login, refresh,
-JwtStrategy, SSE token, uploads guard); шинэ хэрэглээ бүр аудит шаардана.
+JwtStrategy, SSE token, uploads guard, **register-org** — байгууллага
+хараахан ҮҮСЭЭГҮЙ тул context тавих боломжгүй; дотор нь бичилт бүр
+`organizationId`-г тодоор өгдөг) болон SUPERADMIN консолд;
+шинэ хэрэглээ бүр аудит шаардана.
 
 ## Платформ ба App Registry
 
@@ -134,7 +137,7 @@ chunk). `/` нь нийтийн каталог (landing, 10 card), нэвтэр�
 
 Дэлгэрэнгүй архитектур: [ARCHITECTURE.md](ARCHITECTURE.md)
 
-## Эрхийн систем (5 эрх)
+## Эрхийн систем (6 эрх)
 
 | Эрх | Хэн | Гол чадвар |
 |---|---|---|
@@ -142,7 +145,11 @@ chunk). `/` нь нийтийн каталог (landing, 10 card), нэвтэр�
 | MANAGER | Агуулахын менежер | Бараа/агуулах, хуваарилалт, санхүү, цалин, аналитик |
 | OPERATOR | Захиалга хүлээн авагч | Захиалга шивэх, өөрийн захиалгын статус |
 | DRIVER | Жолооч | Өөрийн хүргэлт, зурагтай баталгаажуулалт, цалингийн задаргаа |
-| CUSTOMER | Онлайн харилцагч | Бүртгүүлж захиалах, tracking, нэхэмжлэх |
+| WAREHOUSE | Нярав | Бэлтгэл, жолоочид хүлээлгэн өгөх хуудас, дугаартай баримт |
+| SELLER | Борлуулагч | Линкийн хүсэлт батлах, хүргэлтэд гаргах, төлбөр бүртгэх |
+
+> CUSTOMER эрх ба порталын урсгал `20260829120000_remove_portal_and_tariffs`
+> migration-аар БҮРМӨСӨН хасагдсан.
 
 Permission = код доторх role default матриц
 ([permission-keys.ts](backend/src/permissions/permission-keys.ts)) +
@@ -158,8 +165,9 @@ Permission = код доторх role default матриц
   маршрутын дараалал, зурагтай баталгаажуулалт, ops самбар.
 - **Санхүү**: хүргэгдмэгц авто орлого, гар гүйлгээ, жолоочийн цалингийн
   тооцоо (payroll close → PAID).
-- **Portal**: харилцагч өөрөө бүртгүүлж захиалаад явцаа хянана
-  (progress зураас, proof зураг, хэвлэх нэхэмжлэх).
+- **Нийтийн захиалгын линк** (`/z/:token`): үйлчлүүлэгч нэвтрэлтгүй
+  захиалгын хүсэлт үлдээж, төлбөрийн баримтаа хавсаргана; борлуулагч
+  баталж захиалга болгоно.
 - **Мэдэгдэл + Үйлдлийн түүх**: хонх (30с refresh), бүх өөрчлөлтийн лог.
 - **Аналитик + Тайлан**: борлуулалт/TOP бараа/жолооч/харилцагч;
   UTF-8 BOM CSV (Excel-д кирилл зөв).
@@ -181,16 +189,16 @@ node dist/main        # http://localhost:3000
 ```
 
 Нэвтрэх (seed): `admin@ocirrf.mn/admin123`, `manager@ocirrf.mn/manager123`,
-`operator@ocirrf.mn/operator123`, `driver@ocirrf.mn/driver123`.
-Харилцагч: /register хуудаснаас өөрөө бүртгүүлнэ.
+`operator@ocirrf.mn/operator123`, `driver@ocirrf.mn/driver123`,
+`warehouse@ocirrf.mn/warehouse123`, `seller@ocirrf.mn/seller123`.
+Шинэ байгууллага `/signup`-аар бүртгүүлнэ (`/register` route БАЙХГҮЙ).
 
 ## Тест
 
 ```bash
 cd backend
-npm run test:e2e                  # 89 тест, өөрийн ул мөрөө цэвэрлэдэг
-bash scripts/smoke-test-v3.sh     # амьд сервэр дээрх v3 урсгалууд
-bash scripts/smoke-test-v2.sh     # v2 урсгалууд
+npm run test:e2e                  # 271 тест, өөрийн ул мөрөө цэвэрлэдэг
+bash scripts/smoke-test.sh        # амьд сервэр дээрх суурь урсгалууд
 ```
 
 Гараар шалгах жагсаалт: [TESTING.md](TESTING.md).

@@ -131,9 +131,39 @@ export class PaymentsService {
       if (!payment) {
         throw new NotFoundException('Төлбөр олдсонгүй');
       }
+      /**
+       * БУЦААЛТТАЙ ЗАХИАЛГЫН ТӨЛБӨРИЙГ УСТГАХГҮЙ (V5 засвар).
+       *
+       * `ReturnsService.create` нь буцаалт хийхдээ `paidAmount`-ыг аль
+       * хэдийн бууруулж, EXPENSE/REFUND бичилт үүсгэдэг ч `Payment` мөрийг
+       * ХЭВЭЭР үлдээдэг. Дараа нь энэ метод тэр л дүнг ДАХИН хасдаг байв:
+       *   100,000 төлсөн → бүтэн буцаалт (paidAmount 0, EXPENSE 100,000)
+       *   → төлбөрийг устгах → paidAmount = −100,000.
+       * Үр дүнд номд нэг буцаалтад 200,000 гарсан мэт харагдаж, авлага
+       * `totalAmount − paidAmount` = 200,000 болж, сөрөг үлдэгдэлтэй
+       * захиалга «төлбөргүй» болсон тул цуцлагдаж дахин үлдэгдэл нэмдэг байв.
+       */
+      const refunded = await tx.orderReturn.aggregate({
+        where: { orderId: payment.orderId },
+        _sum: { refundAmount: true },
+      });
+      if ((refunded._sum.refundAmount ?? new Prisma.Decimal(0)).gt(0)) {
+        throw new BadRequestException(
+          'Буцаалт бүртгэгдсэн захиалгын төлбөрийг устгах боломжгүй — ' +
+            'мөнгө буцаалтаар аль хэдийн буцсан байна',
+        );
+      }
+
       await tx.payment.delete({ where: { id } });
       await tx.financeEntry.deleteMany({ where: { refPaymentId: id } });
       const newPaid = payment.order.paidAmount.sub(payment.amount);
+      if (newPaid.lt(0)) {
+        // Хамгаалалтын давхарга: дээрх шалгалт барих ёстой ч сөрөг
+        // `paidAmount` номыг эвддэг тул хэзээ ч бичигдэхгүй.
+        throw new BadRequestException(
+          'Төлбөрийг устгавал төлсөн дүн сөрөг болно — өгөгдлийг шалгана уу',
+        );
+      }
       const updated = await tx.order.update({
         where: { id: payment.orderId },
         data: {

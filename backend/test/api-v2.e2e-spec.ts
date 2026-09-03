@@ -3099,7 +3099,7 @@ describe('ocirrf v2 API (e2e)', () => {
       }
     });
 
-    it('5 буруу оролдлогод 423 — зөв нууц үг ч нэвтрэхгүй', async () => {
+    it('5 буруу оролдлогод түгжинэ — буруу нууц үг ҮРГЭЛЖ 401, зөв нь 423 ⭐', async () => {
       const created = await api()
         .post('/api/users')
         .set(auth(tok.admin))
@@ -3112,8 +3112,13 @@ describe('ocirrf v2 API (e2e)', () => {
         .expect(201);
       lockUserId = created.body.id;
 
-      // 4 буруу → 401, 5 дахь нь түгжинэ (423)
-      for (let i = 0; i < 4; i++) {
+      /*
+       * БУРУУ нууц үг ҮРГЭЛЖ 401 — түгжигдсэн эсэхээс үл хамааран.
+       * Өмнө нь 5 дахь оролдлогод 423 буцдаг байсан нь «энэ хаяг
+       * бүртгэлтэй» гэдгийг нэвтрэлтгүй этгээдэд хэлж өгдөг байв
+       * (байхгүй хаяг үргэлж 401 өгдөг тул ялгаа нь шууд дохио).
+       */
+      for (let i = 0; i < 5; i++) {
         await api()
           .post('/api/auth/login')
           .send({ email: lockEmail, password: 'wrong-pass' })
@@ -3121,15 +3126,17 @@ describe('ocirrf v2 API (e2e)', () => {
       }
       const locked = await api()
         .post('/api/auth/login')
-        .send({ email: lockEmail, password: 'wrong-pass' })
-        .expect(423);
-      expect(locked.body.message).toContain('түгжигдлээ');
-
-      // Түгжээтэй үед ЗӨВ нууц үг ч 423
-      await api()
-        .post('/api/auth/login')
         .send({ email: lockEmail, password: 'lockpass1' })
         .expect(423);
+
+      // Түгжигдсэнийг ЗӨВХӨН зөв нууц үгтэй эзэн нь мэднэ → 423
+      expect(locked.body.message).toContain('түгжигдлээ');
+
+      // Түгжээтэй хэвээр байхад дахин буруу оролдвол мөн л 401
+      await api()
+        .post('/api/auth/login')
+        .send({ email: lockEmail, password: 'wrong-pass' })
+        .expect(401);
 
       // Жагсаалтад lockedUntil ирнэ (users.manage)
       const list = await api()
@@ -6865,3 +6872,234 @@ describe('ocirrf v2 API (e2e)', () => {
     });
   });
 });
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * АУДИТЫН ЗАСВАРУУДЫН REGRESSION (V5)
+   *
+   * Эдгээр нь кодын аудитаар илэрсэн бодит алдаанууд — тус бүр нь мөнгө
+   * эсвэл үлдэгдлийг буруу болгодог байсан. Дахин эргэж ирэхээс сэргийлнэ.
+   * ═══════════════════════════════════════════════════════════════════ */
+  describe('V5: Аудитын засваруудын regression ⭐', () => {
+    const regressOrderIds: string[] = [];
+    const regressProductIds: string[] = [];
+
+    /**
+     * Энэ блок өөрийн ул мөрөө өөрөө цэвэрлэнэ. Jest-д дотоод `afterAll`
+     * гадаадаасаа ЭРТ ажилладаг тул гадна талын цэвэрлэгээ хуваалцсан
+     * барааг устгах үед эдгээр захиалга аль хэдийн устсан байна.
+     */
+    afterAll(async () => {
+      if (regressOrderIds.length) {
+        await prisma.financeEntry.deleteMany({
+          where: { refOrderId: { in: regressOrderIds } },
+        });
+        const pays = await prisma.payment.findMany({
+          where: { orderId: { in: regressOrderIds } },
+          select: { id: true },
+        });
+        if (pays.length) {
+          await prisma.financeEntry.deleteMany({
+            where: { refPaymentId: { in: pays.map((x) => x.id) } },
+          });
+        }
+        await prisma.payment.deleteMany({
+          where: { orderId: { in: regressOrderIds } },
+        });
+        await prisma.orderReturn.deleteMany({
+          where: { orderId: { in: regressOrderIds } },
+        });
+        await prisma.stockMovement.deleteMany({
+          where: { refId: { in: regressOrderIds } },
+        });
+        await prisma.notification.deleteMany({
+          where: { refId: { in: regressOrderIds } },
+        });
+        await prisma.order.deleteMany({
+          where: { id: { in: regressOrderIds } },
+        });
+      }
+      if (regressProductIds.length) {
+        await prisma.productBatch.deleteMany({
+          where: { productId: { in: regressProductIds } },
+        });
+        await prisma.stockMovement.deleteMany({
+          where: { productId: { in: regressProductIds } },
+        });
+        await prisma.product.deleteMany({
+          where: { id: { in: regressProductIds } },
+        });
+      }
+    });
+
+    /** Тест бүрт цэвэр захиалга — өөр тестийн төлөвөөс хамаарахгүй */
+    async function newOrder(qty = 1) {
+      const res = await api()
+        .post('/api/orders')
+        .set(auth(tok.manager))
+        .send({
+          customerName: `Э2Э Regress ${T}`,
+          customerPhone: `9${T}`,
+          ...UB_ADDR,
+          items: [{ productId, qty }],
+        })
+        .expect(201);
+      regressOrderIds.push(res.body.id as string); // энэ блокийн afterAll
+      return res.body.id as string;
+    }
+
+    it('цуцлагдсан захиалгыг хүлээлгэн өгөх хуудсанд оруулахгүй ⭐', async () => {
+      const id = await newOrder();
+      await api()
+        .patch(`/api/orders/${id}/status`)
+        .set(auth(tok.admin))
+        .send({ status: 'CANCELLED' })
+        .expect(200);
+
+      // Өмнө нь энэ нь 201 буцааж, захиалгыг READY болгон «амилуулж»,
+      // үлдэгдлийг хоёр удаа тоолуулдаг байв
+      const res = await api()
+        .post('/api/warehouse/handovers')
+        .set(auth(keeperToken))
+        .send({ driverId: e2eDriverId, orderIds: [id] })
+        .expect(400);
+      expect(String(res.body.message)).toMatch(/төлөвт байхгүй/);
+
+      const after = await api()
+        .get(`/api/orders/${id}`)
+        .set(auth(tok.admin))
+        .expect(200);
+      expect(after.body.orderStatus).toBe('CANCELLED');
+    });
+
+    it('цуцлагдсан захиалгыг дахин цуцлахад үлдэгдэл давхар нэмэгдэхгүй ⭐', async () => {
+      const id = await newOrder(2);
+      const before = await prisma.product.findUnique({ where: { id: productId } });
+      await api()
+        .patch(`/api/orders/${id}/status`)
+        .set(auth(tok.admin))
+        .send({ status: 'CANCELLED' })
+        .expect(200);
+      const once = await prisma.product.findUnique({ where: { id: productId } });
+      expect(once!.stockQty).toBe(before!.stockQty + 2);
+
+      // Хоёр дахь цуцлалт зөвшөөрөгдөхгүй (CANCELLED → CANCELLED)
+      await api()
+        .patch(`/api/orders/${id}/status`)
+        .set(auth(tok.admin))
+        .send({ status: 'CANCELLED' })
+        .expect(400);
+      const twice = await prisma.product.findUnique({ where: { id: productId } });
+      expect(twice!.stockQty).toBe(once!.stockQty);
+    });
+
+    it('буцаалт бүртгэсний дараа төлбөрийг устгахгүй (сөрөг paidAmount) ⭐', async () => {
+      const id = await newOrder();
+      const order = await api()
+        .get(`/api/orders/${id}`)
+        .set(auth(tok.admin))
+        .expect(200);
+      const total = Number(order.body.totalAmount);
+
+      const pay = await api()
+        .post(`/api/orders/${id}/payments`)
+        .set(auth(tok.admin))
+        .send({ amount: total.toFixed(2), method: 'TRANSFER' })
+        .expect(201);
+
+      for (const st of ['CONFIRMED', 'COMPLETED']) {
+        await api()
+          .patch(`/api/orders/${id}/status`)
+          .set(auth(tok.admin))
+          .send({ status: st })
+          .expect(200);
+      }
+
+      await api()
+        .post(`/api/orders/${id}/return`)
+        .set(auth(tok.admin))
+        .send({
+          reason: 'Э2Э regression',
+          restock: true,
+          refundPayment: true,
+          items: order.body.items.map((i: { id: string; qty: number }) => ({
+            orderItemId: i.id,
+            qty: i.qty,
+          })),
+        })
+        .expect(201);
+
+      // Өмнө нь энэ нь paidAmount-ыг −total болгодог байв
+      await api()
+        .delete(`/api/payments/${pay.body.id}`)
+        .set(auth(tok.admin))
+        .expect(400);
+
+      const after = await prisma.order.findUnique({ where: { id } });
+      expect(Number(after!.paidAmount)).toBeGreaterThanOrEqual(0);
+    });
+
+    it('захиалгыг төлсөн дүнгээс доош засахгүй ⭐', async () => {
+      const id = await newOrder(3);
+      const order = await api()
+        .get(`/api/orders/${id}`)
+        .set(auth(tok.admin))
+        .expect(200);
+      await api()
+        .post(`/api/orders/${id}/payments`)
+        .set(auth(tok.admin))
+        .send({ amount: Number(order.body.totalAmount).toFixed(2), method: 'TRANSFER' })
+        .expect(201);
+
+      // 3 ширхэгээс 1 болгож бууруулах → төлсөн дүнгээс бага болно
+      const res = await api()
+        .patch(`/api/orders/${id}`)
+        .set(auth(tok.admin))
+        .send({ items: [{ productId, qty: 1 }] })
+        .expect(400);
+      expect(String(res.body.message)).toMatch(/буцаалтаар/);
+    });
+
+    it('өртгийн үнэлгээ inventory.adjustment-гүй эрхэд харагдахгүй ⭐', async () => {
+      const asAdmin = await api()
+        .get('/api/batches/summary')
+        .set(auth(tok.admin))
+        .expect(200);
+      // Админд өртгийн дүн ирнэ
+      expect(asAdmin.body.OK).toHaveProperty('value');
+
+      // Борлуулагчид inventory.view бий, adjustment ҮГҮЙ → өртөг нуугдана
+      const asSeller = await api()
+        .get('/api/batches/summary')
+        .set(auth(tok.seller))
+        .expect(200);
+      for (const bucket of ['EXPIRED', 'CRITICAL', 'WARNING', 'OK']) {
+        expect(asSeller.body[bucket]).not.toHaveProperty('value');
+      }
+    });
+
+    it('клиент imageUrl-ыг шууд тавьж чадахгүй (хувийн файл нээгдэхээс) ⭐', async () => {
+      const created = await api()
+        .post('/api/products')
+        .set(auth(tok.admin))
+        .send({
+          name: `Э2Э ImgGuard ${T}`,
+          sku: `IMG-${T}`,
+          price: '1000.00',
+          imageUrl: '/api/uploads/00000000000000000000000000000000.jpg',
+        })
+        .expect(201);
+      regressProductIds.push(created.body.id);
+      // whitelist DTO — талбар чимээгүй хаягдана, хадгалагдахгүй
+      expect(created.body.imageUrl).toBeFalsy();
+
+      await api()
+        .patch(`/api/products/${created.body.id}`)
+        .set(auth(tok.admin))
+        .send({ imageUrl: '/api/uploads/11111111111111111111111111111111.jpg' })
+        .expect(200);
+      const after = await prisma.product.findUnique({
+        where: { id: created.body.id },
+      });
+      expect(after!.imageUrl).toBeFalsy();
+    });
+  });

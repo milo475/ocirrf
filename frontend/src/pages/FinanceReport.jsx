@@ -18,13 +18,26 @@ import { formatMoneyRound } from '../lib/format'
  * аль хэдийн хасагдсан. Хоёуланг нь тоовол тоо давхардана.
  */
 
-/** Өнөөдрөөс N хоногийн өмнөх огноо — YYYY-MM-DD */
+/**
+ * ОРОН НУТГИЙН огноог YYYY-MM-DD болгоно.
+ *
+ * `toISOString()` нь UTC руу хөрвүүлдэг тул UB (UTC+8) цагаар 00:00–07:59
+ * хооронд ӨМНӨХ өдрийг буцаадаг байв: нягтлан өглөө 07:00-д P&L нээхэд
+ * `to` нь өчигдөр болж, өнөөдрийн орлого тайланд огт ордоггүй байсан.
+ */
+function localYmd(d) {
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60_000)
+    .toISOString()
+    .slice(0, 10)
+}
+
+/** Өнөөдрөөс N хоногийн өмнөх огноо — YYYY-MM-DD (орон нутгийн) */
 function daysAgo(n) {
   const d = new Date()
   d.setDate(d.getDate() - n)
-  return d.toISOString().slice(0, 10)
+  return localYmd(d)
 }
-const today = () => new Date().toISOString().slice(0, 10)
+const today = () => localYmd(new Date())
 
 /** Тайлангийн нэг мөр — гарчиг бол тодоор, дэд мөр бол сааралдуу */
 function Row({ label, value, strong, muted, negative }) {
@@ -125,7 +138,7 @@ export default function FinanceReport() {
         />
         <Input
           id="pnl-to"
-          label={t('Дуусах')}
+          label={t('range.to')}
           type="date"
           value={to}
           onChange={(e) => setTo(e.target.value)}

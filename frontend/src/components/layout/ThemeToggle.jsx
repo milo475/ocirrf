@@ -10,7 +10,8 @@ export default function ThemeToggle() {
     <button
       type="button"
       onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-      className="border border-rule rounded px-2.5 py-1 text-sm text-ink-muted hover:text-ink"
+      className="border border-rule rounded px-2.5 py-1 text-sm text-ink-muted hover:text-ink
+        focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
       title={t('Тема солих')}
     >
       {theme === 'dark' ? `◐ ${t('Харанхуй')}` : `◑ ${t('Цайвар')}`}

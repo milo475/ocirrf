@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { Prisma } from '../generated/prisma/client';
+import { parseDateRange } from '../date-range.util';
 import { NotificationsService } from '../notifications/notifications.service';
 import { OrgContext } from '../org/org-context';
 import { PrismaService } from '../prisma/prisma.service';
@@ -71,7 +72,24 @@ export class StockService {
         },
       });
 
-      await applyBatchDelta(tx, dto.productId, dto.qtyChange);
+      /**
+       * ЦУВРАЛД БУЦААХ нь ЗӨВХӨН залруулга/хасалтад (V5 засвар).
+       *
+       * `applyBatchDelta`-гийн эерэг салаа нь FEFO-гийн ЯГ УРВУУ: хамгийн
+       * эрт дуусах цувралуудыг эргүүлж дүүргэдэг. Энэ нь цуцлалт/буцаалтад
+       * зөв (тэр цувралаас л гарсан), гэхдээ PURCHASE_IN нь ШИНЭ бараа —
+       * түүнийг хуучин, аль хэдийн зарагдсан цуврал руу түлхэхэд:
+       *   • шинэ 50 ширхэг «EXPIRED» цувралд ороод, устгалд гаргахад
+       *     БОДИТ зарагдахуйц 50 ширхэг үлдэгдлээс хасагддаг;
+       *   • эсрэгээр нь бодит хугацаа дууссан алдагдал шинэ бараагаар
+       *     нөхөгдөж нуугддаг.
+       * Хугацаатай шинэ орлого нь `SuppliesService.create`-ээр (тэнд
+       * тусдаа ProductBatch үүсдэг) эсвэл `POST /batches`-аар бүртгэгдэнэ;
+       * энд зүгээр л цувралгүй үлдэгдэл болж нэмэгдэнэ.
+       */
+      if (dto.reason !== 'PURCHASE_IN' || dto.qtyChange < 0) {
+        await applyBatchDelta(tx, dto.productId, dto.qtyChange);
+      }
 
       return { product, movement };
     });
@@ -97,13 +115,18 @@ export class StockService {
     const where: Prisma.StockMovementWhereInput = {
       ...(productId ? { productId } : {}),
       ...(reason ? { reason } : {}),
+      // Огнооны муж — `parseDateRange` (V5 засвар). Шууд `new Date(...)` нь
+      // UTC шөнө дунд болж, `to` өдрийн хөдөлгөөнүүд бүгд алга болдог байв.
       ...(from || to
-        ? {
-            createdAt: {
-              ...(from ? { gte: new Date(from) } : {}),
-              ...(to ? { lte: new Date(to) } : {}),
-            },
-          }
+        ? (() => {
+            const { start, end } = parseDateRange(from, to);
+            return {
+              createdAt: {
+                ...(from ? { gte: start } : {}),
+                ...(to ? { lte: end } : {}),
+              },
+            };
+          })()
         : {}),
     };
 

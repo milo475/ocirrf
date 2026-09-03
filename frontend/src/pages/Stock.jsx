@@ -7,6 +7,7 @@ import Spinner from '../components/ui/Spinner'
 import Table from '../components/ui/Table'
 import { useLang } from '../context/LanguageContext'
 import { api } from '../lib/api'
+import { useLatestRequest } from '../hooks/useLatestRequest'
 import { formatDateTime } from '../lib/format'
 
 const LIMIT = 20
@@ -48,14 +49,18 @@ export default function Stock() {
   const [error, setError] = useState(null)
   const [products, setProducts] = useState([])
 
+  // Хоцорсон хариу шинэ шүүлтийг дарж бичихээс сэргийлнэ
+  const seq = useLatestRequest()
+
   const load = useCallback(() => {
     setError(null)
     const q = new URLSearchParams({ page: String(page), limit: String(LIMIT) })
     if (productId) q.set('productId', productId)
     if (reason) q.set('reason', reason)
+    const fresh = seq()
     api(`/stock/movements?${q}`)
-      .then(setData)
-      .catch((e) => setError(e))
+      .then((d) => fresh() && setData(d))
+      .catch((e) => fresh() && setError(e))
   }, [productId, reason, page])
 
   useEffect(() => {

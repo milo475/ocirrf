@@ -42,8 +42,8 @@ export class BatchesController {
 
   @Get('summary')
   @RequirePermission(PERM.INVENTORY_VIEW)
-  summary() {
-    return this.batches.summary();
+  summary(@CurrentUser() user: AuthUser) {
+    return this.batches.summary(user);
   }
 
   @Post()

@@ -94,7 +94,14 @@ export default function Expiry() {
     load()
   }, [load])
 
+  // Устгал БУЦААГДАХГҮЙ үйлдэл тул давхар илгээлтээс хамгаална:
+  // өмнө нь ConfirmDialog-д `loading` дамжуулаагүй байсан тул хүсэлт
+  // явж байхад товч идэвхтэй хэвээр үлдэж, хоёр дарахад цуврал хоёр удаа
+  // хасагдаж, үлдэгдэл давхар буурдаг байв.
+  const [writingOff, setWritingOff] = useState(false)
   const doWriteOff = async () => {
+    if (writingOff) return
+    setWritingOff(true)
     try {
       await api(`/batches/${writeOff.id}/write-off`, { method: 'POST', body: {} })
       toast.show(t('Устгалд гаргалаа'))
@@ -102,6 +109,8 @@ export default function Expiry() {
       load()
     } catch (e) {
       toast.show(e.message, { type: 'error' })
+    } finally {
+      setWritingOff(false)
     }
   }
 
@@ -270,6 +279,7 @@ export default function Expiry() {
             'Үлдэгдлээс хасагдаж, агуулахын хөдөлгөөнд бүртгэгдэнэ. Буцаах боломжгүй.',
           )}`}
           danger
+          loading={writingOff}
           confirmLabel={t('Устгалд гаргах')}
           onConfirm={doWriteOff}
           onCancel={() => setWriteOff(null)}

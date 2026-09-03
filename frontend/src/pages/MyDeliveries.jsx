@@ -5,6 +5,7 @@ import ConfirmDialog from '../components/ui/ConfirmDialog'
 import EmptyState from '../components/ui/EmptyState'
 import Spinner from '../components/ui/Spinner'
 import { useToast } from '../components/ui/Toast'
+import { useAuth } from '../context/AuthContext'
 import { useLang } from '../context/LanguageContext'
 import { api, apiUpload } from '../lib/api'
 import { enqueueComplete, pendingCount } from '../lib/offlineQueue'
@@ -273,6 +274,7 @@ export default function MyDeliveries() {
 
 /** Доороос гарах баталгаажуулалтын sheet */
 function CompleteSheet({ delivery, onClose, onDone, t, toast }) {
+  const { user } = useAuth()
   const [shown, setShown] = useState(false)
   const [success, setSuccess] = useState(true)
   const [photo, setPhoto] = useState(null)
@@ -328,6 +330,7 @@ function CompleteSheet({ delivery, onClose, onDone, t, toast }) {
             success,
             note: note.trim(),
             photo,
+            userId: user?.id ?? null,
           })
           toast.show(t('Офлайн — дараа илгээгдэнэ'))
           onDone()

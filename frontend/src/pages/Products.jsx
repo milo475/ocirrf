@@ -14,6 +14,7 @@ import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../context/AuthContext'
 import { useLang } from '../context/LanguageContext'
 import { api, apiBlob, apiUpload } from '../lib/api'
+import { useLatestRequest } from '../hooks/useLatestRequest'
 import { useRef } from 'react'
 import { formatMoney } from '../lib/format'
 
@@ -72,6 +73,9 @@ export default function Products() {
     return () => clearTimeout(t)
   }, [searchInput])
 
+  // Хоцорсон хариу шинэ шүүлтийг дарж бичихээс сэргийлнэ
+  const seq = useLatestRequest()
+
   const load = useCallback(() => {
     setError(null)
     const q = new URLSearchParams({ page: String(page), limit: String(LIMIT) })
@@ -80,9 +84,10 @@ export default function Products() {
     if (companyId) q.set('companyId', companyId)
     if (lowStockOnly) q.set('lowStock', 'true')
     if (showInactive) q.set('isActive', 'false')
+    const fresh = seq()
     api(`/products?${q}`)
-      .then(setData)
-      .catch((e) => setError(e))
+      .then((d) => fresh() && setData(d))
+      .catch((e) => fresh() && setError(e))
   }, [search, categoryId, companyId, lowStockOnly, showInactive, page])
 
   useEffect(() => {

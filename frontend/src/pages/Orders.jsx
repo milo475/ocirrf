@@ -17,6 +17,7 @@ import { useLang } from '../context/LanguageContext'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import { useToast } from '../components/ui/Toast'
 import { api } from '../lib/api'
+import { useLatestRequest } from '../hooks/useLatestRequest'
 import { formatDateTime, formatMoney } from '../lib/format'
 import { openPickingSheet } from '../lib/pickingSheet'
 import { CHANNELS, channelLabel, channelStyle } from '../lib/channels'
@@ -65,6 +66,9 @@ export default function Orders() {
     return () => clearTimeout(t)
   }, [searchInput])
 
+  // Хоцорсон хариу шинэ шүүлтийг дарж бичихээс сэргийлнэ
+  const seq = useLatestRequest()
+
   const load = useCallback(() => {
     setError(null)
     const q = new URLSearchParams({ page: String(page), limit: String(LIMIT) })
@@ -74,9 +78,10 @@ export default function Orders() {
     if (paymentStatus) q.set('paymentStatus', paymentStatus)
     if (channel) q.set('channel', channel)
     if (district) q.set('district', district)
+    const fresh = seq()
     api(`/orders?${q}`)
-      .then(setData)
-      .catch((e) => setError(e))
+      .then((d) => fresh() && setData(d))
+      .catch((e) => fresh() && setError(e))
   }, [search, status, deliveryStatus, paymentStatus, channel, district, page])
 
   useEffect(() => {
@@ -85,6 +90,20 @@ export default function Orders() {
 
   // ── Бэлтгэх хуудас (V4-11) ──
   const [selected, setSelected] = useState(() => new Set())
+
+  /**
+   * Шүүлт/хуудас солигдоход сонголтыг ЦЭВЭРЛЭНЭ.
+   *
+   * Өмнө нь `selected` нь зөвхөн бөөнөөр үйлдэл хийсний ДАРАА цэвэрлэгддэг
+   * байсан тул: «Баталгаажсан» табаас 5 захиалга сонгоод «Цуцлагдсан» руу
+   * шилжихэд толгойд «Жолооч хуваарилах (5)» гэж хэвээр үлдэж, дарвал
+   * ДЭЛГЭЦЭД БАЙХГҮЙ 5 захиалгыг жолоочид хуваарилдаг байв. Бөөн
+   * хуваарилалтын бүсийн зөвлөмж ч зөвхөн ИДЭВХТЭЙ хуудсаас тооцогддог
+   * тул хуудас алгассан сонголт буруу жолооч санал болгодог байсан.
+   */
+  useEffect(() => {
+    setSelected(new Set())
+  }, [search, status, deliveryStatus, paymentStatus, channel, district, page])
   const [sheetBusy, setSheetBusy] = useState(false)
   const [prepareAsk, setPrepareAsk] = useState(null) // [{id, orderNo, orderStatus}]
   const [preparing, setPreparing] = useState(false)

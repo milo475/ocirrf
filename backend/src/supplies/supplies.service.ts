@@ -8,6 +8,7 @@ import { FinanceType, Prisma, Role } from '../generated/prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
 import { OrgContext } from '../org/org-context';
 import { PrismaService } from '../prisma/prisma.service';
+import { lockSupplyForUpdate } from '../prisma/lock.util';
 import { CreateSupplyDto } from './dto/create-supply.dto';
 import { PaySupplyDto } from './dto/pay-supply.dto';
 
@@ -305,6 +306,12 @@ export class SuppliesService {
    */
   async pay(id: string, dto: PaySupplyDto, user: AuthUser) {
     return this.prisma.$transaction(async (tx) => {
+      // Мөрийн түгжээ ЭХЛЭЭД: доор `paidAmount`-ыг уншаад абсолют утгаар
+      // бичдэг тул зэрэг ирсэн хоёр төлбөр бие биенээ дардаг байв (нэг нь
+      // алга болж, өр төлөгдөөгүй хэвээр үлддэг).
+      if (!(await lockSupplyForUpdate(tx, id))) {
+        throw new NotFoundException('Нийлүүлэлт олдсонгүй');
+      }
       const supply = await tx.supply.findUnique({
         where: { id },
         include: { company: { select: { name: true } } },

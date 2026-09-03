@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { AuthUser } from '../auth/decorators/current-user.decorator';
+import { parseDateRange } from '../date-range.util';
 import {
   DeliveryStatus,
   FinanceType,
@@ -114,13 +115,22 @@ export class FinanceService {
     const { page = 1, limit = 20 } = query;
     const where: Prisma.FinanceEntryWhereInput = {
       type: { in: types },
+      // ОГНООНЫ МУЖ — `parseDateRange`-ээр (V5 засвар). Өмнө нь
+      // `new Date('2026-09-03')` шууд хэрэглэгддэг байсан нь ES-ийн дүрмээр
+      // UTC шөнө дунд болж хөрвөж, `to`-гоор өгсөн ӨДӨР БҮХЭЛДЭЭ мужаас
+      // хасагддаг байв (UB нь UTC+8 тул `from` өдрийн эхний 8 цаг ч алдагдана).
+      // Улмаас ижил мужаар /finance/entries болон /finance/pnl хоёр өөр
+      // дүн харуулдаг байсан — сүүлийнх нь parseDateRange хэрэглэдэг.
       ...(query.from || query.to
-        ? {
-            entryDate: {
-              ...(query.from ? { gte: new Date(query.from) } : {}),
-              ...(query.to ? { lte: new Date(query.to) } : {}),
-            },
-          }
+        ? (() => {
+            const { start, end } = parseDateRange(query.from, query.to);
+            return {
+              entryDate: {
+                ...(query.from ? { gte: start } : {}),
+                ...(query.to ? { lte: end } : {}),
+              },
+            };
+          })()
         : {}),
     };
 
@@ -309,10 +319,28 @@ export class FinanceService {
         include: { driver: CREATED_BY_SELECT },
       });
 
-      await tx.order.updateMany({
-        where: { id: { in: orders.map((o) => o.id) } },
+      /**
+       * ЗАХИАЛГУУДЫГ АТОМООР ЭЗЭМШИНЭ (V5 засвар).
+       *
+       * Дээрх сонголт нь `payoutId: null`-аар шүүдэг ч мөрийн түгжээгүй
+       * бөгөөд PostgreSQL-ийн READ COMMITTED-д зэрэгцээ транзакц ижил
+       * олонлогийг уншиж чадна. «Тооцоо хаах» товчийг хоёр дарахад хоёр
+       * DriverPayout болон ХОЁР `DRIVER_PAYROLL` зарлага үүсч, 200,000₮-ийн
+       * ажилд 400,000₮ зарлага бичигддэг байв (`payoutId` сүүлийнхээр
+       * дарагдах тул `payrollPending` 0 харуулж, хэн ч анзаардаггүй).
+       *
+       * `payoutId: null` нөхцөлтэй `updateMany` нь зөвхөн нэг талд
+       * амжилттай болно; өөрчлөгдсөн тоо зөрвөл бүх транзакц буцна.
+       */
+      const claimed = await tx.order.updateMany({
+        where: { id: { in: orders.map((o) => o.id) }, payoutId: null },
         data: { payoutId: payout.id },
       });
+      if (claimed.count !== orders.length) {
+        throw new BadRequestException(
+          'Тооцоо энэ хооронд хийгдсэн байна. Хуудсыг сэргээгээд дахин шалгана уу.',
+        );
+      }
 
       // Цалингийн зарлага — refOrderId талбарт payout.id хадгална
       await tx.financeEntry.create({

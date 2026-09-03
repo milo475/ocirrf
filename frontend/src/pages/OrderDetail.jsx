@@ -5,7 +5,6 @@ import PaymentBadge from '../components/orders/PaymentBadge'
 import RegionBadge from '../components/orders/RegionBadge'
 import ReturnBadge from '../components/orders/ReturnBadge'
 import Input from '../components/ui/Input'
-import Select from '../components/ui/Select'
 import Badge from '../components/ui/Badge'
 import DmReplyModal from '../components/orders/DmReplyModal'
 import Button from '../components/ui/Button'
@@ -526,8 +525,19 @@ function PaymentSection({ order, onChanged, t, toast, hasPerm }) {
   // ЭСВЭЛ борлуулагчийн нарийн orders.record_payment
   const canPay =
     hasPerm('finance.create_income') || hasPerm('orders.record_payment')
-  const remaining =
-    Number(order.totalAmount) - Number(order.paidAmount ?? 0)
+  /**
+   * Үлдэгдэл. Хоёр Decimal-ыг JS float-аар хасахад
+   * `100000.05 - 33333.35 = 66666.70000000001` гэх утга гарч, доорх
+   * input-ийн `pattern="\d{1,10}(\.\d{1,2})?"`-д УНАДАГ байв — хэрэглэгч
+   * аппын өөрийнх нь бөглөсөн утгаар илгээж чаддаггүй. 2 орон хүртэл
+   * бөөрөнхийлж, төгсгөлийн тэгүүдийг арилгана.
+   */
+  const remaining = Math.max(
+    0,
+    Math.round(
+      (Number(order.totalAmount) - Number(order.paidAmount ?? 0)) * 100,
+    ) / 100,
+  )
 
   function openForm() {
     setAmount(String(remaining))

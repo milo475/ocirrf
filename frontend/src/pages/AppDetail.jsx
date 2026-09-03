@@ -5,10 +5,11 @@ import { useLang } from '../context/LanguageContext'
 import { api } from '../lib/api'
 import { appIcon } from '../lib/appIcon'
 import { APP_FEATURES } from '../lib/appFeatures'
+import { appName, appNameAlt } from '../lib/appName'
 
 export default function AppDetail() {
   const { key } = useParams()
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const [apps, setApps] = useState(null)
 
   useEffect(() => {
@@ -49,16 +50,16 @@ export default function AppDetail() {
             </p>
           </div>
         ) : app.status !== 'ACTIVE' ? (
-          <ComingSoon app={app} t={t} />
+          <ComingSoon app={app} t={t} lang={lang} />
         ) : (
-          <ActiveApp app={app} t={t} />
+          <ActiveApp app={app} t={t} lang={lang} />
         )}
       </div>
     </main>
   )
 }
 
-function AppHeader({ app }) {
+function AppHeader({ app, lang }) {
   const Icon = appIcon(app.icon)
   return (
     <div className="flex items-center gap-4">
@@ -69,23 +70,23 @@ function AppHeader({ app }) {
         <Icon size={28} strokeWidth={1.75} />
       </span>
       <div>
-        <h1 className="font-serif text-3xl font-medium">{app.nameMn}</h1>
-        <p className="text-sm text-ink-muted">{app.nameEn}</p>
+        <h1 className="font-serif text-3xl font-medium">{appName(app, lang)}</h1>
+        <p className="text-sm text-ink-muted">{appNameAlt(app, lang)}</p>
       </div>
     </div>
   )
 }
 
-function ComingSoon({ app, t }) {
+function ComingSoon({ app, t, lang }) {
   return (
     <div className="mt-10">
-      <AppHeader app={app} />
+      <AppHeader app={app} lang={lang} />
       <div className="mt-8 border border-rule rounded-lg p-8 text-center bg-surface">
         <span className="font-mono text-xs uppercase tracking-widest border border-rule rounded px-2 py-1 text-ink-muted">
           {t('Тун удахгүй')}
         </span>
         <p className="mt-4 text-sm text-ink-muted max-w-md mx-auto">
-          {app.descriptionMn}
+          {t(app.descriptionMn)}
         </p>
         <p className="mt-2 text-sm text-ink-muted">
           {t('Энэ систем удахгүй нээгдэнэ — бэлэн болмогц каталогт идэвхжинэ.')}
@@ -95,12 +96,12 @@ function ComingSoon({ app, t }) {
   )
 }
 
-function ActiveApp({ app, t }) {
+function ActiveApp({ app, t, lang }) {
   const features = APP_FEATURES[app.key]
   return (
     <div className="mt-10">
-      <AppHeader app={app} />
-      <p className="mt-6 text-ink-muted">{app.descriptionMn}</p>
+      <AppHeader app={app} lang={lang} />
+      <p className="mt-6 text-ink-muted">{t(app.descriptionMn)}</p>
 
       {features && (
         <ul className="mt-6 space-y-2.5">
@@ -111,7 +112,7 @@ function ActiveApp({ app, t }) {
                 className="mt-0.5 shrink-0"
                 style={{ color: app.color }}
               />
-              <span>{f}</span>
+              <span>{t(f)}</span>
             </li>
           ))}
         </ul>

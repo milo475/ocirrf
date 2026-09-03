@@ -269,6 +269,57 @@ export class OrderRequestsService {
       );
     }
 
+    /**
+     * ХҮСЭЛТИЙГ ЭХЛЭЭД ЭЗЭМШИНЭ (V5 засвар).
+     *
+     * Дээрх `status !== NEW` шалгалт нь энгийн уншилт байсан бөгөөд
+     * захиалга үүсгэх, баталгаажуулах, хүсэлтийг CONVERTED болгох гурав нь
+     * ТУСДАА транзакц байв. Тиймээс «Захиалга болгох» товчийг хоёр удаа
+     * дарахад хоёр хүсэлт хоёулаа NEW-г уншиж, ХОЁР захиалга үүсгэж,
+     * үлдэгдлийг хоёр удаа хасаж, нэг гүйлгээнд хоёр Payment + хоёр INCOME
+     * бичилт үүсгэдэг байсан.
+     *
+     * Одоо нөхцөлт `updateMany`-гээр төлөвийг атомоор эзэмшинэ: хоёр дахь
+     * хүсэлт 0 мөр өөрчилж, тэндээ зогсоно.
+     */
+    const claimed = await this.prisma.orderRequest.updateMany({
+      where: { id, status: OrderRequestStatus.NEW },
+      data: {
+        status: OrderRequestStatus.CONVERTED,
+        handledById: user.id,
+        handledAt: new Date(),
+      },
+    });
+    if (claimed.count === 0) {
+      throw new BadRequestException('Энэ хүсэлт аль хэдийн боловсруулагдсан');
+    }
+
+    try {
+      return await this.buildOrderFromRequest(id, request, user);
+    } catch (e) {
+      // Захиалга үүсэхгүй бол эзэмшлийг БУЦААНА — эс тэгвэл хүсэлт
+      // захиалгагүйгээр CONVERTED болж гацна.
+      await this.prisma.orderRequest.updateMany({
+        where: { id, status: OrderRequestStatus.CONVERTED, orderId: null },
+        data: {
+          status: OrderRequestStatus.NEW,
+          handledById: null,
+          handledAt: null,
+        },
+      });
+      throw e;
+    }
+  }
+
+  /** convert-ийн хоёр дахь хэсэг — хүсэлт эзэмшигдсэний ДАРАА ажиллана */
+  private async buildOrderFromRequest(
+    id: string,
+    request: { items: { productId: string; qty: number }[] } & Record<
+      string,
+      any
+    >,
+    user: AuthUser,
+  ) {
     const order = await this.orders.create(
       {
         customerName: request.customerName,
@@ -309,14 +360,11 @@ export class OrderRequestsService {
       user,
     );
 
+    // Төлөв/handled* нь эзэмших алхамд аль хэдийн бичигдсэн — энд зөвхөн
+    // үүссэн захиалгын холбоосыг нэмнэ.
     await this.prisma.orderRequest.update({
       where: { id },
-      data: {
-        status: OrderRequestStatus.CONVERTED,
-        orderId: order.id,
-        handledById: user.id,
-        handledAt: new Date(),
-      },
+      data: { orderId: order.id },
     });
     return confirmed;
   }

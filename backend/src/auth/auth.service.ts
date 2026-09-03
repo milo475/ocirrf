@@ -92,7 +92,63 @@ export class AuthService {
       'Бүртгэл түр түгжигдлээ (15 мин)',
       HttpStatus.LOCKED,
     );
-    if (user.lockedUntil && user.lockedUntil > new Date()) {
+    const isLocked = Boolean(user.lockedUntil && user.lockedUntil > new Date());
+
+    /**
+     * НУУЦ ҮГИЙГ ТҮГЖЭЭНЭЭС ӨМНӨ ШАЛГАНА (V5 засвар — данс задрахаас).
+     *
+     * Өмнө нь түгжээг нууц үг шалгахаас ӨМНӨ шалгаад 423 шиддэг байсан.
+     * Байхгүй хаяг үргэлж 401 өгдөг тул сүлжээнээс харагдах ялгаа нь
+     * "энэ хаяг бүртгэлтэй юу?" гэдгийг шууд хэлдэг байв: сонирхсон
+     * хаягруу 5 хог нууц үг илгээгээд 423 ирвэл бүртгэлтэй, 401 хэвээр
+     * бол үгүй. Мөн яг тэр 5 хүсэлт (IP-ийн лимиттэй ижил тоо) нэрлэсэн
+     * ADMIN-ыг 15 минут гаргалгүй хаадаг байсан.
+     *
+     * Одоо БУРУУ нууц үгэнд ҮРГЭЛЖ 401 буцна — түгжигдсэн эсэхээс үл
+     * хамааран. 423 нь зөвхөн нууц үг нь ЗӨВ үед л гарна, өөрөөр хэлбэл
+     * жинхэнэ эзэн нь л түгжигдсэнээ мэдэх бөгөөд гуравдагч этгээд
+     * ямар ч ялгаа хардаггүй. (Тэмдэглэл: түгжээ өөрөө хаягийг мэддэг
+     * этгээдэд DoS хэвээр — үүнийг арилгахад IP/бүртгэл хосолсон
+     * backoff хэрэгтэй, энэ нь тусдаа өөрчлөлт.)
+     */
+    const passwordOk = await bcrypt.compare(dto.password, user.passwordHash);
+    if (!passwordOk) {
+      // Аль хэдийн түгжигдсэн бол тоолуурыг цаашид өсгөхгүй — эс тэгвэл
+      // халдагч түгжээг төгсгөлгүй сунгаж чадна.
+      if (!isLocked) {
+        // 5 дахь буруу оролдлогод 15 минут түгжинэ, counter шинээр эхэлнэ
+        const count = user.failedLoginCount + 1;
+        const willLock = count >= 5;
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: willLock
+            ? {
+                failedLoginCount: 0,
+                lockedUntil: new Date(Date.now() + 15 * 60_000),
+              }
+            : { failedLoginCount: count },
+        });
+        if (willLock) {
+          await this.securityLog.loginLocked(
+            dto.email,
+            ip,
+            user.id,
+            user.organizationId,
+          );
+          throw invalid;
+        }
+      }
+      await this.securityLog.loginFailed(
+        dto.email,
+        ip,
+        user.id,
+        user.organizationId,
+      );
+      throw invalid;
+    }
+
+    // Нууц үг ЗӨВ атал түгжигдсэн — зөвхөн энд 423 мэдэгдэнэ
+    if (isLocked) {
       await this.securityLog.loginFailed(
         dto.email,
         ip,
@@ -100,38 +156,6 @@ export class AuthService {
         user.organizationId,
       );
       throw locked;
-    }
-
-    const passwordOk = await bcrypt.compare(dto.password, user.passwordHash);
-    if (!passwordOk) {
-      // 5 дахь буруу оролдлогод 15 минут түгжинэ, counter шинээр эхэлнэ
-      const count = user.failedLoginCount + 1;
-      const willLock = count >= 5;
-      await this.prisma.user.update({
-        where: { id: user.id },
-        data: willLock
-          ? {
-              failedLoginCount: 0,
-              lockedUntil: new Date(Date.now() + 15 * 60_000),
-            }
-          : { failedLoginCount: count },
-      });
-      if (willLock) {
-        await this.securityLog.loginLocked(
-          dto.email,
-          ip,
-          user.id,
-          user.organizationId,
-        );
-      } else {
-        await this.securityLog.loginFailed(
-          dto.email,
-          ip,
-          user.id,
-          user.organizationId,
-        );
-      }
-      throw willLock ? locked : invalid;
     }
 
     /**
@@ -290,6 +314,29 @@ export class AuthService {
       throw invalid;
     }
 
+    /**
+     * ТОКЕНЫГ ЭНД АТОМООР ЭЗЭМШИНЭ (V5 засвар).
+     *
+     * Өмнө нь дээрх `revokedAt === null` шалгалт нь энгийн уншилт байсан
+     * бөгөөд revoke нь хамаагүй хожим, шинэ токен гаргасны ДАРАА
+     * бичигддэг байв. Тиймээс хулгайлагдсан refresh token-ыг жинхэнэ
+     * клиенттэй ЗЭРЭГ хэрэглэхэд хоёулаа шалгалтыг давж, хоёр хүчинтэй
+     * гэр бүл үүсдэг байсан — «дахин ашиглалт илэрвэл бүх токеныг
+     * хүчингүй болгоно» гэсэн хамгаалалт хэзээ ч ажиллахгүй.
+     *
+     * `updateMany` нь `revokedAt: null` нөхцөлтэй тул зөвхөн НЭГ хүсэлт
+     * 1 мөр өөрчилнө; хоёр дахь нь 0 авч, дахин ашиглалт гэж үзэгдэн
+     * гэр бүлээрээ хүчингүй болно.
+     */
+    const claimed = await this.prisma.refreshToken.updateMany({
+      where: { id: payload.jti, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    if (claimed.count === 0) {
+      await this.revokeAllTokens(record.userId);
+      throw invalid;
+    }
+
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
     });
@@ -315,9 +362,11 @@ export class AuthService {
     });
 
     const tokens = await this.issueTokens(user);
+    // `revokedAt` нь дээрх атом эзэмшилд аль хэдийн тавигдсан — энд зөвхөн
+    // сүлжээг (гэр бүлийн хэлхээг) бүрдүүлэх заалтыг нэмнэ.
     await this.prisma.refreshToken.update({
       where: { id: record.id },
-      data: { revokedAt: new Date(), replacedById: tokens.refreshJti },
+      data: { replacedById: tokens.refreshJti },
     });
     return tokens;
   }

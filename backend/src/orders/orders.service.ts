@@ -467,6 +467,25 @@ export class OrdersService {
       }
 
       // 3. Хаяг — region илгээвэл эсрэг горимынхыг цэвэрлэнэ
+      /**
+       * ТӨЛСӨН ДҮНГЭЭС ДООШ ЗАСАХЫГ ХОРИГЛОНО (V5 засвар).
+       *
+       * `paymentStatus` нь `paidAmount >= totalAmount` бол PAID гэж
+       * тооцогддог тул 30,000₮ бүрэн төлсөн захиалгыг 20,000₮ болгож
+       * засахад төлөв PAID хэвээр үлдэж, `paidAmount` (30,000) нь
+       * `totalAmount`-аас их болдог байв. Илүү төлсөн 10,000₮ хаана ч
+       * харагддаггүй: `receivables()` PAID захиалгыг алгасдаг,
+       * `finance.position` зөвхөн эерэг үлдэгдлийг нэмдэг. Мөнгө буцаах
+       * бол буцаалтаар (`POST /orders/:id/return`) бүртгэнэ.
+       */
+      if (dto.items && order.paidAmount.gt(totalAmount)) {
+        throw new BadRequestException(
+          `Захиалгын дүн (${totalAmount.toString()}₮) төлөгдсөн дүнгээс ` +
+            `(${order.paidAmount.toString()}₮) бага болно. Илүү төлөлтийг ` +
+            'буцаалтаар бүртгэнэ үү.',
+        );
+      }
+
       const address: Prisma.OrderUpdateInput = {};
       if (dto.region) {
         const isUB = dto.region === 'ULAANBAATAR';
@@ -529,9 +548,11 @@ export class OrdersService {
   }
 
   async updateStatus(id: string, status: OrderStatus, user: AuthUser) {
+    // УРЬДЧИЛСАН унших — зөвхөн эрх/эзэмшил шалгахад. `permissions.has` нь
+    // DB/кэш рүү ханддаг тул мөрийн түгжээ дотор байлгахгүй.
     const order = await this.prisma.order.findUnique({
       where: { id },
-      include: { items: true },
+      select: { id: true, createdById: true },
     });
     if (!order) {
       throw new NotFoundException('Захиалга олдсонгүй');
@@ -568,22 +589,48 @@ export class OrdersService {
      * PaymentsService нь цуцлагдсан захиалгад төлбөр НЭМЭХИЙГ аль
      * хэдийн хориглодог — энэ нь тэрхүү дүрмийн нөгөө тал.
      */
-    if (status === OrderStatus.CANCELLED && order.paidAmount.gt(0)) {
-      throw new BadRequestException(
-        'Төлбөртэй захиалгыг цуцлах боломжгүй. Эхлээд төлбөрийн бүртгэлийг ' +
-          'устгаж мөнгийг буцаана уу (захиалгын дэлгэрэнгүй → төлбөрийн мөр → ×)',
-      );
-    }
+    /**
+     * ТӨЛӨВИЙН ШАЛГАЛТ ТҮГЖЭЭНИЙ ДОТОР (V5 засвар).
+     *
+     * Өмнө нь захиалгыг транзакцаас ГАДНА уншиж, тэр агшны хуулбар дээр
+     * төлбөр/шилжилтийг шалгаад, дараа нь транзакц дотор `orderStatus`-ыг
+     * НӨХЦӨЛГҮЙ бичдэг байв. Улмаас зэрэг ирсэн хоёр «цуцлах» хүсэлт
+     * хоёулаа шалгалтыг давж, үлдэгдлийг ХОЁР УДАА буцааж нэмдэг байсан
+     * (10 ширхэгийн захиалга агуулахад 20 болж ордог), мөн ORDER_CANCEL
+     * хөдөлгөөн давхар бичигддэг байв. Мөн шалгалт ба бичилтийн хооронд
+     * төлбөр орж ирвэл «төлбөртэй захиалга цуцлагдахгүй» дүрэм алдагдана.
+     *
+     * Одоо мөрийг `FOR UPDATE`-ээр түгжиж, захиалгыг ДАХИН уншаад
+     * шалгалтуудыг тэндээ хийнэ: хоёр дахь хүсэлт `CANCELLED → CANCELLED`
+     * гэсэн зөвшөөрөгдөөгүй шилжилтэд унана.
+     */
+    return this.prisma.$transaction(async (tx) => {
+      if (!(await lockOrderForUpdate(tx, id))) {
+        throw new NotFoundException('Захиалга олдсонгүй');
+      }
+      const locked = await tx.order.findUnique({
+        where: { id },
+        include: { items: true },
+      });
+      if (!locked) {
+        throw new NotFoundException('Захиалга олдсонгүй');
+      }
 
-    if (!ALLOWED_TRANSITIONS[order.orderStatus].includes(status)) {
-      throw new BadRequestException(
-        `${order.orderStatus}-ээс ${status} руу шууд шилжих боломжгүй`,
-      );
-    }
+      if (status === OrderStatus.CANCELLED && locked.paidAmount.gt(0)) {
+        throw new BadRequestException(
+          'Төлбөртэй захиалгыг цуцлах боломжгүй. Эхлээд төлбөрийн бүртгэлийг ' +
+            'устгаж мөнгийг буцаана уу (захиалгын дэлгэрэнгүй → төлбөрийн мөр → ×)',
+        );
+      }
 
-    // Цуцлалт: статус + үлдэгдэл буцаах + movement — нэг transaction
-    if (status === OrderStatus.CANCELLED) {
-      const cancelled = await this.prisma.$transaction(async (tx) => {
+      if (!ALLOWED_TRANSITIONS[locked.orderStatus].includes(status)) {
+        throw new BadRequestException(
+          `${locked.orderStatus}-ээс ${status} руу шууд шилжих боломжгүй`,
+        );
+      }
+
+      // Цуцлалт: статус + үлдэгдэл буцаах + movement — нэг transaction
+      if (status === OrderStatus.CANCELLED) {
         const cancelled = await tx.order.update({
           where: { id },
           data: {
@@ -600,7 +647,8 @@ export class OrdersService {
           include: { items: true, createdBy: CREATED_BY_SELECT },
         });
 
-        for (const item of order.items) {
+        // Түгжээтэй уншсан хуулбараас — урьдчилсан уншилт нь items агуулаагүй
+        for (const item of locked.items) {
           await tx.product.update({
             where: { id: item.productId },
             data: { stockQty: { increment: item.qty } },
@@ -611,7 +659,7 @@ export class OrdersService {
               productId: item.productId,
               qtyChange: item.qty,
               reason: 'ORDER_CANCEL',
-              refId: order.id,
+              refId: locked.id,
               userId: user.id,
             },
           });
@@ -619,20 +667,20 @@ export class OrdersService {
         }
 
         return cancelled;
+      }
+
+      // V4: COMPLETED дээр орлого ҮҮСЭХГҮЙ — орлого = төлбөр
+      // (PaymentsService.addPayment). Тиймээс энгийн шилжилтээр явна.
+
+      // Бусад шилжилт — зөвхөн статус update (мөн адил түгжээн дор,
+      // ингэснээр цуцлалттай зэрэгцэн явж «цуцлагдсан → PREPARING» гэх
+      // зөрчилтэй үр дүн үүсэхгүй)
+      return tx.order.update({
+        where: { id },
+        data: { orderStatus: status },
+        include: { items: true, createdBy: CREATED_BY_SELECT },
       });
-      return cancelled;
-    }
-
-    // V4: COMPLETED дээр орлого ҮҮСЭХГҮЙ — орлого = төлбөр
-    // (PaymentsService.addPayment). Тиймээс энгийн шилжилтээр явна.
-
-    // Бусад шилжилт — зөвхөн статус update
-    const updated = await this.prisma.order.update({
-      where: { id },
-      data: { orderStatus: status },
-      include: { items: true, createdBy: CREATED_BY_SELECT },
     });
-    return updated;
   }
 
   async findOne(id: string) {

@@ -39,8 +39,22 @@ function emitChanged() {
   window.dispatchEvent(new Event('offline-queue:changed'))
 }
 
-/** Илгээгдээгүй баталгаажуулалт нэмнэ (photo нь File/Blob хэлбэрээрээ) */
-export async function enqueueComplete({ deliveryId, orderNo, success, note, photo }) {
+/**
+ * Илгээгдээгүй баталгаажуулалт нэмнэ (photo нь File/Blob хэлбэрээрээ).
+ *
+ * `userId` нь ЗААВАЛ: IndexedDB нь төхөөрөмжийнх, гарахад цэвэрлэгддэггүй.
+ * Хамтын утсан дээр жолооч А офлайн баталгаажуулаад гарч, жолооч Б орвол
+ * `online` эвэнт А-гийн бичлэгүүдийг Б-гийн токеноор илгээж, сервер
+ * татгалзаж, доорх алдаа боловсруулалт тэднийг устгадаг байв.
+ */
+export async function enqueueComplete({
+  deliveryId,
+  orderNo,
+  success,
+  note,
+  photo,
+  userId,
+}) {
   const db = await openDb()
   await tx(db, 'readwrite', (store) =>
     store.add({
@@ -49,6 +63,7 @@ export async function enqueueComplete({ deliveryId, orderNo, success, note, phot
       success,
       note: note ?? '',
       photo: photo ?? null,
+      userId: userId ?? null,
       createdAt: Date.now(),
     }),
   )
@@ -78,7 +93,7 @@ let flushing = false
  * Дарааллыг илгээнэ. Илгээгдсэн бүртгэл устаж, бүтэлгүйтвэл (сервер 4xx —
  * жишээ нь аль хэдийн DELIVERED) мөн хасагдана; сүлжээний алдаанд үлдэнэ.
  */
-export async function flushQueue() {
+export async function flushQueue(currentUserId = null) {
   if (flushing || !navigator.onLine) return { sent: 0 }
   flushing = true
   let sent = 0
@@ -98,6 +113,11 @@ export async function flushQueue() {
     })
 
     for (const { key, value } of entries) {
+      // ӨӨР ХЭРЭГЛЭГЧИЙН бичлэгийг илгээхгүй, бас устгахгүй — эзэн нь
+      // дахин нэвтрэхэд илгээгдэнэ. (userId-гүй хуучин бичлэгүүд хэвээр.)
+      if (value.userId && currentUserId && value.userId !== currentUserId) {
+        continue
+      }
       try {
         await apiUpload(`/deliveries/${value.deliveryId}/complete`, {
           success: String(value.success),
@@ -108,12 +128,34 @@ export async function flushQueue() {
         await tx(db, 'readwrite', (s) => s.delete(key))
         emitChanged()
       } catch (err) {
-        if (err && typeof err.status === 'number') {
-          // Сервер хариулсан (давхар илгээлт г.м.) — дарааллаас хасна
+        const status =
+          err && typeof err.status === 'number' ? err.status : null
+        /**
+         * ЗӨВХӨН ЭЦСИЙН алдаанд устгана (V5 засвар).
+         *
+         * Өмнө нь ЯМАР Ч тоон статустай алдаанд бичлэгийг устгадаг байв.
+         * `api` нь бүх амжилтгүй хариунд тоон `status` шиддэг тул 401
+         * (session дууссан) болон 500 (серверийн түр алдаа) ч устгалд
+         * ордог байсан: жолооч өдөржин офлайн ажиллаад, холбогдох үед
+         * refresh token нь хугацаа нь дуусчихсан бол БҮХ баталгаажуулалт
+         * зурагтайгаа IndexedDB-ээс устаж, хэнд ч мэдэгдэхгүй байв.
+         *
+         * Одоо зөвхөн дахин оролдоод ч өөрчлөгдөхгүй хариултад устгана
+         * (4xx — гэхдээ нэвтрэлт/хугацаа/хязгаарын кодуудаас бусад).
+         */
+        const permanent =
+          status !== null &&
+          status >= 400 &&
+          status < 500 &&
+          status !== 401 &&
+          status !== 403 &&
+          status !== 408 &&
+          status !== 429
+        if (permanent) {
           await tx(db, 'readwrite', (s) => s.delete(key))
           emitChanged()
         }
-        // Сүлжээний алдаа — дараагийн оролдлогод үлдээнэ
+        // Сүлжээ / нэвтрэлт / серверийн алдаа — дараагийн оролдлогод үлдээнэ
       }
     }
     db.close()
@@ -131,13 +173,23 @@ export async function flushQueue() {
 }
 
 let inited = false
+/** Идэвхтэй хэрэглэгч — `online` эвэнт хожим асахад ч зөв эзнийг мэдэхийн тулд */
+let activeUserId = null
 
-/** App нээгдэх + online болох үед автоматаар илгээнэ (нэг л удаа бүртгэнэ) */
-export function initOfflineQueue() {
-  if (inited) return
+/**
+ * App нээгдэх + online болох үед автоматаар илгээнэ (нэг л удаа бүртгэнэ).
+ * `userId` нь солигдоход шинэчлэгдэнэ — хамтын төхөөрөмж дээр өмнөх
+ * хэрэглэгчийн дараалал шинэ хэрэглэгчийн токеноор илгээгдэхгүй.
+ */
+export function initOfflineQueue(userId = null) {
+  activeUserId = userId
+  if (inited) {
+    void flushQueue(activeUserId)
+    return
+  }
   inited = true
   window.addEventListener('online', () => {
-    void flushQueue()
+    void flushQueue(activeUserId)
   })
-  void flushQueue()
+  void flushQueue(activeUserId)
 }

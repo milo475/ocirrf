@@ -54,10 +54,20 @@ export class CreateProductDto {
   @MaxLength(20)
   unit?: string;
 
-  @IsOptional()
-  @IsString()
-  @MaxLength(300)
-  imageUrl?: string;
+  /*
+   * АЮУЛГҮЙ БАЙДАЛ (V5): `imageUrl`-ыг клиент ТАВЬЖ БОЛОХГҮЙ.
+   *
+   * `UploadAccessGuard` нь барааны зургийг НИЙТИЙН гэж үздэг —
+   * `Product.imageUrl`-тай таарсан файлыг нэвтрэлтгүй өгдөг (нийтийн
+   * захиалгын хуудас зурагтай ажиллах ёстой тул). Энэ талбар бичигдэх
+   * боломжтой байхад `inventory.adjustment` эрхтэй хэн ч
+   * `PATCH /products/:id {"imageUrl":"/api/uploads/<хүргэлтийн зураг>"}`
+   * гэж бичээд хүргэлтийн баталгаа (хаяг, гарын үсэг, баримт) эсвэл
+   * төлбөрийн зургийг интернэтэд нээлттэй болгож чаддаг байв.
+   *
+   * Зураг ЗӨВХӨН `POST /products/:id/image`-аар тавигдана — тэнд нэр нь
+   * серверт `randomBytes(16)`-аар үүсдэг тул байгаа файл руу заах аргагүй.
+   */
 
   @IsOptional()
   @IsBoolean()

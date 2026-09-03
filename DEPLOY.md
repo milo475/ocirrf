@@ -162,7 +162,8 @@ v3-д нэмэгдсэн зүйлс байршуулалтад нэмэлт то
 
 Тэмдэглэл:
 
-- **Эрх 5 болсон**: ADMIN, MANAGER, OPERATOR, DRIVER, CUSTOMER.
+- **Эрх 6 болсон**: ADMIN, MANAGER, OPERATOR, DRIVER, WAREHOUSE, SELLER.
+  (CUSTOMER нь `20260829120000_remove_portal_and_tariffs`-аар хасагдсан.)
   Effective permission = хэрэглэгчийн override ?? role default
   (`backend/src/permissions/permission-keys.ts` — нэг л эх сурвалж).
   ADMIN-ий эрхийг хэн ч хасаж чадахгүй.

@@ -4,7 +4,7 @@
 /*
  * Цайвар темийн variant (`light:`): тема нь <html data-theme="light">-аар
  * тавигддаг (ThemeContext); харанхуй нь default. Хоёр темд өөр өөр утга
- * шаардлагатай газарт (жишээ: landing-ийн дэвсгэр зургийн overlay) хэрэглэнэ.
+ * шаардлагатай газарт хэрэглэнэ.
  */
 @custom-variant light (&:where([data-theme="light"], [data-theme="light"] *));
 /* Serif — PT Serif (кирилл бүрэн: Ө/Ү нь cyrillic-ext-д байдаг тул заавал) */
@@ -31,6 +31,11 @@
   --font-mono: "IBM Plex Mono", monospace;
   --font-sans: "Noto Sans", sans-serif;
 
+  /* Жижиг утасны breakpoint. Tailwind-ийн default нь sm=40rem-ээс эхэлдэг тул
+     360px ба 400px хоорондын зөрүүг тусгайлан барих зай байдаггүй — navbar
+     энэ хооронд халидаг. */
+  --breakpoint-xs: 25rem;
+
   /* dark (үндсэн) — дулаан near-black */
   --color-bg:        oklch(0.16 0.008 60);
   --color-surface:   oklch(0.20 0.010 60);
@@ -38,6 +43,27 @@
   --color-ink-muted: oklch(0.62 0.012 70);
   --color-rule:      oklch(0.30 0.010 60);
   --color-alarm:     oklch(0.62 0.19 32);   /* vermilion */
+  /* Дэвсгэрээс тод ялгарах хавтангийн surface + UI хүрээний хүчтэй вариант.
+     rule (1.42:1) нь хавтангийн ирмэгийг тэмдэглэхэд хэтэрхий сул тул
+     landing-ийн card-ууд rule-strong (3.23:1 — WCAG 1.4.11) хэрэглэнэ. */
+  --color-surface-raised: oklch(0.23 0.010 60);
+  --color-rule-strong:    oklch(0.50 0.010 60);
+  /* Хоёрдогч текст. ink-muted (5.32:1) нь ХАВТГАЙ дэвсгэр дээр AA хангадаг ч
+     hero-гийн accent толбын дээд цэгт 3.68:1 болж уначихдаг. ink-soft нь тэнд
+     ч 5.01:1 — landing бүхэлдээ ҮҮНИЙГ хэрэглэнэ (ink-muted-ыг хэрэглэхгүй). */
+  --color-ink-soft:       oklch(0.70 0.012 70);
+
+  /* ── ПЛАТФОРМЫН БРЭНД (landing/marketing) ──────────────────────
+     Эрхийн accent (--color-accent) нь data-role-оос шалтгаалдаг тул
+     нэвтрээгүй нүүр хуудсанд саарал болж хувирдаг. Landing-д тогтмол
+     брэндийн өнгө хэрэгтэй: Урсгалын бордо (#8b2635 ≈ oklch 0.43 0.135 17)
+     hue-г барьж, гэрэлтүүлгийг WCAG-д тааруулав.
+       brand      — CTA дүүргэлт (дэвсгэртэй 3.24:1, UI хилийн шаардлага)
+       brand-ink  — brand дээрх текст (5.50:1)
+       brand-text — accent текст/icon (дэвсгэртэй 6.85:1, surface 6.39:1) */
+  --color-brand:      oklch(0.52 0.16 17);
+  --color-brand-ink:  oklch(0.97 0.006 80);
+  --color-brand-text: oklch(0.70 0.13 17);
   --color-safe:      oklch(0.72 0.10 150);
 
   /* Эрхийн accent — data-role селектороор доор дарж бичигдэнэ */
@@ -99,6 +125,14 @@
   --color-alarm:     oklch(0.55 0.20 32);
   --color-safe:      oklch(0.55 0.12 150);
 
+  /* Landing-ийн нэмэлт token-ууд (dark-той ижил үүрэг, цайварт тааруулсан) */
+  --color-surface-raised: oklch(0.995 0.004 80);
+  --color-rule-strong:    oklch(0.60 0.008 80);
+  --color-ink-soft:       oklch(0.46 0.012 60);
+  --color-brand:      oklch(0.45 0.15 17);
+  --color-brand-ink:  oklch(0.98 0.004 80);
+  --color-brand-text: oklch(0.43 0.15 17);
+
   --color-status-new:       oklch(0.50 0.12 245);
   --color-status-confirmed: oklch(0.52 0.10 200);
   --color-status-preparing: oklch(0.55 0.13 85);
@@ -153,6 +187,122 @@
 
   @media (prefers-reduced-motion: reduce) {
     body {
+      transition: none;
+    }
+  }
+}
+
+/* ══ LANDING: дэвсгэрийн НЭГ accent толбо ═══════════════════════════
+ * Лаптопын зураг (public/landing-bg.jpg) БҮРМӨСӨН хасагдсан: утгын
+ * холбоогүй байсан ба зургийн дээд хэсэгт overlay сул байснаас текстийн
+ * contrast эвдэрч байв. Орлуулга нь ЦЭВЭР CSS radial-gradient — сүлжээний
+ * хүсэлт, decode, layout shift байхгүй, blur filter-ийн GPU зардалгүй.
+ *
+ * ЗӨВХӨН НЭГ элемент (dot/line grid хээ ЗОРИУДААР нэмээгүй — хоёуланг
+ * давхарлахгүй гэсэн шаардлагын дагуу).
+ *
+ * Alpha нь contrast-аар тодорхойлогдсон: dark 0.18-д толбын дээд цэг дээр
+ * ink-soft 5.17:1 (AA ✓) байна; ink-muted бол 3.8:1 болж уначихдаг тул
+ * landing-д ink-muted ХЭРЭГЛЭХГҮЙ (Landing.jsx-ийн тайлбарыг үз).
+ */
+:root {
+  --landing-glow: oklch(0.52 0.16 17 / 0.18);
+}
+[data-theme="light"] {
+  /* Цайварт улаан толбо хэт "бохир" болохгүйн тул сулаар (ink-soft 5.93:1) */
+  --landing-glow: oklch(0.45 0.15 17 / 0.10);
+}
+
+@layer components {
+  /* Толбо нь дээд ирмэгийн ТӨВД. Зүүн тийш (26%) зөөх нь hero-гийн
+     `text-brand-text` шошгыг бордо дэвсгэр дээр тавьж 1.06:1 болгож байсан
+     тул энэ байрлал хэвээр — хэмжилтээр шалгагдсан. */
+  .landing-glow {
+    background: radial-gradient(
+      72% 58% at 50% -6%,
+      var(--landing-glow) 0%,
+      transparent 72%
+    );
+  }
+
+  /* ── Задаргааны зураг: ЗӨВХОН баруун талд, текст рүү уусна ──────────
+   * Хоёр mask-ийн ҮЙЛЧЛЭЛИЙН ХЭРЭЧ (intersect):
+   *   1) хэвтээ — зүүн ирмэг (текстийн тал) бүрэн тунгалаг
+   *   2) босоо  — доод ирмэг дараагийн хэсэг рүү уусна
+   * Ингэснээр хэзээ ч хатуу ирмэг харагдахгүй, frame-тэй зураг шиг биш
+   * дэвсгэрийн давхарга шиг уншигдана.
+   */
+  .landing-art {
+    background-image: url('/landing-layers.jpg');
+    background-repeat: no-repeat;
+    background-size: cover;
+    background-position: 58% 42%;
+    opacity: 0.85;
+
+    /* Хэвтээ ramp нь контейнерын 30%-иас л ЭХЭЛНЭ: 0-30% нь бүрэн
+       тунгалаг тул текстийн багана болон зургийн хооронд «хоосон коридор»
+       үүсэж, ямар ч glyph гялбаа дээр тохиохгүй. */
+    -webkit-mask-image:
+      linear-gradient(to right, transparent 30%, rgb(0 0 0 / 0.45) 58%, #000 88%),
+      linear-gradient(to bottom, #000 0%, #000 52%, transparent 94%);
+    -webkit-mask-composite: source-in;
+    mask-image:
+      linear-gradient(to right, transparent 30%, rgb(0 0 0 / 0.45) 58%, #000 88%),
+      linear-gradient(to bottom, #000 0%, #000 52%, transparent 94%);
+    mask-composite: intersect;
+  }
+
+  /*
+   * ЦАЙВАР ТЕМД ӨӨР ФАЙЛ.
+   *
+   * Эх зураг нь бараан суурьтай. Цайвар хуудсан дээр түүнийг opacity-гээр
+   * дарвал хоёр муу сонголт үлддэг: бага утганд төхөөрөмж бараг
+   * харагдахгүй (0.2 дээр яг ийм байсан), өндөр утганд зургийн ӨӨРИЙН
+   * бараан дэвсгэр саарал толбо болж хуудсыг бохирдуулна.
+   *
+   * Тиймээс цайварт ЗОРИУДААР бэлдсэн хувилбарыг өгнө: саарал негатив,
+   * дэвсгэрийн гэрэлтүүлгийг нь `--color-bg` (#f7f5f1)-тэй тааруулсан.
+   * Ингэснээр зургийн дэвсгэр хуудастай нийлж үл мэдэгдэх болж, зөвхөн
+   * төхөөрөмж үлддэг тул opacity өндөр байж болно. Текст энэ бүсэд
+   * ордоггүй тул contrast-д нөлөөгүй.
+   */
+  [data-theme='light'] .landing-art {
+    background-image: url('/landing-layers-light.jpg');
+    opacity: 0.92;
+  }
+}
+
+/* ══ Скроллын нарийн fade-in ════════════════════════════════════════
+ * Агуулга нь ЗӨВХӨН хук ажиллаж, IntersectionObserver бэлэн болсон үед
+ * нуугдана (<html class="reveal-ready">). Тиймээс IO дэмжигдээгүй эсвэл
+ * хук ямар нэг шалтгаанаар ажиллаагүй бол хэсгүүд ХАРАГДСАН хэвээр
+ * үлдэнэ — «мөнхөд opacity:0» гэсэн доголдол үүсэхгүй. (Апп нь client-side
+ * SPA тул JS-ийг бүрмөсөн унтраавал хуудас өөрөө ч зурагдахгүй — энэ
+ * хамгаалалт нь тэр тохиолдлын талаар биш.) transform/opacity л хөдөлдөг
+ * тул layout shift үүсгэхгүй (compositor-ийн үйлдэл).
+ *
+ * `data-revealed` нь React-ийн УДИРДДАГГҮЙ атрибут: JSX-д зөвхөн
+ * data-reveal="out" бичигдэнэ, хук нь data-revealed-ыг нэмнэ. Ингэснээр
+ * дараагийн re-render (жишээ: apps ачаалагдахад) илчлэгдсэн хэсгийг
+ * буцааж нуухгүй.
+ */
+@layer base {
+  .reveal-ready [data-reveal="out"]:not([data-revealed]) {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  [data-reveal] {
+    transition:
+      opacity 560ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 560ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .reveal-ready [data-reveal="out"]:not([data-revealed]) {
+      opacity: 1;
+      transform: none;
+    }
+    [data-reveal] {
       transition: none;
     }
   }

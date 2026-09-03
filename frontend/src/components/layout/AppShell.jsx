@@ -76,7 +76,10 @@ export default function AppShell() {
   const [offline, setOffline] = useState(!navigator.onLine)
   useEffect(() => {
     if (!user) return
-    initOfflineQueue()
+    // Хэрэглэгчийн id-г дамжуулна: IndexedDB дараалал төхөөрөмжид үлддэг тул
+    // хамтын утсан дээр өмнөх жолоочийн бичлэгийг энэ хэрэглэгчийн токеноор
+    // илгээхээс сэргийлнэ.
+    initOfflineQueue(user.id)
     const on = () => setOffline(false)
     const off = () => setOffline(true)
     window.addEventListener('online', on)

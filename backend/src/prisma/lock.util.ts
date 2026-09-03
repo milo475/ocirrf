@@ -34,3 +34,25 @@ export async function lockOrderForUpdate(
   `;
   return rows.length > 0;
 }
+
+/**
+ * `Supply` мөрийг түгжинэ — `SupplyService.pay` нь `paidAmount`-ыг уншаад
+ * АБСОЛЮТ утгаар бичдэг тул түгжээгүй бол алдагдсан шинэчлэл (lost update)
+ * үүсдэг: 100,000-ийн өрөнд хоёр ажилтан зэрэг 50,000 төлөхөд хоёулаа 0-г
+ * уншиж, хоёулаа EXPENSE бичээд, хоёулаа `paidAmount = 50,000` гэж бичнэ.
+ * Мөнгө 100,000 гарсан ч өр 50,000 хэвээр үлдэнэ.
+ *
+ * `lockOrderForUpdate`-тэй ижил дүрэм: raw SQL-д org-scope extension
+ * үйлчлэхгүй тул `organizationId`-г ГАРААР шүүнэ.
+ */
+export async function lockSupplyForUpdate(
+  tx: Prisma.TransactionClient,
+  supplyId: string,
+): Promise<boolean> {
+  const rows = await tx.$queryRaw<{ id: string }[]>`
+    SELECT "id" FROM "Supply"
+    WHERE "id" = ${supplyId} AND "organizationId" = ${OrgContext.require()}
+    FOR UPDATE
+  `;
+  return rows.length > 0;
+}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Link } from 'react-router'
 import { ArrowLeft, Plus, Search } from 'lucide-react'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
@@ -44,16 +44,44 @@ function Console() {
   const [confirm, setConfirm] = useState(null) // {org, action}
   const [error, setError] = useState(null)
 
-  const load = () => {
-    setError(null)
+  /**
+   * ХАЙЛТ: debounce + хоцорсон хариуны хамгаалалт (V5 засвар).
+   *
+   * Өмнө нь `useEffect(load, [search])` нь ҮСЭГ БҮРТ гурван хүсэлт
+   * илгээдэг байсан: «acme» бичихэд 12 хүсэлт явж, хариунууд дараалалгүй
+   * ирэхэд жагсаалт «ac»-ийн үр дүн дээр тогтож болдог байв. `stats` ба
+   * `apps` нь хайлтаас огт хамаардаггүй атлаа мөн дахин татагддаг байсан.
+   */
+  const seq = useLatestRequest()
+
+  // Хайлтаас хамаарахгүй өгөгдөл — нэг л удаа
+  useEffect(() => {
     api('/platform/admin/stats').then(setStats).catch((e) => setError(e.message))
-    api(`/platform/admin/organizations${search ? `?search=${encodeURIComponent(search)}` : ''}`)
-      .then(setOrgs)
-      .catch((e) => setError(e.message))
     api('/platform/admin/apps').then(setApps).catch((e) => setError(e.message))
+  }, [])
+
+  const loadOrgs = useCallback(() => {
+    setError(null)
+    const fresh = seq()
+    api(
+      `/platform/admin/organizations${search ? `?search=${encodeURIComponent(search)}` : ''}`,
+    )
+      .then((d) => fresh() && setOrgs(d))
+      .catch((e) => fresh() && setError(e.message))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search])
+
+  useEffect(() => {
+    const id = setTimeout(loadOrgs, 300)
+    return () => clearTimeout(id)
+  }, [loadOrgs])
+
+  /** Үйлдлийн дараа бүх хэсгийг сэргээнэ */
+  const load = () => {
+    api('/platform/admin/stats').then(setStats).catch((e) => setError(e.message))
+    api('/platform/admin/apps').then(setApps).catch((e) => setError(e.message))
+    loadOrgs()
   }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(load, [search])
 
   async function doConfirm() {
     const { org, action } = confirm

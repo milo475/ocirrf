@@ -83,8 +83,12 @@ export default function ActivityLog() {
     const q = new URLSearchParams({ page: String(page), limit: String(LIMIT) })
     if (entity) q.set('entity', entity)
     if (userId) q.set('userId', userId)
-    if (from) q.set('from', new Date(from).toISOString())
-    if (to) q.set('to', new Date(`${to}T23:59:59`).toISOString())
+    // ХОЁУЛАА ОРОН НУТГИЙН цагаар. Өмнө нь `from` нь огноо-л байсан тул
+    // ES-ийн дүрмээр UTC шөнө дунд, `to` нь цагтай тул ОРОН НУТГИЙН цаг
+    // болж задардаг байв. UB (UTC+8)-д эхний өдрийн 00:00–08:00 хоорондох
+    // бүх бичлэг мужаас гардаг байсан.
+    if (from) q.set('from', new Date(`${from}T00:00:00`).toISOString())
+    if (to) q.set('to', new Date(`${to}T23:59:59.999`).toISOString())
     api(`/activity-log?${q}`)
       .then(setData)
       .catch((e) => setError(e))
@@ -237,7 +241,7 @@ export default function ActivityLog() {
         />
         <Input
           id="al-to"
-          label={t('Дуусах')}
+          label={t('range.to')}
           type="date"
           value={to}
           onChange={(e) => {

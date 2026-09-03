@@ -142,17 +142,26 @@ export default function Finance() {
     api('/finance/position').then(setPosition).catch(() => {})
   }, [canViewBoth])
 
+  // Хоцорсон хариу шинэ табыг дарж бичихээс сэргийлнэ
+  const seq = useLatestRequest()
+
   const loadEntries = useCallback(() => {
     setError(null)
+    // Таб солигдоход ӨМНӨХИЙН мөрүүдийг цэвэрлэнэ: өмнө нь `data` зөвхөн
+    // амжилтын үед л шинэчлэгддэг байсан тул ОРЛОГО → АВЛАГА руу шилжихэд
+    // хүснэгтэд орлогын мөрүүд түр үлдэж, буцаж шилжихэд «Гүйлгээ
+    // олдсонгүй» гэсэн хоосон төлөв анивчдаг байв.
+    setData(null)
+    const fresh = seq()
     if (tab === 'RECEIVABLES') {
       api('/finance/receivables')
-        .then((d) => setData({ receivables: d }))
-        .catch((e) => setError(e))
+        .then((d) => fresh() && setData({ receivables: d }))
+        .catch((e) => fresh() && setError(e))
       return
     }
     api(`/finance/entries?type=${tab}&page=${page}&limit=${LIMIT}`)
-      .then(setData)
-      .catch((e) => setError(e))
+      .then((d) => fresh() && setData(d))
+      .catch((e) => fresh() && setError(e))
   }, [tab, page])
 
   useEffect(() => {
@@ -291,7 +300,7 @@ export default function Finance() {
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
             {[
               ['Мөнгө', position.cash, null],
-              ['Авлага', position.receivable, 'Үйлчлүүлэгч бидэнд өртэй'],
+              ['finance.receivable', position.receivable, 'Үйлчлүүлэгч бидэнд өртэй'],
               ['Бараа материал', position.inventory, 'Агуулахын өртөг'],
               ['Өглөг', position.payable, 'Бид нийлүүлэгчид өртэй'],
             ].map(([label, value, note]) => (
@@ -346,7 +355,7 @@ export default function Finance() {
                 ? 'finance.income'
                 : ty === 'EXPENSE'
                   ? 'finance.expense'
-                  : 'Авлага',
+                  : 'finance.receivable',
             )}
           </button>
         ))}

@@ -523,7 +523,7 @@ function NewSupplyModal({ t, toast, onClose, onDone }) {
                     бараа FEFO дарааллаар гарна. */}
                 <div className="mt-2 flex items-center gap-2 flex-wrap">
                   <span className="text-xs text-ink-muted shrink-0">
-                    {t('Дуусах')}
+                    {t('expiry.label')}
                   </span>
                   <input
                     aria-label={`${i.name} — ${t('дуусах хугацаа')}`}

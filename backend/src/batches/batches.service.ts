@@ -6,6 +6,8 @@ import {
 import { OrgContext } from '../org/org-context';
 import { PrismaService } from '../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.service';
+import { PermissionsService } from '../permissions/permissions.service';
+import { PERM } from '../permissions/permission-keys';
 import { AuthUser } from '../auth/decorators/current-user.decorator';
 import { daysUntil, expiryState, ExpiryState } from '../stock/batch.util';
 import { CreateBatchDto, WriteOffDto } from './dto/batch.dto';
@@ -21,6 +23,7 @@ export class BatchesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly settings: SettingsService,
+    private readonly permissions: PermissionsService,
   ) {}
 
   /** Тохиргооноос анхааруулах хоног (буруу утганд 30). */
@@ -67,7 +70,17 @@ export class BatchesService {
    * Мөнгөн дүнг ӨРТГӨӨР бодно: хугацаа дуусвал энэ бол бодит алдагдал,
    * борлуулах байсан үнэ биш.
    */
-  async summary() {
+  /**
+   * ӨРТГИЙН ДҮНГ ЭРХЭЭР ХАМГААЛНА (V5 засвар).
+   *
+   * `value` нь Σ(costPrice × remaining) — өөрөөр хэлбэл байгууллагын
+   * агуулахын ӨРТГИЙН үнэлгээ. `ProductsService` нь `costPrice`-ыг
+   * `inventory.adjustment`-гүй хүнд ЗОРИУДААР нууж байхад энэ endpoint
+   * зөвхөн `inventory.view` шаарддаг байсан тул SELLER (тэр эрхтэй,
+   * adjustment-гүй) `GET /batches/summary`-гээр нийт өртгийг уншиж
+   * чаддаг байв.
+   */
+  async summary(user?: AuthUser) {
     const warn = await this.warnDays();
     const rows = await this.prisma.productBatch.findMany({
       where: { writtenOffAt: null, remaining: { gt: 0 } },
@@ -89,6 +102,19 @@ export class BatchesService {
       buckets[s].batches += 1;
       buckets[s].qty += b.remaining;
       buckets[s].value += Number(b.product.costPrice) * b.remaining;
+    }
+
+    const canSeeCost = user
+      ? await this.permissions.has(
+          user.id,
+          user.role,
+          PERM.INVENTORY_ADJUSTMENT,
+        )
+      : false;
+    if (!canSeeCost) {
+      for (const k of Object.keys(buckets) as ExpiryState[]) {
+        delete (buckets[k] as { value?: number }).value;
+      }
     }
 
     return {

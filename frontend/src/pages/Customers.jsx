@@ -247,6 +247,10 @@ export default function Customers() {
           <Table
             columns={phoneColumns}
             rows={byPhone}
+            /* Энэ endpoint `id` буцаадаггүй (утсаар бүлэглэсэн мөрүүд) тул
+               Table-ийн default rowKey=row.id бүх мөрөнд undefined өгч,
+               React-ийн key давхардаж, мөрийн байрлалаар тааруулдаг байв */
+            rowKey={(c) => c.phone}
             onRowClick={(c) =>
               setHistory({ phone: c.phone, name: c.names?.[0] })
             }

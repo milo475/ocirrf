@@ -59,15 +59,10 @@ async function seedApplications() {
     where: {
       organizationId_applicationId: {
         organizationId: DEFAULT_ORG_ID,
-        applicationId: APP_CATALOG[0].id,
+        applicationId: app.id,
       },
-    },
-    update: {},
-    create: {
-      organizationId: DEFAULT_ORG_ID,
-      applicationId: APP_CATALOG[0].id,
-    },
-  });
+    });
+  }
 }
 
 async function seedUsers() {
@@ -93,7 +88,7 @@ async function seedUsers() {
     {
       username: 'operator@ocirrf.mn',
       password: 'operator123',
-      fullName: 'Туршилт Харилцагч',
+      fullName: 'Туршилт Оператор',
       role: 'OPERATOR' as const,
     },
     {
@@ -111,6 +106,15 @@ async function seedUsers() {
       where: { username: u.username },
       update: { fullName: u.fullName, role: u.role, isActive: true },
       create: {
+    // Нярав. Үүнгүйгээр шинэ суулгацад GET /warehouse/keepers хоосон
+    // буцаж, «няравт хуваарилах» урсгал бүхэлдээ ажиллах боломжгүй байв
+    // (Role enum-д 6 эрх байхад seed 5-ыг л үүсгэж байсан).
+    {
+      username: 'warehouse@ocirrf.mn',
+      password: 'warehouse123',
+      fullName: 'Агуулахын Нярав',
+      role: 'WAREHOUSE' as const,
+    },
         username: u.username,
         passwordHash,
         fullName: u.fullName,

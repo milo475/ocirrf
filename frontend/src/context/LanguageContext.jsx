@@ -25,6 +25,18 @@ const DICT = {
     'action.update': 'Зассан',
     'action.delete': 'Устгасан',
     'action.permission': 'Эрх өөрчилсөн',
+    // Нүүр хуудасны footer — 'Холбоос' нь өөр газар 'Reference' гэж
+    // орчуулагддаг тул namespace-тэй түлхүүр (файлын конвенцын дагуу)
+    'landing.links': 'Холбоос',
+    // «Дуусах» нь ГУРВАН өөр утгаар хэрэглэгддэг байсан (огнооны мужийн
+    // төгсгөл / хугацаа дуусах огноо / нөөцийн үлдэх хоног). Нэг түлхүүрт
+    // гурван орчуулга багтахгүй тул тусгаарлав.
+    'range.to': 'Дуусах',
+    'expiry.label': 'Дуусах',
+    'stock.runway': 'Дуусах',
+    // «Авлага» нь санхүүгийн ангилал (Receivables) ба нэг харилцагчийн
+    // үлдэгдэл (Due) хоёр утгатай.
+    'finance.receivable': 'Авлага',
   },
   en: {
     // — Нэвтрэлт, бүрхүүл —
@@ -95,7 +107,6 @@ const DICT = {
     'Оноо': 'Score',
     '13 дол.хон': '13 wk',
     'Уналт': 'Drawdown',
-    'Дуусах': 'Runway',
     'Эргэц': 'Turnover',
     '7 хон. Δ': 'WoW Δ',
     'Сүүлд нөхсөн': 'Last restock',
@@ -129,7 +140,6 @@ const DICT = {
     'Засах': 'Edit',
     'Идэвхгүй болгох': 'Deactivate',
     'Шинэ бараа': 'New product',
-    'Ангилалгүй': 'No category',
     'Үнэ (₮)': 'Price (₮)',
     'Шинэ бараа бүртгэгдлээ': 'Product created',
     'Бараа шинэчлэгдлээ': 'Product updated',
@@ -299,7 +309,6 @@ const DICT = {
       'Are you sure you want to delete this payment record? Its income entry will be removed too.',
     'Хэлбэр': 'Method',
     'Устгах': 'Delete',
-    'Авлага': 'Receivables',
     'Нийт авлага': 'Total receivables',
     '{n} захиалга': '{n} orders',
     'Хоног': 'Days',
@@ -403,7 +412,6 @@ const DICT = {
 
     // — Эрхийн панелын нэршил: customers.* нь нийлүүлэгч компанийнх —
     'Нийлүүлэгч компани': 'Supplier company',
-    'Захиалга цуцлах': 'Cancel orders',
     'Маршрутын дараалал тавих': 'Set route order',
     'Нийлүүлэгч компани харах': 'View supplier companies',
     'Нийлүүлэгч компани засах': 'Edit supplier companies',
@@ -411,7 +419,6 @@ const DICT = {
     'Харилцагчаар шүүх': 'Filter by partner',
 
     // — Нийлүүлэгчийн самбар (V5) —
-    'Нийлүүлэгч': 'Supplier',
     'Танай компани бүртгэгдээгүй байна': 'Your company is not registered yet',
     'Админ таныг харилцагч компанид холбосны дараа нийлүүлэлт, тооцоо энд харагдана':
       'Once an admin links you to a partner company, your supplies and balance appear here',
@@ -442,18 +449,13 @@ const DICT = {
     'Төлбөр хийх': 'Make a payment',
     'Үлдсэн өр': 'Remaining',
     'Төлөх': 'Pay',
-    'Төлбөр бүртгэгдлээ': 'Payment recorded',
     'Хүлээж авах': 'Receive',
     '{no} бүртгэгдлээ': '{no} recorded',
-    'Өртөг': 'Cost',
 
     // — Захиалга засах (V5) —
     'Захиалга зассан': 'Order updated',
     'Бараа нэмэх': 'Add product',
-    'Нэмэлт утас': 'Extra phone',
-    'Хүргэлтийн хаяг': 'Delivery address',
     'Бүс': 'Region',
-    'Улаанбаатар': 'Ulaanbaatar',
     'Нэмэлт хаяг': 'Address detail',
     'Захиалгад дор хаяж 1 бараа байна': 'An order needs at least 1 product',
     'Төлсөн дүн {paid} — дүн өөрчлөгдвөл төлбөрийн төлөв дагаж шинэчлэгдэнэ':
@@ -479,7 +481,6 @@ const DICT = {
       'First purchase — no previous orders',
     'Бусад нэр': 'Other names',
     'цуцалсан': 'cancelled',
-    'Нийт дүн': 'Total',
     'Авлага': 'Due',
     'Анх': 'First',
     'Ихэвчлэн авдаг': 'Usually buys',
@@ -517,7 +518,6 @@ const DICT = {
       'Orders appear here once a manager assigns them',
     'захиалга': 'orders',
     'бэлэн': 'ready',
-    'Бэлэн': 'Ready',
     'Нийт түүх бараа': 'Total goods to pick',
     'Хүлээлгэн өгөх': 'Hand over',
     'Баталгаажуулж хэвлэх': 'Confirm and print',
@@ -555,7 +555,6 @@ const DICT = {
     'Харилцагч компани': 'Partner company',
     'Компаниуд': 'Companies',
     'Компани': 'Company',
-    'Оператор': 'Operators',
     'Компани алга': 'No companies',
     'Сонгоогүй': 'Not selected',
     'Бүх харилцагч': 'All partners',
@@ -571,7 +570,6 @@ const DICT = {
     'Суваг': 'Channel',
     'Захиалга ирсэн суваг': 'Order channel',
     'Бусад': 'Other',
-    'захиалга': 'orders',
 
     // — Харилцагчид —
 
@@ -647,7 +645,6 @@ const DICT = {
     'Давтан': 'Repeat',
     '1 захиалгатай': '1 order',
     '2+ захиалгатай': '2+ orders',
-    'захиалга': 'orders',
     'Жолоочдын харьцуулалт': 'Driver comparison',
     'Хүргэсэн': 'Delivered',
     'Бодогдох цалин': 'Accrued pay',
@@ -669,17 +666,14 @@ const DICT = {
     'Утасны захиалгаас': 'From phone orders',
     'Нэр(үүд)': 'Name(s)',
     'Сүүлийн захиалга': 'Last order',
-    'Идэвхгүй болгох': 'Deactivate',
     'Системийн тохиргоо': 'System settings',
     'Компанийн нэр': 'Company name',
     'Компанийн утас': 'Company phone',
     'Тохиргоо хадгалагдлаа': 'Settings saved',
-    'Төлөв': 'Status',
     'Идэвхтэй хүргэлт': 'Active deliveries',
     'Өнөөдөр хүргэсэн': 'Delivered today',
     'Нийт хүргэсэн': 'Total delivered',
     'Тээврийн хэрэгсэл': 'Vehicle',
-    'Идэвхгүй': 'Inactive',
     'Бүртгэл засах': 'Edit accounts',
     'Тайлбар': 'Note',
     'Системээс гарах': 'Sign out',
@@ -697,14 +691,12 @@ const DICT = {
     // — Мэдэгдэл + Үйлдлийн түүх (V3-10) —
     'Мэдэгдэл': 'Notifications',
     'Мэдэгдэл алга': 'No notifications',
-    'Бүгдийг харах': 'View all',
     'Бүгдийг уншсан болгох': 'Mark all as read',
     'Үйлдлийн түүх': 'Activity log',
     'Үйлдэл': 'Action',
     'Объект': 'Entity',
     'Дэлгэрэнгүй': 'Details',
     'Эхлэх': 'From',
-    'Дуусах': 'To',
     'Бичилт олдсонгүй': 'No records found',
     'action.create': 'Created',
     'action.update': 'Updated',
@@ -761,7 +753,6 @@ const DICT = {
     'Амжилттай хүргэсэн': 'Delivered',
     '7 хоногийн гүйцэтгэл': '7-day performance',
     'Үүсгэсэн захиалга': 'Orders created',
-    'Хүргэсэн': 'Delivered',
     'Шилдэг жолооч TOP-3': 'Top 3 drivers',
     'хуваарилагдсан': 'assigned',
     'хүргэсэн': 'delivered',
@@ -778,7 +769,6 @@ const DICT = {
     'Завгүй': 'Busy',
     'Жолоочийн самбар': 'Driver overview',
     'Өнөөдрийн хүргэлт': "Today's deliveries",
-    'Нийт хүргэсэн': 'Total delivered',
     'Хүргэлтээ эхлэх': 'Start deliveries',
     '7 хоног': '7 days',
 
@@ -792,8 +782,6 @@ const DICT = {
 
     'Хүргэлт': 'Delivery',
     'Хүргэлтийн мэдээлэл': 'Delivery info',
-    'Жолооч хуваарилах': 'Assign driver',
-    'Хуваарилах': 'Assign',
     'Жолооч хуваарилагдлаа': 'Driver assigned',
     'Хуваарилсан': 'Assigned at',
     'Хүргэсэн огноо': 'Delivered at',
@@ -809,7 +797,6 @@ const DICT = {
 
     'Хөлс': 'Fee',
     'Хүргэлтийн хөлс (₮)': 'Fee per delivery (₮)',
-    'Тээврийн хэрэгсэл': 'Vehicle',
     'Хэрэглэгч шинэчлэгдлээ': 'User updated',
 
     // — Тохиргоо —
@@ -817,6 +804,109 @@ const DICT = {
     'Тема': 'Theme',
     'Интерфэйсийн хэлийг сонгоно. Серверийн алдааны мессежүүд одоогоор зөвхөн монголоор ирдэг.':
       'Choose the interface language. Server error messages are currently in Mongolian only.',
+
+    // — Нийтийн нүүр (/) : hero, системүүд, давуу тал, footer —
+    'Дотоод системүүдийн платформ': 'Internal systems platform',
+    'Монголын бизнест зориулав': 'Made for Mongolian business',
+    'Бүх дотоод удирдлага': 'Every internal operation',
+    'нэг платформ дээр': 'on one platform',
+    'Агуулах, захиалга, хүргэлт, санхүү, хүний нөөц. Монголын бизнест зориулсан дотоод системүүд нэг бүртгэлээр, нэг дор.':
+      'Inventory, orders, delivery, finance, HR. Internal systems built for Mongolian business, under a single account.',
+    'Үнэгүй эхлэх': 'Start free',
+    'Карт шаардахгүй': 'No card required',
+    'Хэдхэн минутад': 'Ready in minutes',
+    'Монгол хэл дээр': 'In Mongolian',
+    'систем': 'systems',
+    'бүртгэл, бүх систем': 'account, all systems',
+    'Монгол': 'Mongolian',
+    'хэл дээр бүрэн': 'fully supported',
+    'Системүүд': 'Systems',
+    'Одоо бэлэн': 'Available now',
+    'Бүртгүүлмэгц идэвхжих систем. Дараагийнх нь каталогт бэлтгэгдэж байна.':
+      'Active the moment you sign up. The rest are being prepared in the catalog.',
+    'Удахгүй нэмэгдэх': 'Coming soon',
+    'Удахгүй': 'Soon',
+    'Яаж ажилладаг вэ': 'How it works',
+    'Гурван алхам': 'Three steps',
+    'Бүртгүүл': 'Sign up',
+    'Байгууллагынхаа нэрээр бүртгэл үүсгэнэ. Карт шаардахгүй, хэдхэн минутын ажил.':
+      'Create an account in your organization\u2019s name. No card, just a few minutes.',
+    'Системээ идэвхжүүл': 'Enable your systems',
+    'Каталогоос хэрэгтэй системээ сонгож идэвхжүүлнэ. Хэрэггүйг нь дараа нэмнэ.':
+      'Pick what you need from the catalog. Add the rest whenever you want.',
+    'Багаа урь': 'Invite your team',
+    'Ажилтнуудаа эрхийн зэрэглэлээр нэмж, хамтдаа нэг системд ажиллана.':
+      'Add staff with the right permission level and work together in one system.',
+    'Давуу тал': 'Why us',
+    'Яагаад ocirrf': 'Why ocirrf',
+    'Бүх цэс, тайлан, баримт монголоор. Кирилл бүрэн дэмждэг фонтууд системд шингэсэн.':
+      'Mongolian comes first in every menu, report and document, with fonts that fully support Cyrillic. English is available too.',
+    'Монголын бизнесийн онцлогт': 'Built for Mongolian business',
+    'Дүүрэг-хороо, аймаг-сумын бүтэцлэгдсэн хаяг, төгрөгийн тооцоо, Excel-д кирилл зөв гарах тайлан.':
+      'Structured district and province addresses, tugrik amounts, and reports that open correctly in Excel.',
+    'Нэг бүртгэл, бүх систем': 'One account, every system',
+    'Агуулахаас санхүү хүртэл нэг нэвтрэлтээр. Систем нэмэхэд дахин бүртгэх шаардлагагүй.':
+      'From inventory to finance with a single login. Adding a system needs no new account.',
+    'Байгууллага бүрийн дата тусгаарлагдсан': 'Each organization\u2019s data is isolated',
+    'Байгууллага тус бүрийн өгөгдөл мөрийн түвшинд хуваагдсан. Бусдын өгөгдөл харагдах боломжгүй.':
+      'Data is separated at the row level, so no organization can see another\u2019s records.',
+    'Байгууллагаа өнөөдөр бүртгэ': 'Register your organization today',
+    'Бүртгэл үнэгүй. Урсгал систем шууд идэвхжиж, багаараа ажиллаж эхлэх боломжтой.':
+      'Signing up is free. Ursgal activates immediately so your team can start right away.',
+    'Монголын бизнесийн дотоод удирдлагын системүүд нэг платформ дээр.':
+      'Internal management systems for Mongolian business, on one platform.',
+    'landing.links': 'Links',
+    'Бүртгүүлэх': 'Sign up',
+    // — Каталогийн app-уудын ТАЙЛБАР —
+    // Эдгээр нь Application хүснэгтээс (`descriptionMn`) ирдэг; схемд
+    // `descriptionEn` багана БАЙХГҮЙ тул англи хувилбарыг энд толилуулав.
+    // SUPERADMIN консолоос тайлбарыг ЗАСВАЛ түлхүүр таарахаа болиод
+    // монголоороо буцаж харагдана (t() нь түлхүүр рүүгээ унадаг) — өгөгдөл
+    // алдагдахгүй, зөвхөн орчуулга нь хоцорно. Бүрэн шийдэл нь
+    // `descriptionEn` багана нэмэх migration.
+    'Агуулах, захиалга, хүргэлт, санхүүгийн дотоод удирдлага':
+      'Inventory, orders, delivery and finance in one internal system',
+    'Дансны төлөвлөгөө, давхар бичилт, авлага/өглөг, НӨАТ, нэхэмжлэх':
+      'Chart of accounts, double-entry bookkeeping, receivables and payables, VAT, invoicing',
+    'Ажилтны бүртгэл, ирц, амралт чөлөө, цалингийн тооцоо':
+      'Employee records, attendance, leave, and payroll calculation',
+    'Харилцагчийн бүртгэл, борлуулалтын сувгууд, идэвхжүүлэлт':
+      'Customer records, sales channels and re-engagement',
+    'Нийлүүлэгчийн үнийн санал, худалдан авалтын захиалга, өглөгийн хяналт':
+      'Supplier quotes, purchase orders and payables control',
+    'Нэгдсэн тайлан, KPI самбар, экспорт':
+      'Consolidated reports, KPI dashboards and exports',
+    'Дэлгүүр, кассын борлуулалт, урамшуулал, төлбөрийн бүртгэл':
+      'Retail and point-of-sale, promotions, payment records',
+    'Төслийн самбар, даалгавар, хугацаа, багийн ажлын хуваарь':
+      'Project boards, tasks, deadlines and team scheduling',
+    'Гэрээ, албан бичиг, хувилбарын хяналт, батлах урсгал':
+      'Contracts, official documents, version control and approval flows',
+    'Хэрэглэгчийн хүсэлт, тасалбар, SLA, мэдлэгийн сан':
+      'Customer requests, tickets, SLA tracking and a knowledge base',
+    // — Урсгалын боломжуудын жагсаалт (Landing card + /apps/:key) —
+    'Захиалгын 2 алхамт wizard — УБ болон орон нутгийн бүтэцлэгдсэн хаягтай':
+      'Two-step order wizard with structured Ulaanbaatar and provincial addresses',
+    'Агуулах: нярав бэлтгэл, жолоочид хүлээлгэн өгөх хуудас, дугаартай баримт':
+      'Warehouse: keeper picking, numbered driver handover sheets and receipts',
+    'Хүргэлтийн самбар: бүсээр автомат хуваарилалт, маршрут, зурагтай баталгаажуулалт':
+      'Delivery board: automatic assignment by zone, routing, photo confirmation',
+    'Нөөц: цуврал (хугацаа) хяналт, FEFO, бага үлдэгдлийн анхааруулга, CSV импорт':
+      'Stock: batch and expiry tracking, FEFO, low-stock alerts, CSV import',
+    'Нийлүүлэлт: хүлээн авалт, өртөг, нийлүүлэгчийн өрийн хяналт':
+      'Supply: goods receipt, cost tracking, supplier debt control',
+    'Санхүү: төлбөр=орлого зарчим, жолоочийн цалингийн тооцоо, P&L тайлан':
+      'Finance: payment-equals-income model, driver payroll, P&L reports',
+    'Нийтийн захиалгын линк — үйлчлүүлэгч өөрөө бөглөж баримтаа хавсаргана':
+      'Public order link so customers fill in their own order and attach receipts',
+    'Эрхийн нарийн систем: role + хэрэглэгч бүрийн permission override':
+      'Fine-grained permissions: roles plus per-user permission overrides',
+    'range.to': 'To',
+    'expiry.label': 'Expires',
+    'stock.runway': 'Runway',
+    'finance.receivable': 'Receivables',
+    'Каталогт систем алга — платформын админд хандана уу.':
+      'No systems in the catalog. Contact the platform administrator.',
   },
 }
 

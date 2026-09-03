@@ -118,7 +118,6 @@ export class ProductsService {
           categoryId: dto.categoryId,
           companyId: dto.companyId,
           unit: dto.unit,
-          imageUrl: dto.imageUrl,
           isActive: dto.isActive,
         },
         include: { category: true },
