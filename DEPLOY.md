@@ -61,6 +61,14 @@ cd ../backend && npm ci && npx prisma migrate deploy && npm run build
 pm2 restart ocirrf-api
 ```
 
+### Индексийн migration (`*_org_scoped_indexes`, 2026-09-03)
+
+Зөвхөн `CREATE INDEX` / давхардсан `DROP INDEX` — өгөгдөл, багана
+хөндөгдөхгүй. `migrate deploy` энгийн `CREATE INDEX` ажиллуулдаг тул хүснэгт
+бүр индекс үүсэх хугацаанд бичилтэд түр түгжигдэнэ (олон мянган мөртэй
+хүснэгтэд секундын дотор). Ачаалал багатай цагт ажиллуулна; rollback
+шаардлагатай бол тухайн `DROP INDEX`-ийг гараар ажиллуулахад хангалттай.
+
 ### Multi-tenancy migration (20260902120000, нэг удаагийн big-bang)
 
 Хуучин (нэг байгууллагын) хувилбараас шинэчлэхэд энэ migration нь шинэ

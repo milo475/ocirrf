@@ -306,7 +306,8 @@ model OrderRequest {
 
   items OrderRequestItem[]
 
-  @@index([organizationId])
+  // org-scope шүүлт + жагсаалтын үндсэн эрэмбэ (index аудит 2026-09-03)
+  @@index([organizationId, status, createdAt])
   @@index([status, createdAt])
 }
 
@@ -372,6 +373,8 @@ model DriverHandover {
   orders Order[]
 
   @@unique([organizationId, number])
+  // org-scope шүүлт + жагсаалтын үндсэн эрэмбэ (index аудит 2026-09-03)
+  @@index([organizationId, createdAt])
   @@index([driverId, createdAt])
 }
 
@@ -462,7 +465,8 @@ model FinanceEntry {
   createdBy      User         @relation("FinanceEntries", fields: [createdById], references: [id])
   entryDate      DateTime     @default(now())
 
-  @@index([organizationId])
+  // org-scope шүүлт + жагсаалтын үндсэн эрэмбэ (index аудит 2026-09-03)
+  @@index([organizationId, entryDate])
   @@index([type, entryDate])
   @@index([refOrderId])
 }
@@ -485,7 +489,8 @@ model DriverPayout {
   createdBy      User         @relation("PayoutsCreated", fields: [createdById], references: [id])
   orders         Order[]      @relation("PayoutOrders")
 
-  @@index([organizationId])
+  // org-scope шүүлт + жагсаалтын үндсэн эрэмбэ (index аудит 2026-09-03)
+  @@index([organizationId, periodEnd])
   @@index([driverId])
 }
 
@@ -552,6 +557,8 @@ model Supply {
   batches ProductBatch[]
 
   @@unique([organizationId, number])
+  // org-scope шүүлт + жагсаалтын үндсэн эрэмбэ (index аудит 2026-09-03)
+  @@index([organizationId, createdAt])
   @@index([companyId, createdAt])
 }
 
@@ -591,7 +598,8 @@ model ProductBatch {
   createdBy   User     @relation("BatchesCreated", fields: [createdById], references: [id])
   createdAt   DateTime @default(now())
 
-  @@index([organizationId])
+  // org-scope шүүлт + жагсаалтын үндсэн эрэмбэ (index аудит 2026-09-03)
+  @@index([organizationId, expiryDate])
   @@index([productId, expiryDate])
   @@index([expiryDate])
 }
@@ -730,6 +738,8 @@ model Order {
   returns        OrderReturn[]
 
   @@unique([organizationId, orderNo])
+  // org-scope шүүлт + жагсаалтын үндсэн эрэмбэ (index аудит 2026-09-03)
+  @@index([organizationId, createdAt])
   @@index([orderStatus])
   @@index([phone])
   @@index([createdAt])
@@ -781,6 +791,7 @@ model StockMovement {
   product Product @relation(fields: [productId], references: [id])
   user    User    @relation(fields: [userId], references: [id])
 
-  @@index([organizationId])
+  // org-scope шүүлт + жагсаалтын үндсэн эрэмбэ (index аудит 2026-09-03)
+  @@index([organizationId, createdAt])
   @@index([productId])
 }
