@@ -40,22 +40,14 @@ export default function Landing() {
 
   return (
     <main className="min-h-screen bg-bg text-ink flex flex-col">
-      {/* ── Hero ── */}
-      <header className="relative overflow-hidden">
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 bg-center bg-cover opacity-60"
-          style={{ backgroundImage: "url('/login-bg.png')" }}
-        />
-        <div aria-hidden="true" className="absolute inset-0 bg-black/40" />
-        <div className="relative max-w-5xl mx-auto px-6 py-20 md:py-28 text-center">
-          <h1 className="font-serif text-5xl md:text-6xl font-medium text-white">
-            ocirrf
-          </h1>
-          <p className="mt-4 text-lg md:text-xl text-white/80 max-w-2xl mx-auto">
+      {/* ── Hero — дэвсгэр зураггүй, темийн өнгөөр (цайвар/харанхуй хоёуланд) ── */}
+      <header className="border-b border-rule">
+        <div className="max-w-5xl mx-auto px-6 py-20 md:py-28 text-center">
+          <h1 className="font-serif text-5xl md:text-6xl font-medium">ocirrf</h1>
+          <p className="mt-4 text-lg md:text-xl text-ink-muted max-w-2xl mx-auto">
             {t('Танай бизнесийн бүх дотоод систем — нэг дор')}
           </p>
-          <p className="mt-2 text-sm text-white/60 max-w-xl mx-auto">
+          <p className="mt-2 text-sm text-ink-muted/80 max-w-xl mx-auto">
             {t(
               'Агуулахаас санхүү хүртэл — байгууллагаа бүртгээд хэрэгтэй системээ идэвхжүүлээрэй.',
             )}
@@ -63,13 +55,13 @@ export default function Landing() {
           <div className="mt-8 flex items-center justify-center gap-3">
             <Link
               to="/signup"
-              className="bg-white text-black rounded px-6 py-2.5 text-sm font-medium hover:opacity-90 transition-opacity"
+              className="bg-ink text-bg rounded px-6 py-2.5 text-sm font-medium hover:opacity-90 transition-opacity"
             >
               {t('Бүртгүүлэх')}
             </Link>
             <Link
               to="/login"
-              className="border border-white/40 text-white rounded px-6 py-2.5 text-sm font-medium hover:bg-white/10 transition-colors"
+              className="border border-rule rounded px-6 py-2.5 text-sm font-medium hover:border-ink-muted transition-colors"
             >
               {t('Нэвтрэх')}
             </Link>
