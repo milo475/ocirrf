@@ -132,7 +132,7 @@ export default function UserPermissions() {
       <div className="mt-4 flex items-center gap-3 flex-wrap">
         <h1 className="font-serif text-4xl font-medium">{panel.name}</h1>
         <span className="font-mono text-[11px] uppercase tracking-wide border rounded px-1.5 py-0.5 text-accent border-accent/40 bg-accent/12">
-          {t(ROLE_LABELS[panel.role] ?? panel.role)}
+          {t(panel.studexaStudent ? 'Сурагч' : (ROLE_LABELS[panel.role] ?? panel.role))}
         </span>
       </div>
 

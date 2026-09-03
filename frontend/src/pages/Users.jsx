@@ -32,7 +32,8 @@ const ROLE_LABELS = {
   SELLER: 'Борлуулагч',
 }
 
-function RoleBadge({ role, t }) {
+/** studexaStudent — Studexa-гийн сурагч (OPERATOR + studexa.portal): «Сурагч» */
+function RoleBadge({ role, studexaStudent = false, t }) {
   const color = ROLE_COLORS[role] ?? 'var(--color-ink-muted)'
   return (
     <span
@@ -43,7 +44,7 @@ function RoleBadge({ role, t }) {
         backgroundColor: `color-mix(in oklch, ${color} 12%, transparent)`,
       }}
     >
-      {t(ROLE_LABELS[role] ?? role)}
+      {t(studexaStudent ? 'Сурагч' : (ROLE_LABELS[role] ?? role))}
     </span>
   )
 }
@@ -487,7 +488,7 @@ export default function Users() {
     {
       key: 'role',
       header: t('Эрх'),
-      render: (u) => <RoleBadge role={u.role} t={t} />,
+      render: (u) => <RoleBadge role={u.role} studexaStudent={u.studexaStudent} t={t} />,
     },
     {
       key: 'createdAt',

@@ -107,6 +107,10 @@ export class PermissionsService {
     return {
       role: user.role,
       name: user.fullName,
+      // Studexa-гийн сурагч (OPERATOR + studexa.portal override) — UI шошго
+      studexaStudent:
+        user.role === Role.OPERATOR &&
+        overrides.some((o) => o.permKey === PERM.STUDEXA_PORTAL && o.allowed),
       groups: PERM_GROUPS.map((g) => ({
         group: g.group,
         items: g.keys.map((key) => {

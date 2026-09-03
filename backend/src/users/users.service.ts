@@ -8,7 +8,8 @@ import {
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'node:crypto';
 import type { AuthUser } from '../auth/decorators/current-user.decorator';
-import { DeliveryStatus } from '../generated/prisma/client';
+import { DeliveryStatus, Role } from '../generated/prisma/client';
+import { PERM } from '../permissions/permission-keys';
 import { PermissionsService } from '../permissions/permissions.service';
 import { OrgContext } from '../org/org-context';
 import { PrismaService } from '../prisma/prisma.service';
@@ -84,15 +85,30 @@ export class UsersService {
     }
   }
 
-  findAll(query: QueryUsersDto) {
-    return this.prisma.user.findMany({
+  /**
+   * Жагсаалт. `studexaStudent` — Studexa (app 11)-ийн сурагчийн акаунт:
+   * платформын OPERATOR role-тэй боловч studexa.portal override-той тул
+   * UI «Харилцагч» биш «Сурагч» гэж харуулна (Role enum хөндөгдөөгүй).
+   */
+  async findAll(query: QueryUsersDto) {
+    const users = await this.prisma.user.findMany({
       where: {
         ...(query.role ? { role: query.role } : {}),
         ...(query.isActive !== undefined ? { isActive: query.isActive } : {}),
       },
-      select: SAFE_SELECT,
+      select: {
+        ...SAFE_SELECT,
+        permissions: {
+          where: { permKey: PERM.STUDEXA_PORTAL, allowed: true },
+          select: { id: true },
+        },
+      },
       orderBy: { createdAt: 'asc' },
     });
+    return users.map(({ permissions, ...u }) => ({
+      ...u,
+      studexaStudent: u.role === Role.OPERATOR && permissions.length > 0,
+    }));
   }
 
   async create(dto: CreateUserDto) {
