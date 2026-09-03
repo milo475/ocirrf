@@ -1,13 +1,19 @@
 import { Navigate, Outlet } from 'react-router'
-import { navFor } from '../../config/nav'
+import { CORE_APP_HOME, navFor } from '../../config/nav'
 import { useAuth } from '../../context/AuthContext'
 
-/** Хэрэглэгчийн эрхээс хамаарсан "нүүр" зам */
+/**
+ * Хэрэглэгчийн эрхээс хамаарсан "нүүр" зам.
+ *
+ * Нэвтэрсний дараа ШУУД ажлын орчин руу — Launcher (/launcher) дундын
+ * алхам биш. Өмнө нь staff бүгд launcher дээр буугаад app-аа дахин
+ * сонгодог байсан нь ганц app-тай байгууллагад илүү дарах алхам байв;
+ * launcher одоо зөвхөн switcher-ийн «Бүх апп»-аас нээгдэнэ.
+ */
 export function homeFor(role) {
-  // Жолоочийн mobile урсгал шууд хүргэлт рүүгээ (launcher нэмэлт алхам болно)
+  // Жолоочийн mobile урсгал шууд хүргэлт рүүгээ
   if (role === 'DRIVER') return '/deliveries'
-  // Нэвтэрсний дараах анхны хуудас = App Launcher (платформ бүрхүүл)
-  return '/launcher'
+  return CORE_APP_HOME
 }
 
 /**

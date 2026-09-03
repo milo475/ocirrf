@@ -40,7 +40,7 @@ function App() {
                 <Route path="/change-password" element={<ChangePassword />} />
 
                 <Route element={<ProtectedRoute />}>
-                  {/* App Launcher — нэвтэрсний дараах анхны хуудас */}
+                  {/* App Launcher — бүх app-ийн каталог (switcher-ийн «Бүх апп») */}
                   <Route path="/launcher" element={<Launcher />} />
                   {/* SUPERADMIN консол — бусдад 404 харагдана */}
                   <Route path="/platform-admin" element={<PlatformAdmin />} />

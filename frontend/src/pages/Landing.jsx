@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate } from 'react-router'
+import { homeFor } from '../components/auth/RoleRoute'
 import { useAuth } from '../context/AuthContext'
 import { useLang } from '../context/LanguageContext'
 import { api } from '../lib/api'
@@ -34,8 +35,8 @@ export default function Landing() {
     )
   }
 
-  // Нэвтэрсэн хэрэглэгч landing биш ажлын орчиндоо (App Launcher)
-  if (user) return <Navigate to="/launcher" replace />
+  // Нэвтэрсэн хэрэглэгч landing биш шууд ажлын орчиндоо
+  if (user) return <Navigate to={homeFor(user.role)} replace />
 
   return (
     <main className="min-h-screen bg-bg text-ink flex flex-col">

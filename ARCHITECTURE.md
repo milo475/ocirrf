@@ -8,16 +8,18 @@ ocirrf нь Odoo маягийн **олон дотоод системийн пл�
 ## 1. Платформын давхаргууд
 
 ```
-Нийтийн landing (/)  →  Auth (/login, /signup)  →  Launcher (/launcher)  →  App-ууд (/dashboard…)
-   app каталог            байгууллага бүртгэх        идэвхтэй app сонгох      тухайн app-ийн орчин
+Нийтийн landing (/)  →  Auth (/login, /signup)  →  App-ууд (/dashboard…)  ⇄  Launcher (/launcher)
+   app каталог            байгууллага бүртгэх        шууд ажлын орчин            бүх app (switcher-ээс)
 ```
 
 - **`/`** — нэвтрэлтгүй нүүр: платформын танилцуулга + app card grid
   (`GET /api/platform/apps`). ACTIVE app дарж `/apps/:key` дэлгэрэнгүй рүү.
 - **`/signup`** — байгууллага + эхний ADMIN нэг transaction-д үүсээд шууд
   нэвтэрнэ; цөм "ursgal" app автоматаар идэвхжинэ.
-- **`/launcher`** — нэвтэрсний дараах анхны хуудас: байгууллагын идэвхтэй
-  app-ууд (`GET /api/platform/my-apps`) + идэвхжүүлж болох ACTIVE app-ууд.
+- **`/launcher`** — байгууллагын app каталог: идэвхтэй app-ууд
+  (`GET /api/platform/my-apps`) + идэвхжүүлж болох ACTIVE app-ууд.
+  Нэвтэрсний дараах анхны хуудас БИШ — login шууд цөм app руу
+  (`/dashboard`, жолооч `/deliveries`); энд switcher-ийн «Бүх апп»-аар орно.
 - **App дотор** — app бүр өөрийн nav/route-тэй; topbar-ын app switcher
   (grid icon) app хооронд шилжүүлнэ.
 - **`/platform-admin`** — зөвхөн SUPERADMIN: байгууллагууд, каталог.

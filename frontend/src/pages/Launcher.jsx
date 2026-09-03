@@ -8,8 +8,12 @@ import { api } from '../lib/api'
 import { appIcon } from '../lib/appIcon'
 
 /**
- * APP LAUNCHER — нэвтэрсний дараах анхны хуудас (платформ бүрхүүл).
+ * APP LAUNCHER — байгууллагын app-уудын каталог (платформ бүрхүүл).
  * Байгууллагын идэвхтэй app-ууд + идэвхжүүлж болох ACTIVE app-ууд.
+ *
+ * Нэвтэрсний дараах анхны хуудас БИШ: login шууд цөм app руу
+ * (RoleRoute.homeFor) ордог; энд topbar-ын app switcher-ийн
+ * «Бүх апп» болон /platform-admin-ийн холбоосоор л ирнэ.
  */
 export default function Launcher() {
   const { user, hasPerm, logout } = useAuth()

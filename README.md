@@ -36,7 +36,8 @@ JwtStrategy, SSE token, uploads guard); шинэ хэрэглээ бүр ауд�
 ## Платформ ба App Registry
 
 ocirrf нь Odoo маягийн ОЛОН системийн платформ: `/` нь нийтийн каталог
-(landing), нэвтэрсний дараа `/launcher` — байгууллагын идэвхтэй app-ууд.
+(landing), нэвтэрсний дараа шууд цөм app (`/dashboard`); `/launcher` нь
+байгууллагын идэвхтэй app-уудын каталог (app switcher-ийн «Бүх апп»).
 "Урсгал" (агуулах/захиалга/хүргэлт) нь эхний app. Каталог нь Application
 хүснэгт (глобал), байгууллага бүрийн идэвхжүүлэлт нь OrganizationApp.
 
@@ -112,7 +113,7 @@ cd ../frontend
 npm ci && npm run build
 
 cd ../backend
-node dist/main        # http://localhost:3000
+node dist/src/main    # http://localhost:3000 (build нь dist/src/ дор гардаг)
 ```
 
 Нэвтрэх (seed): `admin@ocirrf.mn/admin123`, `manager@ocirrf.mn/manager123`,

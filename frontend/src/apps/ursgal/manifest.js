@@ -1,4 +1,4 @@
-import { NAV_ITEMS } from '../../config/nav'
+import { CORE_APP_HOME, NAV_ITEMS } from '../../config/nav'
 import { ursgalRoutes } from './routes'
 
 /**
@@ -16,7 +16,7 @@ export const ursgalManifest = {
   nameMn: 'Урсгал',
   icon: 'boxes',
   color: '#8b2635',
-  basePath: '/dashboard',
+  basePath: CORE_APP_HOME,
   routes: ursgalRoutes,
   navItems: NAV_ITEMS,
   requiredPermissions: [],

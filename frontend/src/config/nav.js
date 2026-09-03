@@ -33,6 +33,14 @@ import {
  * харагдана гэдэг нь орж болно гэсэн амлалт; эрх байгаа ч тухайн
  * хуудас утга учиртай ажиллах нөхцөл бүрдээгүй бол харуулахгүй.
  */
+/**
+ * Цөм «Урсгал» app-ийн нүүр. Нэвтэрсний дараа staff шууд ЭНД орно —
+ * Launcher (/launcher) нь дундын алхам БИШ, зөвхөн app switcher-ийн
+ * «Бүх апп»-аас нээгддэг каталог (V5). RoleRoute.homeFor болон
+ * ursgal манифестийн basePath хоёулаа энэ тогтмолыг ашиглана.
+ */
+export const CORE_APP_HOME = '/dashboard'
+
 export const NAV_ITEMS = [
   // ── DRIVER ──
   {
@@ -48,7 +56,7 @@ export const NAV_ITEMS = [
     label: 'Нүүр',
     icon: Home,
     // '/' нь платформын нийтийн landing болсон (App Registry)
-    path: '/dashboard',
+    path: CORE_APP_HOME,
     end: true,
     roles: ['ADMIN', 'MANAGER', 'OPERATOR', 'DRIVER', 'WAREHOUSE', 'SELLER'],
   },
