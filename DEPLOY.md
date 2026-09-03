@@ -92,6 +92,11 @@ Multitenancy-ийн ДАРАА энэ дарааллаар (prisma migrate deplo
 зөв дарааллыг барина):
 
 1. `20260902120000_multitenancy` — big-bang (дээрх runbook)
+   (…)
+   `20260904000000_app_studexa` — Studexa (app 11): 13 шинэ `Studexa*`
+   хүснэгт + 5 enum + каталогт `studexa` ACTIVE INSERT + default
+   байгууллагад идэвхжүүлэлт. Хуучин хүснэгтэд хүрэхгүй, ердийн
+   `prisma migrate deploy`-оор суудаг; `UPLOADS_DIR`-д `sx-*` файлууд нэмэгдэнэ.
 2. `20260902180000_app_registry` — Application + OrganizationApp,
    каталогийн 6 app seed, бүх байгууллагад ursgal идэвхжинэ. Хуучин
    кодтой зэрэгцэн ажиллаж БОЛНО (шинэ хүснэгтүүд л нэмэгддэг).

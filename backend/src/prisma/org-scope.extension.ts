@@ -41,6 +41,20 @@ export const SCOPED_MODELS: ReadonlySet<string> = new Set<string>([
   'OrderReturn',
   'Setting',
   'OrganizationApp',
+  // Studexa app (11) — бүгд org-scoped
+  'StudexaTeacher',
+  'StudexaGroup',
+  'StudexaStudent',
+  'StudexaLesson',
+  'StudexaAttendanceRecord',
+  'StudexaGradeColumn',
+  'StudexaAssessment',
+  'StudexaHomework',
+  'StudexaSubmission',
+  'StudexaPayment',
+  'StudexaJoinRequest',
+  'StudexaAnnouncement',
+  'StudexaNote',
   // 'Application' — САНААТАЙГААР байхгүй: платформын глобал каталог,
   // байгууллагаас хамааралгүй (App Registry)
 ]);

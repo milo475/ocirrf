@@ -1216,6 +1216,7 @@ describe('ocirrf v2 API (e2e)', () => {
         'FINANCE',
         'REPORTS',
         'SYSTEM',
+        'STUDEXA', // app 11 — Studexa багшийн систем
       ]);
       type Item = {
         key: string;
@@ -1247,9 +1248,12 @@ describe('ocirrf v2 API (e2e)', () => {
       }
       // Панелын түлхүүр бүр backend-ийн ямар нэг route-д хэрэглэгддэг
       // (V5-д нярав нэмэгдэхэд +2: orders.assign_warehouse, warehouse.handover)
-      // 35 = 33 (v2 сүүлчийн байдал) + platform.manage_apps (App Registry)
+      // 37 = 33 (v2 сүүлчийн байдал) + platform.manage_apps (App Registry)
       //      + orders.record_payment (борлуулагчийн нарийн төлбөрийн эрх)
-      expect(allKeys).toHaveLength(35);
+      //      + studexa.teach, studexa.portal (Studexa — app 11)
+      expect(allKeys).toHaveLength(37);
+      expect(allKeys).toContain('studexa.teach');
+      expect(allKeys).toContain('studexa.portal');
       expect(allKeys).toContain('drivers.zones');
       expect(allKeys).toContain('orders.cancel');
       expect(allKeys).toContain('orders.record_payment');
@@ -3124,12 +3128,12 @@ describe('ocirrf v2 API (e2e)', () => {
           .send({ email: lockEmail, password: 'wrong-pass' })
           .expect(401);
       }
+
+      // Түгжигдсэнийг ЗӨВХӨН зөв нууц үгтэй эзэн нь мэднэ → 423
       const locked = await api()
         .post('/api/auth/login')
         .send({ email: lockEmail, password: 'lockpass1' })
         .expect(423);
-
-      // Түгжигдсэнийг ЗӨВХӨН зөв нууц үгтэй эзэн нь мэднэ → 423
       expect(locked.body.message).toContain('түгжигдлээ');
 
       // Түгжээтэй хэвээр байхад дахин буруу оролдвол мөн л 401
@@ -6871,7 +6875,6 @@ describe('ocirrf v2 API (e2e)', () => {
       ).toBe(before);
     });
   });
-});
 
   /* ═══════════════════════════════════════════════════════════════════
    * АУДИТЫН ЗАСВАРУУДЫН REGRESSION (V5)
@@ -7103,3 +7106,4 @@ describe('ocirrf v2 API (e2e)', () => {
       expect(after!.imageUrl).toBeFalsy();
     });
   });
+});

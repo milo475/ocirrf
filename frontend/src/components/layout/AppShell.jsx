@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import {
   Bell,
   LayoutGrid,
@@ -11,7 +11,7 @@ import {
   X,
 } from 'lucide-react'
 import ConfirmDialog from '../ui/ConfirmDialog'
-import { manifestFor } from '../../apps'
+import { manifestFor, manifestForPath } from '../../apps'
 import { appIcon } from '../../lib/appIcon'
 import { mobileTabsFor, navFor } from '../../config/nav'
 import { useAuth } from '../../context/AuthContext'
@@ -52,7 +52,13 @@ export default function AppShell() {
     }
   }, [user])
 
-  const items = navFor(user, hasPerm)
+  /**
+   * Идэвхтэй app-ийн sidebar: зам prefix-тэй app-д ("/studexa/…") таарвал
+   * тэр манифестийн navItems, эс бол цөм ursgal-ийн NAV_ITEMS.
+   */
+  const { pathname } = useLocation()
+  const activeManifest = manifestForPath(pathname)
+  const items = navFor(user, hasPerm, activeManifest?.navItems)
 
   // Уншаагүй мэдэгдлийн тоо — 30 сек тутам + read үйлдлийн дараа event-ээр
   const [unread, setUnread] = useState(0)
@@ -269,7 +275,10 @@ export default function AppShell() {
         <header className="h-12 border-b border-rule flex items-center gap-3 px-4 md:px-6 shrink-0">
           {/* App switcher (платформ бүрхүүл) — идэвхтэй app-ууд + Launcher */}
           <AppSwitcher />
-          <NavLink to="/dashboard" className="font-serif text-xl font-medium tracking-tight">
+          <NavLink
+            to={activeManifest?.basePath ?? '/dashboard'}
+            className="font-serif text-xl font-medium tracking-tight"
+          >
             {/* Байгууллагын нэр (Multi-tenancy) — login/refresh хариунаас */}
             {user?.organizationName ?? 'ocirrf'}
           </NavLink>

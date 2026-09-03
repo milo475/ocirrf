@@ -170,6 +170,21 @@ model Organization {
   settings       Setting[]
   activityLogs   ActivityLog[]
   apps           OrganizationApp[]
+
+  // Studexa app (11) — багшийн систем
+  studexaTeachers      StudexaTeacher[]
+  studexaGroups        StudexaGroup[]
+  studexaStudents      StudexaStudent[]
+  studexaLessons       StudexaLesson[]
+  studexaAttendances   StudexaAttendanceRecord[]
+  studexaGradeColumns  StudexaGradeColumn[]
+  studexaAssessments   StudexaAssessment[]
+  studexaHomeworks     StudexaHomework[]
+  studexaSubmissions   StudexaSubmission[]
+  studexaPayments      StudexaPayment[]
+  studexaJoinRequests  StudexaJoinRequest[]
+  studexaAnnouncements StudexaAnnouncement[]
+  studexaNotes         StudexaNote[]
 }
 
 model User {
@@ -198,28 +213,32 @@ model User {
   lockedUntil        DateTime?
   createdAt          DateTime  @default(now())
 
-  orders           Order[]           @relation("CreatedOrders")
-  stockMoves       StockMovement[]
-  assignedOrders   Order[]           @relation("AssignedOrders")
-  warehouseOrders  Order[]           @relation("WarehouseOrders")
-  handoversMade    DriverHandover[]  @relation("HandoversMade")
-  handoversTaken   DriverHandover[]  @relation("HandoversTaken")
-  driverProfile    DriverProfile?
-  permissions      UserPermission[]
-  financeEntries   FinanceEntry[]    @relation("FinanceEntries")
-  driverPayouts    DriverPayout[]    @relation("DriverPayouts")
-  payoutsCreated   DriverPayout[]    @relation("PayoutsCreated")
-  notifications    Notification[]
-  paymentsReceived Payment[]         @relation("PaymentsReceived")
-  returnsCreated   OrderReturn[]     @relation("ReturnsCreated")
-  refreshTokens    RefreshToken[]
-  loginHistory     LoginHistory[]
-  batchesCreated   ProductBatch[]    @relation("BatchesCreated")
-  suppliesBrought  Supply[]          @relation("SuppliedBy")
-  suppliesReceived Supply[]          @relation("SuppliesReceived")
-  company          Company?          @relation(fields: [companyId], references: [id])
-  organization     Organization      @relation(fields: [organizationId], references: [id])
-  appsEnabled      OrganizationApp[]
+  orders              Order[]              @relation("CreatedOrders")
+  stockMoves          StockMovement[]
+  assignedOrders      Order[]              @relation("AssignedOrders")
+  warehouseOrders     Order[]              @relation("WarehouseOrders")
+  handoversMade       DriverHandover[]     @relation("HandoversMade")
+  handoversTaken      DriverHandover[]     @relation("HandoversTaken")
+  driverProfile       DriverProfile?
+  permissions         UserPermission[]
+  financeEntries      FinanceEntry[]       @relation("FinanceEntries")
+  driverPayouts       DriverPayout[]       @relation("DriverPayouts")
+  payoutsCreated      DriverPayout[]       @relation("PayoutsCreated")
+  notifications       Notification[]
+  paymentsReceived    Payment[]            @relation("PaymentsReceived")
+  returnsCreated      OrderReturn[]        @relation("ReturnsCreated")
+  refreshTokens       RefreshToken[]
+  loginHistory        LoginHistory[]
+  batchesCreated      ProductBatch[]       @relation("BatchesCreated")
+  suppliesBrought     Supply[]             @relation("SuppliedBy")
+  suppliesReceived    Supply[]             @relation("SuppliesReceived")
+  company             Company?             @relation(fields: [companyId], references: [id])
+  organization        Organization         @relation(fields: [organizationId], references: [id])
+  appsEnabled         OrganizationApp[]
+  // Studexa app (11)
+  studexaTeacher      StudexaTeacher?
+  studexaStudentLinks StudexaStudent[]
+  studexaJoinRequests StudexaJoinRequest[]
 
   @@index([organizationId])
 }
@@ -794,4 +813,291 @@ model StockMovement {
   // org-scope шүүлт + жагсаалтын үндсэн эрэмбэ (index аудит 2026-09-03)
   @@index([organizationId, createdAt])
   @@index([productId])
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// STUDEXA (app 11) — багшийн систем: сурагч, ирц, дүн, хуваарь,
+// даалгавар, зарлал, тэмдэглэл, төлбөр. Django Studexa-г платформ руу
+// шилжүүлсэн. Бүх model org-scoped (organizationId + SCOPED_MODELS);
+// байгууллага доторх ӨГӨГДӨЛ БАГШ (StudexaTeacher) бүрээр тусгаарлагдана.
+// Огноог 'YYYY-MM-DD' текстээр хадгална — цагийн бүсийн зөрүүгүй,
+// лексикографик эрэмбэ = он цагийн эрэмбэ.
+// ═══════════════════════════════════════════════════════════════════
+
+enum StudexaSchoolType {
+  UNIVERSITY
+  SCHOOL
+  ACADEMY
+  PRIVATE
+}
+
+/// Сурагчийн ерөнхий төлбөрийн төлөв
+enum StudexaPayState {
+  PAID
+  OVERDUE
+}
+
+/// Сарын төлбөрийн бүртгэлийн төлөв
+enum StudexaMonthPayState {
+  PAID
+  PENDING
+  OVERDUE
+}
+
+enum StudexaAttendanceStatus {
+  PRESENT
+  LATE
+  ABSENT
+}
+
+enum StudexaHomeworkStatus {
+  PENDING
+  IN_PROGRESS
+  DONE
+}
+
+/// Багшийн профайл — байгууллагын хэрэглэгч studexa.teach эрхээр
+/// «багш» болно. code нь сурагчид элсэхэд ашиглах ГЛОБАЛ unique код
+/// (trt0000 / stdx0000 / stu0000 эсвэл их сургуулийн өөрийн код).
+model StudexaTeacher {
+  id             String            @id @default(uuid())
+  organizationId String
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String            @unique
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  code           String            @unique
+  schoolType     StudexaSchoolType @default(SCHOOL)
+  createdAt      DateTime          @default(now())
+
+  students      StudexaStudent[]
+  groups        StudexaGroup[]
+  lessons       StudexaLesson[]
+  gradeColumns  StudexaGradeColumn[]
+  announcements StudexaAnnouncement[]
+  notes         StudexaNote[]
+  joinRequests  StudexaJoinRequest[]
+
+  @@index([organizationId, createdAt])
+}
+
+/// Хоосон (сурагчгүй) бүлэг алга болохоос сэргийлж нэрийг нь хадгална
+model StudexaGroup {
+  id             String         @id @default(uuid())
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  teacherId      String
+  teacher        StudexaTeacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  name           String
+
+  @@unique([organizationId, teacherId, name])
+}
+
+model StudexaStudent {
+  id              String          @id @default(uuid())
+  organizationId  String
+  organization    Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  teacherId       String
+  teacher         StudexaTeacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  /// Холбогдсон сурагчийн акаунт (портал) — заавал биш
+  userId          String?
+  user            User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name            String
+  /// Их сургуулийн оюутны код (бүртгүүлэхэд өгсөн)
+  studentCode     String          @default("")
+  group           String          @default("")
+  /// Ирцийн статистик — бүртгэлээс автоматаар дахин тооцогдоно
+  attendance      Int             @default(100)
+  attendedLessons Int             @default(0)
+  totalLessons    Int             @default(0)
+  paymentStatus   StudexaPayState @default(PAID)
+  /// Бүртгүүлсэн огноо YYYY-MM-DD
+  enrolled        String
+  /// Даалгаврын хувь (гараар) — null бол даалгаврын бүртгэлээс тооцно
+  hwPercent       Int?
+  phone           String          @default("")
+  fatherName      String          @default("")
+  fatherPhone     String          @default("")
+  motherName      String          @default("")
+  motherPhone     String          @default("")
+  createdAt       DateTime        @default(now())
+
+  attendances StudexaAttendanceRecord[]
+  assessments StudexaAssessment[]
+  homeworks   StudexaHomework[]
+  payments    StudexaPayment[]
+
+  @@index([organizationId, teacherId, name])
+  @@index([userId])
+}
+
+/// Хичээлийн хуваарь: weekday 0=Даваа … 6=Ням, цаг "HH:MM"
+model StudexaLesson {
+  id             String         @id @default(uuid())
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  teacherId      String
+  teacher        StudexaTeacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  title          String
+  /// Хоосон бол бүх бүлэгт
+  group          String         @default("")
+  weekday        Int
+  startTime      String
+  endTime        String
+  color          String         @default("indigo")
+
+  attendances StudexaAttendanceRecord[]
+
+  @@index([organizationId, teacherId, weekday, startTime])
+}
+
+/// Ирцийн бүртгэл — өдрийн ерөнхий (lessonKey='') эсвэл хичээл бүрээр.
+/// lessonKey = lessonId ?? '' : Postgres-д NULL нь unique-д ялгаатай тул
+/// текст түлхүүрээр давхардлыг DB түвшинд барина.
+model StudexaAttendanceRecord {
+  id             String                  @id @default(uuid())
+  organizationId String
+  organization   Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  studentId      String
+  student        StudexaStudent          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  date           String
+  lessonId       String?
+  lesson         StudexaLesson?          @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+  lessonKey      String                  @default("")
+  status         StudexaAttendanceStatus
+
+  @@unique([organizationId, studentId, date, lessonKey])
+  @@index([organizationId, date])
+}
+
+/// Дүнгийн нэгтгэлийн багана — багш нэр, дээд оноог өөрөө тохируулна
+model StudexaGradeColumn {
+  id             String         @id @default(uuid())
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  teacherId      String
+  teacher        StudexaTeacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  name           String
+  maxScore       Int            @default(100)
+  order          Int            @default(0)
+
+  assessments StudexaAssessment[]
+  homeworks   StudexaHomework[]
+
+  @@index([organizationId, teacherId, order])
+}
+
+/// Нэг сурагч — нэг баганад нэг л оноо
+model StudexaAssessment {
+  id             String             @id @default(uuid())
+  organizationId String
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  studentId      String
+  student        StudexaStudent     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  columnId       String
+  column         StudexaGradeColumn @relation(fields: [columnId], references: [id], onDelete: Cascade)
+  date           String
+  score          Int
+
+  @@unique([organizationId, studentId, columnId])
+}
+
+model StudexaHomework {
+  id             String                @id @default(uuid())
+  organizationId String
+  organization   Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  studentId      String
+  student        StudexaStudent        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  date           String
+  dueDate        String?
+  title          String
+  /// /api/studexa/files/<нэр> — ижил даалгаврын бүх мөр нэг файлыг хуваалцана
+  attachmentUrl  String?
+  link           String                @default("")
+  status         StudexaHomeworkStatus @default(PENDING)
+  score          Int?
+  gradeColumnId  String?
+  gradeColumn    StudexaGradeColumn?   @relation(fields: [gradeColumnId], references: [id], onDelete: SetNull)
+  createdAt      DateTime              @default(now())
+
+  submission StudexaSubmission?
+
+  @@index([organizationId, studentId, date])
+  @@index([organizationId, date])
+}
+
+/// Сурагчийн илгээсэн ажил — дахин илгээвэл шинэчлэгдэнэ
+model StudexaSubmission {
+  id             String          @id @default(uuid())
+  organizationId String
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  homeworkId     String          @unique
+  homework       StudexaHomework @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
+  fileUrl        String?
+  link           String          @default("")
+  comment        String          @default("")
+  submittedAt    DateTime        @updatedAt
+
+  @@index([organizationId, submittedAt])
+}
+
+/// Сарын төлбөрийн бүртгэл (1–12)
+model StudexaPayment {
+  id             String               @id @default(uuid())
+  organizationId String
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  studentId      String
+  student        StudexaStudent       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  month          Int
+  status         StudexaMonthPayState @default(PENDING)
+
+  @@unique([organizationId, studentId, month])
+}
+
+/// Сурагчийн акаунт багшийн кодоор элсэх хүсэлт — батлагдмагц
+/// StudexaStudent-тэй холбогдоод устгагдана
+model StudexaJoinRequest {
+  id             String         @id @default(uuid())
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  teacherId      String
+  teacher        StudexaTeacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  /// Бүртгүүлэхдээ өгсөн мэдээлэл — батлагдахад StudexaStudent руу хуулагдана
+  studentCode    String         @default("")
+  phone          String         @default("")
+  fatherName     String         @default("")
+  fatherPhone    String         @default("")
+  motherName     String         @default("")
+  motherPhone    String         @default("")
+  createdAt      DateTime       @default(now())
+
+  @@unique([organizationId, userId, teacherId])
+}
+
+/// Багшийн зарлал — бүлэг сонговол тэр бүлэгт, хоосон бол бүгдэд
+model StudexaAnnouncement {
+  id             String         @id @default(uuid())
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  teacherId      String
+  teacher        StudexaTeacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  group          String         @default("")
+  text           String
+  createdAt      DateTime       @default(now())
+
+  @@index([organizationId, teacherId, createdAt])
+}
+
+model StudexaNote {
+  id             String         @id @default(uuid())
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  teacherId      String
+  teacher        StudexaTeacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  title          String
+  text           String
+  createdAt      DateTime       @default(now())
+
+  @@index([organizationId, teacherId, createdAt])
 }

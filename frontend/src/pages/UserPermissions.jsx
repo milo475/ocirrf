@@ -18,6 +18,7 @@ const GROUP_LABELS = {
   FINANCE: 'Санхүү',
   REPORTS: 'Тайлан',
   SYSTEM: 'Систем',
+  STUDEXA: 'Studexa (багшийн систем)',
 }
 
 const ROLE_LABELS = {

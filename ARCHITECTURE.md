@@ -9,7 +9,7 @@ ocirrf нь Odoo маягийн **олон дотоод системийн пл�
 
 ```
 Нийтийн landing (/)  →  Auth (/login, /signup)  →  ХАБ (/launcher)  →  Системүүд (/dashboard, /<key>/…)
-   10 системийн каталог    байгууллага бүртгэх       10 card, төлөвөөр     тухайн системийн орчин
+   11 системийн каталог    байгууллага бүртгэх       11 card, төлөвөөр     тухайн системийн орчин
 ```
 
 - **`/`** — нэвтрэлтгүй нүүр: платформын танилцуулга + app card grid
@@ -84,7 +84,7 @@ COMING_SOON ──(SUPERADMIN консол)──► ACTIVE ──► идэвх
               + permission key-үүд  WAREHOUSE / SELLER; ROLE_DEFAULTS
                                     матриц + хэрэглэгч бүрийн override
 3. APP ДОТОР  permission key-үүд    orders.view … platform.manage_apps
-                                    (35 key, permission-keys.ts)
+                                    (37 key, permission-keys.ts; studexa.* нь app 11-ийнх)
 ```
 
 - SUPERADMIN нь байгууллагын role-уудаас **бүрэн тусдаа** — зөвхөн
@@ -137,6 +137,11 @@ erDiagram
 `src/apps/index.js`-ийн `APP_MANIFESTS`-ээс платформ бүрхүүл (App.jsx)
 route-уудаа, AppShell nav/switcher-ээ угсарна — шинэ app нэмэхэд App.jsx-д
 гар хүрдэггүй. Бүрэн дараалал README-ийн "Шинэ app нэмэх" хэсэгт.
+AppShell одоогийн замаар (`manifestForPath`) идэвхтэй app-ийг таньж түүний
+`navItems`-ийг sidebar болгоно; манифестийн `publicRoutes` нь нэвтрэлтгүй
+хуудсуудыг (Studexa `/studexa/register`) ProtectedRoute-ийн гадна угсарна.
+Хоёр дахь бодит app — **Studexa** (`src/apps/studexa/`, backend
+`src/studexa/`) — энэ стандартын анхны бүрэн хэрэглээ.
 
 **Lazy loading (app бүр өөрийн bundle):** манифест `routes`-оо статикаар
 биш `loadRoutes: () => import('./routes')`-ээр өгнө. App.jsx нь app бүрийг
@@ -159,6 +164,7 @@ bundle-д, ursgal-ийн 28 хуудас `app-ursgal-*.js`-д (≈308 kB / gzip 
 | `platform-apps.e2e-spec.ts` | App Registry, идэвхжүүлэлт, SPA |
 | `platform-admin.e2e-spec.ts` | SUPERADMIN консол, түдгэлзүүлэлт, каталог |
 | `platform-flow.e2e-spec.ts` | Бүтэн урсгал нэг integration тестээр |
+| `studexa.e2e-spec.ts` | Studexa (app 11): багш/сурагчийн урсгал, файлын эрх, cross-tenant |
 
 Тестүүд тусдаа `ocirrf_test` DB дээр ажиллана (`test/jest-e2e.setup.js`).
 

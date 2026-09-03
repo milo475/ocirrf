@@ -9,7 +9,7 @@
 
 - **Backend:** NestJS 11, Prisma 7, PostgreSQL, JWT (access + refresh)
 - **Frontend:** React 19, Vite, Tailwind v4, React Router 7
-- **Тест:** Jest + supertest e2e (248 тест, tenant-isolation багтсан), bash smoke скриптүүд
+- **Тест:** Jest + supertest e2e (283 тест, tenant-isolation багтсан), bash smoke скриптүүд
 
 ## Олон байгууллага (Multi-tenancy)
 
@@ -42,15 +42,46 @@ JwtStrategy, SSE token, uploads guard, **register-org** — байгууллаг
 
 ## Платформ ба App Registry
 
-ocirrf нь Odoo маягийн ОЛОН системийн платформ — каталогт **10 систем**,
+ocirrf нь Odoo маягийн ОЛОН системийн платформ — каталогт **11 систем**,
 тус бүр өөрийн module (backend NestJS module + frontend манифест/lazy
-chunk). `/` нь нийтийн каталог (landing, 10 card), нэвтэрсний дараа
-`/launcher` — ocirrf ХАБ: 10 системийн card, байгууллагад идэвхтэй нь шууд
+chunk). `/` нь нийтийн каталог (landing, 11 card), нэвтэрсний дараа
+`/launcher` — ocirrf ХАБ: 11 системийн card, байгууллагад идэвхтэй нь шууд
 нээгдэнэ, ACTIVE-ийг админ идэвхжүүлнэ, COMING_SOON нь танилцуулгатай
-(жолооч шууд `/deliveries`). "Урсгал" (агуулах/захиалга/хүргэлт) нь эхний
-бэлэн систем; үлдсэн 9 нь placeholder — нэр/тайлбар/icon-ыг SUPERADMIN
-консолоос солино, key нь тогтмол. Каталог нь Application хүснэгт (глобал),
-байгууллага бүрийн идэвхжүүлэлт нь OrganizationApp.
+(жолооч шууд `/deliveries`). Бэлэн систем ХОЁР: "Урсгал" (агуулах/захиалга/
+хүргэлт, цөм) ба **"Studexa — Багшийн систем"** (11 дэх card, доор);
+үлдсэн 9 нь placeholder — нэр/тайлбар/icon-ыг SUPERADMIN консолоос солино,
+key нь тогтмол. Каталог нь Application хүснэгт (глобал), байгууллага
+бүрийн идэвхжүүлэлт нь OrganizationApp.
+
+### Studexa — Багшийн систем (app 11, `studexa`)
+
+Django Studexa (`~/studexa`) төслийг платформын модулийн стандартаар
+бүтнээр нь шилжүүлсэн: сурагчийн бүртгэл/бүлэг, ирц (өдөр + хичээл бүрээр,
+хувь автоматаар), дүнгийн нэгтгэл (Excel шиг засах, багана бүр өөрийн дээд
+оноотой), 7 хоногийн хуваарь (07:00–23:00, SVG экспорт), гэрийн даалгавар
+(PDF/зураг/линк хавсралт, сурагч илгээх, оноо тавихад нэгтгэлд «Даалгавар N»
+багана), зарлал, тэмдэглэл, сарын төлбөр, мэдэгдэл (платформын нэг сувгаар).
+
+- **Backend:** `src/studexa/` — 13 org-scoped Prisma model (`Studexa*`),
+  migration `20260904000000_app_studexa`. Байгууллага дотроо өгөгдөл
+  **багш бүрээр** (`StudexaTeacher`) тусгаарлагдана.
+- **Эрх:** `studexa.teach` (багш — ADMIN, MANAGER default) ба
+  `studexa.portal` (сурагчийн портал — сурагч бүртгүүлэхэд override-оор).
+- **Багшийн код:** профайл үүсгэхэд төрлөөр trt####/stdx####/stu#### (их
+  сургууль өөрийн код), глобал unique — сурагч энэ кодоор элснэ.
+- **Сурагчийн бүртгэл:** `/studexa/register` (нэвтрэлтгүй, манифестийн
+  `publicRoutes`) → багшийн байгууллагад OPERATOR акаунт + `studexa.portal`
+  override + `supplies.view=false` override → багшид элсэх хүсэлт → багш
+  батлахад `StudexaStudent`-тэй холбогдож портал нээгдэнэ.
+- **Файл:** хавсралт/илгээсэн ажил `sx-<hex>.<ext>` нэрээр UPLOADS_DIR-д,
+  `/api/studexa/files/:name` (багш эсвэл тухайн сурагч л уншина, PDF
+  magic-byte шалгалттай).
+- **Frontend:** `frontend/src/apps/studexa/` (manifest, routes, 18 хуудас),
+  AppShell идэвхтэй app-ийн `navItems`-ийг замаар нь сонгодог болсон.
+- **Django-оос ялгаа:** PDF/XLSX экспорт → платформын стандарт **CSV** (UTF-8
+  BOM) + SVG хуваарь; профайл зураг (avatar) байхгүй; нэвтрэх нэр = и-мэйл
+  (их сургуулийн оюутны код тусдаа талбарт хадгалагдана).
+- **Тест:** `test/studexa.e2e-spec.ts` — урсгал бүр + cross-tenant + 403.
 
 ### Шинэ app нэмэх алхмууд (модулийн стандарт)
 
@@ -104,6 +135,13 @@ chunk). `/` нь нийтийн каталог (landing, 10 card), нэвтэр�
    хийхгүй (chunk үндсэн bundle-д нийлнэ); (б) хуудсууд өөрийн app-ийн
    `routes.jsx`-ээс л import хийгдэнэ; (в) `vite build`-ийн гаралтад
    `app-<key>-*.js` тусдаа харагдаж байгааг шалгана.
+
+   Нэмэлт талбарууд: `navItems` — app дотор орсон үед AppShell-ийн sidebar
+   (замаар нь `manifestForPath` сонгоно; ursgal-ийн NAV_ITEMS-тэй ижил бүтэц:
+   `{key,label,icon,path,perm|anyPerm|roles}`); `publicRoutes` —
+   `[{ path: '/<key>/register', load: () => import('./pages/Register') }]`
+   маягийн НЭВТРЭЛТГҮЙ хуудсууд, App.jsx ProtectedRoute-ийн гадна lazy-гаар
+   угсарна (жишээ: Studexa сурагчийн бүртгэл).
 6. **Launcher/nav бүртгэл** — `frontend/src/apps/index.js`-ийн
    APP_MANIFESTS-д нэмнэ. App.jsx-д гар хүрэхгүй — бүрхүүл өөрөө угсарна.
 7. **e2e тест** — app-ийн ажиллагаа + **cross-tenant тусгаарлалт ЗААВАЛ**

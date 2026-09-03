@@ -1,4 +1,5 @@
 import { lazy } from 'react'
+import { studexaManifest } from './studexa/manifest'
 import { ursgalManifest } from './ursgal/manifest'
 
 /**
@@ -9,7 +10,7 @@ import { ursgalManifest } from './ursgal/manifest'
  * локал манифесттайгаа key-ээрээ холбогдож route/nav-аа угсарна.
  * Шинэ app нэмэх бүрэн дараалал README-ийн "Шинэ app нэмэх" хэсэгт.
  */
-export const APP_MANIFESTS = [ursgalManifest]
+export const APP_MANIFESTS = [ursgalManifest, studexaManifest]
 
 export function manifestFor(key) {
   return APP_MANIFESTS.find((m) => m.key === key) ?? null
@@ -39,5 +40,42 @@ export function lazyRoutesFor(manifest) {
 export function manifestsInMountOrder() {
   return [...APP_MANIFESTS].sort(
     (a, b) => Number(a.mountPath === '/*') - Number(b.mountPath === '/*'),
+  )
+}
+
+/**
+ * Одоогийн зам аль app-ийнх вэ — AppShell nav/гарчгаа үүгээр сонгоно.
+ * Prefix-тэй ("/<key>/*") app-уудыг л таниулна; таарахгүй бол null
+ * (= цөм ursgal, түүхэн "/*" mount).
+ */
+export function manifestForPath(pathname) {
+  return (
+    APP_MANIFESTS.find((m) => {
+      if (m.mountPath === '/*') return false
+      const base = m.mountPath.replace(/\/\*$/, '')
+      return pathname === base || pathname.startsWith(`${base}/`)
+    }) ?? null
+  )
+}
+
+/**
+ * Манифестийн `publicRoutes` ({path, load}) — нэвтрэлтГҮЙ хуудсууд
+ * (жишээ: Studexa-гийн сурагчийн бүртгэл). App.jsx ProtectedRoute-ийн
+ * гадна lazy-гаар угсарна; компонент lazyRoutesFor-той ижил шалтгаанаар
+ * кэшлэгдэнэ.
+ */
+const publicCache = new Map()
+
+export function publicRoutesForApps() {
+  return APP_MANIFESTS.flatMap((m) =>
+    (m.publicRoutes ?? []).map((r) => {
+      const key = `${m.key}:${r.path}`
+      let Component = publicCache.get(key)
+      if (!Component) {
+        Component = lazy(r.load)
+        publicCache.set(key, Component)
+      }
+      return { key, path: r.path, Component }
+    }),
   )
 }

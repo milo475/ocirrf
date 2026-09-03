@@ -247,10 +247,13 @@ export function mobileTabsFor(user, items, max = 4) {
   return picked
 }
 
-/** Хэрэглэгчид харагдах цэсүүд — permission эсвэл role-оор шүүнэ */
-export function navFor(user, hasPerm) {
+/**
+ * Хэрэглэгчид харагдах цэсүүд — permission эсвэл role-оор шүүнэ.
+ * items — идэвхтэй app-ийн манифестийн navItems (өгөхгүй бол цөм ursgal).
+ */
+export function navFor(user, hasPerm, items = NAV_ITEMS) {
   if (!user) return []
-  return NAV_ITEMS.filter((item) => {
+  return items.filter((item) => {
     if (item.requires && !item.requires(user)) return false
     if (item.roles) return item.roles.includes(user.role)
     if (item.anyPerm) return item.anyPerm.some(hasPerm)

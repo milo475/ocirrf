@@ -1,5 +1,7 @@
+import { Suspense } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router'
-import { manifestsInMountOrder } from './apps'
+import { manifestsInMountOrder, publicRoutesForApps } from './apps'
+import AppLoading from './components/ui/AppLoading'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import AppRoutes from './components/layout/AppRoutes'
 import AppShell from './components/layout/AppShell'
@@ -39,6 +41,22 @@ function App() {
                 <Route path="/z/:token" element={<PublicOrder />} />
                 {/* Түр нууц үг солих — ProtectedRoute-ийн ГАДНА (V4-06) */}
                 <Route path="/change-password" element={<ChangePassword />} />
+                {/*
+                 * App-уудын НЭВТРЭЛТГҮЙ хуудсууд (манифестийн publicRoutes,
+                 * жишээ: Studexa сурагчийн бүртгэл /studexa/register) —
+                 * lazy chunk, статик зам тул "/<key>/*" mount-аас түрүүлж таарна.
+                 */}
+                {publicRoutesForApps().map((r) => (
+                  <Route
+                    key={r.key}
+                    path={r.path}
+                    element={
+                      <Suspense fallback={<AppLoading />}>
+                        <r.Component />
+                      </Suspense>
+                    }
+                  />
+                ))}
 
                 <Route element={<ProtectedRoute />}>
                   {/* ocirrf ХАБ — нэвтэрсний дараах нүүр: 10 системийн card */}

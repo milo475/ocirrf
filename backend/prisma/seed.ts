@@ -42,6 +42,8 @@ const APP_CATALOG = [
   { id: '00000000-0000-4000-8000-0000000a0008', key: 'tusul', nameMn: 'Төсөл / Даалгавар', nameEn: 'Projects & Tasks', descriptionMn: 'Төслийн самбар, даалгавар, хугацаа, багийн ажлын хуваарь', icon: 'kanban', color: '#0f766e', status: 'COMING_SOON' as const, sortOrder: 8 },
   { id: '00000000-0000-4000-8000-0000000a0009', key: 'barimt', nameMn: 'Баримт бичиг', nameEn: 'Documents', descriptionMn: 'Гэрээ, албан бичиг, хувилбарын хяналт, батлах урсгал', icon: 'file-text', color: '#6d28d9', status: 'COMING_SOON' as const, sortOrder: 9 },
   { id: '00000000-0000-4000-8000-0000000a0010', key: 'tuslamj', nameMn: 'Тусламжийн төв', nameEn: 'Helpdesk', descriptionMn: 'Хэрэглэгчийн хүсэлт, тасалбар, SLA, мэдлэгийн сан', icon: 'life-buoy', color: '#0369a1', status: 'COMING_SOON' as const, sortOrder: 10 },
+  // 11 — Studexa: багшийн систем (Django Studexa-г платформ руу шилжүүлсэн, ACTIVE)
+  { id: '00000000-0000-4000-8000-0000000a0011', key: 'studexa', nameMn: 'Studexa — Багшийн систем', nameEn: 'Studexa', descriptionMn: 'Сурагчийн бүртгэл, ирц, дүнгийн нэгтгэл, хичээлийн хуваарь, даалгавар, зарлал, төлбөрийн хяналт', icon: 'graduation-cap', color: '#4f46e5', status: 'ACTIVE' as const, sortOrder: 11 },
 ];
 
 async function seedApplications() {
@@ -54,10 +56,17 @@ async function seedApplications() {
       create: { id, status, ...fields },
     });
   }
-  // Default байгууллагад ursgal идэвхтэй
-  await prisma.organizationApp.upsert({
-    where: {
-      organizationId_applicationId: {
+  // Default байгууллагад ursgal (цөм) ба studexa (11) идэвхтэй
+  for (const app of APP_CATALOG.filter((a) => a.status === 'ACTIVE')) {
+    await prisma.organizationApp.upsert({
+      where: {
+        organizationId_applicationId: {
+          organizationId: DEFAULT_ORG_ID,
+          applicationId: app.id,
+        },
+      },
+      update: {},
+      create: {
         organizationId: DEFAULT_ORG_ID,
         applicationId: app.id,
       },
@@ -97,15 +106,6 @@ async function seedUsers() {
       fullName: 'Хүргэлтийн Жолооч',
       role: 'DRIVER' as const,
     },
-  ];
-
-  const byUsername = new Map<string, string>();
-  for (const u of users) {
-    const passwordHash = await bcrypt.hash(u.password, 10);
-    const user = await prisma.user.upsert({
-      where: { username: u.username },
-      update: { fullName: u.fullName, role: u.role, isActive: true },
-      create: {
     // Нярав. Үүнгүйгээр шинэ суулгацад GET /warehouse/keepers хоосон
     // буцаж, «няравт хуваарилах» урсгал бүхэлдээ ажиллах боломжгүй байв
     // (Role enum-д 6 эрх байхад seed 5-ыг л үүсгэж байсан).
@@ -115,6 +115,15 @@ async function seedUsers() {
       fullName: 'Агуулахын Нярав',
       role: 'WAREHOUSE' as const,
     },
+  ];
+
+  const byUsername = new Map<string, string>();
+  for (const u of users) {
+    const passwordHash = await bcrypt.hash(u.password, 10);
+    const user = await prisma.user.upsert({
+      where: { username: u.username },
+      update: { fullName: u.fullName, role: u.role, isActive: true },
+      create: {
         username: u.username,
         passwordHash,
         fullName: u.fullName,

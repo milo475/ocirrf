@@ -89,6 +89,19 @@ export const PERM = {
   ANALYTICS_VIEW: 'analytics.view',
   /** Байгууллагадаа app идэвхжүүлэх/унтраах (App Registry, Prompt 4) */
   PLATFORM_MANAGE_APPS: 'platform.manage_apps',
+  // Studexa (app 11) — багшийн систем
+  /**
+   * Багшаар ажиллах: сурагч, ирц, дүн, хуваарь, даалгавар, зарлал бүхэлдээ.
+   * Багшийн өгөгдөл байгууллага дотроо БАГШ БҮРЭЭР тусгаарлагдана
+   * (StudexaTeacher) — энэ эрх нь зөвхөн ӨӨРИЙН сурагчдыг удирдах эрх.
+   */
+  STUDEXA_TEACH: 'studexa.teach',
+  /**
+   * Сурагчийн портал: холбогдсон сурагчийн бүртгэлээр өөрийн хуваарь,
+   * дүн, ирц, даалгавраа харах, даалгавар илгээх. Сурагч бүртгүүлэхэд
+   * override-оор автоматаар олгогдоно (role default биш).
+   */
+  STUDEXA_PORTAL: 'studexa.portal',
 } as const;
 
 export type PermKey = (typeof PERM)[keyof typeof PERM];
@@ -138,6 +151,8 @@ export const PERM_LABELS: Record<PermKey, string> = {
   [PERM.ACTIVITY_LOG_VIEW]: 'Үйлдлийн түүх харах',
   [PERM.ANALYTICS_VIEW]: 'Аналитик харах',
   [PERM.PLATFORM_MANAGE_APPS]: 'Апп идэвхжүүлэх/унтраах',
+  [PERM.STUDEXA_TEACH]: 'Studexa: багшаар ажиллах',
+  [PERM.STUDEXA_PORTAL]: 'Studexa: сурагчийн портал',
 };
 
 /** Panel-ын бүлэглэлт — дараалал нь UI-ийн дараалал */
@@ -201,6 +216,10 @@ export const PERM_GROUPS: { group: string; keys: PermKey[] }[] = [
       PERM.PLATFORM_MANAGE_APPS,
     ],
   },
+  {
+    group: 'STUDEXA',
+    keys: [PERM.STUDEXA_TEACH, PERM.STUDEXA_PORTAL],
+  },
 ];
 
 /**
@@ -246,6 +265,7 @@ export const ROLE_DEFAULTS: Record<Role, PermKey[]> = {
     PERM.REPORTS_INVENTORY,
     PERM.ANALYTICS_VIEW, // V3-16: аналитик ADMIN+MANAGER-т
     PERM.CUSTOMERS_VIEW, // V3-17: харилцагчийн жагсаалт ADMIN+MANAGER-т
+    PERM.STUDEXA_TEACH, // Studexa: менежер мөн багшаар ажиллаж болно
   ],
   /**
    * Харилцагч = ӨӨР КОМПАНИЙН нийлүүлэгч түнш (V5).

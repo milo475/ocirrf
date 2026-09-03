@@ -37,6 +37,7 @@ import { BatchesModule } from './batches/batches.module';
 import { ReordersModule } from './reorders/reorders.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { StockModule } from './stock/stock.module';
+import { StudexaModule } from './studexa/studexa.module';
 import { SuppliesModule } from './supplies/supplies.module';
 import { UsersModule } from './users/users.module';
 import { WarehouseModule } from './warehouse/warehouse.module';
@@ -111,6 +112,8 @@ import { WarehouseModule } from './warehouse/warehouse.module';
     SuppliesModule,
     UsersModule,
     WarehouseModule,
+    // Studexa (app 11) — багшийн систем
+    StudexaModule,
     LoggingModule,
   ],
   controllers: [AppController],
