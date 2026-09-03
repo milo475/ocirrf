@@ -24,7 +24,10 @@ backups/
 *.sql.gz
 
 # Хүргэлтийн баталгаажуулах зургууд (UPLOADS_DIR default)
-uploads/
+# Байршуулсан файлын хавтас (runtime) — ЗӨВХӨН backend/uploads. Өмнөх
+# «uploads/» нь backend/src/uploads/ (эх код!) -ийг ч алгасаж, uploads
+# module шинэ clone дээр байхгүй болж build унадаг байв.
+/backend/uploads/
 
 # OS / редактор
 .DS_Store
