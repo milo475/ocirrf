@@ -113,7 +113,7 @@ cd ../frontend
 npm ci && npm run build
 
 cd ../backend
-node dist/src/main    # http://localhost:3000 (build нь dist/src/ дор гардаг)
+node dist/main        # http://localhost:3000
 ```
 
 Нэвтрэх (seed): `admin@ocirrf.mn/admin123`, `manager@ocirrf.mn/manager123`,
