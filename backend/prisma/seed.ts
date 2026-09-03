@@ -35,7 +35,13 @@ const APP_CATALOG = [
   { id: '00000000-0000-4000-8000-0000000a0003', key: 'hr', nameMn: 'Хүний нөөц / Цалин', nameEn: 'HR & Payroll', descriptionMn: 'Ажилтны бүртгэл, ирц, амралт чөлөө, цалингийн тооцоо', icon: 'users', color: '#2d6a4f', status: 'COMING_SOON' as const, sortOrder: 3 },
   { id: '00000000-0000-4000-8000-0000000a0004', key: 'crm', nameMn: 'Харилцагч (CRM)', nameEn: 'CRM', descriptionMn: 'Харилцагчийн бүртгэл, борлуулалтын сувгууд, идэвхжүүлэлт', icon: 'heart-handshake', color: '#7b2cbf', status: 'COMING_SOON' as const, sortOrder: 4 },
   { id: '00000000-0000-4000-8000-0000000a0005', key: 'hudaldan-avalt', nameMn: 'Худалдан авалт', nameEn: 'Procurement', descriptionMn: 'Нийлүүлэгчийн үнийн санал, худалдан авалтын захиалга, өглөгийн хяналт', icon: 'shopping-cart', color: '#b5651d', status: 'COMING_SOON' as const, sortOrder: 5 },
-  { id: '00000000-0000-4000-8000-0000000a0006', key: 'tailan', nameMn: 'Тайлан / Аналитик', nameEn: 'Reports', descriptionMn: 'Нэгдсэн тайлан, KPI самбар, экспорт', icon: 'bar-chart-3', color: '#457b9d', status: 'COMING_SOON' as const, sortOrder: 6 },
+  { id: '00000000-0000-4000-8000-0000000a0006', key: 'tailan', nameMn: 'Тайлан / Аналитик', nameEn: 'Reports', descriptionMn: 'Нэгдсэн тайлан, KPI самбар, экспорт', icon: 'chart-column', color: '#457b9d', status: 'COMING_SOON' as const, sortOrder: 6 },
+  // ocirrf хаб = 10 систем. 7-10 нь placeholder (COMING_SOON) — нэр/тайлбар/icon-ыг
+  // SUPERADMIN консолоос солино; key нь тогтмол.
+  { id: '00000000-0000-4000-8000-0000000a0007', key: 'borluulalt', nameMn: 'Борлуулалт / POS', nameEn: 'Sales & POS', descriptionMn: 'Дэлгүүр, кассын борлуулалт, урамшуулал, төлбөрийн бүртгэл', icon: 'store', color: '#c2410c', status: 'COMING_SOON' as const, sortOrder: 7 },
+  { id: '00000000-0000-4000-8000-0000000a0008', key: 'tusul', nameMn: 'Төсөл / Даалгавар', nameEn: 'Projects & Tasks', descriptionMn: 'Төслийн самбар, даалгавар, хугацаа, багийн ажлын хуваарь', icon: 'kanban', color: '#0f766e', status: 'COMING_SOON' as const, sortOrder: 8 },
+  { id: '00000000-0000-4000-8000-0000000a0009', key: 'barimt', nameMn: 'Баримт бичиг', nameEn: 'Documents', descriptionMn: 'Гэрээ, албан бичиг, хувилбарын хяналт, батлах урсгал', icon: 'file-text', color: '#6d28d9', status: 'COMING_SOON' as const, sortOrder: 9 },
+  { id: '00000000-0000-4000-8000-0000000a0010', key: 'tuslamj', nameMn: 'Тусламжийн төв', nameEn: 'Helpdesk', descriptionMn: 'Хэрэглэгчийн хүсэлт, тасалбар, SLA, мэдлэгийн сан', icon: 'life-buoy', color: '#0369a1', status: 'COMING_SOON' as const, sortOrder: 10 },
 ];
 
 async function seedApplications() {
