@@ -4,6 +4,7 @@ import { Transform, Type } from 'class-transformer';
 const EmptyToUndefined = () =>
   Transform(({ value }) => (value === '' ? undefined : (value as unknown)));
 import {
+  registerDecorator,
   ArrayMaxSize,
   IsArray,
   IsBoolean,
@@ -30,9 +31,22 @@ import {
   StudexaSchoolType,
 } from '../../generated/prisma/client';
 
-const DATE = /^\d{4}-\d{2}-\d{2}$/;
+import { isValidDateStr } from '../studexa.util';
+
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
-const DATE_MSG = 'Огноо YYYY-MM-DD хэлбэртэй байна';
+const DATE_MSG = 'Огноо YYYY-MM-DD хэлбэртэй, хуанлид байгаа огноо байна';
+
+/** Бодит огноо (YYYY-MM-DD ба хуанлид байгаа) — @Matches-ээс хатуу */
+function IsDateStr() {
+  return (object: object, propertyName: string) =>
+    registerDecorator({
+      name: 'isDateStr',
+      target: object.constructor,
+      propertyName,
+      options: { message: DATE_MSG },
+      validator: { validate: (v: unknown) => isValidDateStr(v) },
+    });
+}
 
 // ───────────────────────────── Багшийн профайл
 
@@ -74,7 +88,7 @@ export class StudentDto {
 
   @IsOptional()
   @IsString()
-  @Matches(DATE, { message: DATE_MSG })
+  @IsDateStr()
   enrolled?: string;
 
   @IsOptional() @IsString() @MaxLength(30) studentCode?: string;
@@ -134,7 +148,7 @@ export class AssessmentAddDto {
   newColumnMax?: number;
 
   @IsString()
-  @Matches(DATE, { message: DATE_MSG })
+  @IsDateStr()
   date: string;
 
   @Type(() => Number)
@@ -157,7 +171,7 @@ export class AttendanceQueryDto {
   @EmptyToUndefined()
   @IsOptional()
   @IsString()
-  @Matches(DATE, { message: DATE_MSG })
+  @IsDateStr()
   date?: string;
   @EmptyToUndefined() @IsOptional() @IsUUID('4') lessonId?: string;
   @IsOptional() @IsString() @MaxLength(100) group?: string;
@@ -255,8 +269,8 @@ export class LessonDto {
 export class HomeworkCreateDto {
   /** 'all' | 'group:<нэр>' | сурагчийн UUID */
   @IsString() @MaxLength(120) target: string;
-  @IsString() @Matches(DATE, { message: DATE_MSG }) date: string;
-  @IsString() @Matches(DATE, { message: DATE_MSG }) dueDate: string;
+  @IsString() @IsDateStr() date: string;
+  @IsString() @IsDateStr() dueDate: string;
   @IsString() @MinLength(1) @MaxLength(4000) title: string;
   @IsOptional() @IsString() @MaxLength(500) link?: string;
 }

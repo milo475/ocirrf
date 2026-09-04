@@ -40,6 +40,11 @@ export const LESSON_COLOR_STYLE = {
   purple: { backgroundColor: '#f3e8ff', borderColor: '#e9d5ff', color: '#7e22ce' },
 }
 
+/** Өнөөдрийн огноо ХЭРЭГЛЭГЧИЙН цагийн бүсээр (toISOString нь UTC — шөнө 00–08 цагт өчигдөр өгдөг) */
+export function localDateStr() {
+  return new Date().toLocaleDateString('en-CA')
+}
+
 export function fmtDate(d) {
   return d ? String(d).replace(/-/g, '.') : '—'
 }

@@ -36,6 +36,17 @@ export const TEACHER_CODE_PREFIXES: Partial<Record<StudexaSchoolType, string>> =
   };
 
 export const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * YYYY-MM-DD хэлбэртэй БӨГӨӨД хуанлид бодитой байгаа огноо мөн үү
+ * (2026-02-31, 2026-13-45 → false). Regex дангаараа хангалтгүй: буруу
+ * огноо DB-д текстээр орж, weekdayOf NaN болж Prisma 500 өгдөг байв.
+ */
+export function isValidDateStr(s: unknown): s is string {
+  if (typeof s !== 'string' || !DATE_RE.test(s)) return false;
+  const d = new Date(`${s}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
+}
 export const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 /** Өнөөдрийн огноо Улаанбаатарын цагаар — YYYY-MM-DD */

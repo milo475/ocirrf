@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext'
 import { useLang } from '../context/LanguageContext'
 import { api } from '../lib/api'
 import { appIcon } from '../lib/appIcon'
+import { isStudexaStudent } from '../lib/studentUser'
 
 /**
  * OCIRRF ХАБ — нэвтэрсний дараах нүүр хуудас.
@@ -43,14 +44,18 @@ export default function Launcher() {
   const enabledKeys = new Set((myApps ?? []).map((a) => a.key))
   const canManage = hasPerm('platform.manage_apps')
   const loading = catalog === null || myApps === null
-  const systems = (catalog ?? []).map((app) => ({
-    ...app,
-    state: enabledKeys.has(app.key)
-      ? 'enabled'
-      : app.status === 'ACTIVE'
-        ? 'available'
-        : 'soon',
-  }))
+  // Studexa-гийн сурагчид цөм «Урсгал» (агуулах/захиалга) хамаагүй — нуух
+  const student = isStudexaStudent(user)
+  const systems = (catalog ?? [])
+    .filter((app) => !(student && app.key === 'ursgal'))
+    .map((app) => ({
+      ...app,
+      state: enabledKeys.has(app.key)
+        ? 'enabled'
+        : app.status === 'ACTIVE'
+          ? 'available'
+          : 'soon',
+    }))
   const enabledCount = systems.filter((s) => s.state === 'enabled').length
 
   async function enable(key) {

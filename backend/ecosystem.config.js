@@ -15,6 +15,8 @@ module.exports = {
       max_memory_restart: '300M',
       env: {
         NODE_ENV: 'production',
+        // Өдрийн хил/дугаарын огноо УБ цагаар (main.ts default-тай ижил)
+        TZ: 'Asia/Ulaanbaatar',
       },
       // .env-ийг main.ts дотор dotenv уншдаг тул энд давхардуулах хэрэггүй
       out_file: './logs/pm2-out.log',

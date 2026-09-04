@@ -245,3 +245,14 @@ CI-ийн "Docker compose (smoke)" job push бүрт яг энэ урсгалы�
 | CI/Docker | .github/workflows/ci.yml (e2e + docker smoke), docker compose up -d |
 
 Smoke: `bash backend/scripts/smoke-test.sh`.
+
+
+## Цагийн бүс (TZ)
+
+Систем өдрийн хил (`setHours(0,0,0,0)`), захиалга/хуудасны дугаарын огноо
+(`ORD-YYYYMMDD`), тайлангийн огнооны муж (`parseDateRange`)-ийг **серверийн
+локал цагаар** тооцдог. `backend/src/main.ts` `TZ` тавиагүй бол
+`Asia/Ulaanbaatar` болгоно; Dockerfile, docker-compose (`TZ=${TZ:-Asia/Ulaanbaatar}`),
+ecosystem.config.js мөн ижил default-тай. Өөр цагийн бүсэд ажиллуулах бол
+`.env`-д `TZ=` тавина. (Studexa app нь өдрөө `Asia/Ulaanbaatar`-аар тодорхой
+тооцдог тул TZ-ээс хамаарахгүй.)

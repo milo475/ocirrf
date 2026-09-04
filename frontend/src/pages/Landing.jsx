@@ -85,7 +85,7 @@ export default function Landing() {
     )
   }
 
-  if (user) return <Navigate to={homeFor(user.role)} replace />
+  if (user) return <Navigate to={homeFor(user)} replace />
 
   const ready = (apps ?? []).filter((a) => a.status === 'ACTIVE')
   const soon = (apps ?? []).filter((a) => a.status !== 'ACTIVE')

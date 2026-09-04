@@ -4,6 +4,7 @@ import Button from '../../../components/ui/Button'
 import { useToast } from '../../../components/ui/Toast'
 import { apiUpload } from '../../../lib/api'
 import { Card, Field, inputCls, Notice, PageHead } from '../components/ui'
+import { localDateStr } from '../lib/labels'
 import { useApi } from '../lib/useApi'
 
 /** Даалгавар өгөх: бүгд / бүлэг / нэг сурагч, хугацаа, файл, линк */
@@ -14,7 +15,7 @@ export default function HomeworkForm() {
   const preset = params.get('group') ?? ''
   const { data: students } = useApi('/studexa/students?limit=100')
   const { data: groups } = useApi('/studexa/groups')
-  const today = new Date().toISOString().slice(0, 10)
+  const today = localDateStr()
   const [form, setForm] = useState({ target: preset ? `group:${preset}` : 'all', date: today, dueDate: today, title: '', link: '' })
   const [file, setFile] = useState(null)
   const [saving, setSaving] = useState(false)

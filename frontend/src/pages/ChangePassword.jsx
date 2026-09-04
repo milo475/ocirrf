@@ -44,7 +44,7 @@ export default function ChangePassword() {
         body: { oldPassword, newPassword },
       })
       applyAuth(data)
-      navigate(homeFor(data.user.role), { replace: true })
+      navigate(homeFor(data.user), { replace: true })
     } catch (err) {
       setError(err.message ?? 'Алдаа гарлаа')
     } finally {

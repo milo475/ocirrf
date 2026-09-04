@@ -215,6 +215,23 @@ describe('Studexa — багшийн систем (e2e)', () => {
       .then((r) => expect(r.body.total).toBe(0));
   });
 
+  it('хуанлид байхгүй огноо 400 (2026-13-45, 2026-02-31) — өмнө нь 500/буруу хадгалалт', async () => {
+    await api()
+      .get('/api/studexa/attendance?date=2026-13-45')
+      .set(auth(tokA))
+      .expect(400);
+    await api()
+      .post('/api/studexa/students')
+      .set(auth(tokA))
+      .send({ name: 'Огноо', enrolled: '2026-02-31' })
+      .expect(400);
+    await api()
+      .post('/api/studexa/homework')
+      .set(auth(tokA))
+      .send({ target: 'all', date: '2026-99-01', dueDate: TODAY, title: 'x' })
+      .expect(400);
+  });
+
   it('ирц бүртгэл — хувь автоматаар, хичээл бүрээр давхардахгүй ⭐', async () => {
     const r = await api()
       .post('/api/studexa/attendance')
@@ -382,7 +399,9 @@ describe('Studexa — багшийн систем (e2e)', () => {
       .set(auth(tokA))
       .expect(200);
     // supertest нь image/* content-type-ыг text биш Buffer body болгодог
-    const svgText = Buffer.isBuffer(svg.body) ? svg.body.toString('utf8') : svg.text;
+    const svgText = Buffer.isBuffer(svg.body)
+      ? svg.body.toString('utf8')
+      : svg.text;
     expect(svgText).toContain('<svg');
     expect(svgText).toContain('Алгебр');
 

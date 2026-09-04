@@ -85,6 +85,9 @@ export class DeliveryService {
         assignedDriverId: driverId,
         assignedAt: new Date(),
         deliveryStatus: DeliveryStatus.ASSIGNED,
+        // Өөр жолоочид шилжүүлэхэд өмнөх жолоочийн маршрутын дугаар
+        // (routeOrder) шинэ жолоочийн жагсаалтад хуучнаараа үлддэг байв
+        ...(order.assignedDriverId !== driverId ? { routeOrder: null } : {}),
       },
       include: { assignedDriver: DRIVER_SELECT },
     });

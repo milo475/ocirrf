@@ -29,6 +29,8 @@ services:
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET-ээ .env-д тохируулна уу}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET-ээ .env-д тохируулна уу}
       PORT: 3000
+      # Цагийн бүс — өдрийн хил, дугаарын огноо, тайлангийн муж (default УБ)
+      TZ: ${TZ:-Asia/Ulaanbaatar}
     volumes:
       - uploads:/app/backend/uploads
       - logs:/app/backend/logs

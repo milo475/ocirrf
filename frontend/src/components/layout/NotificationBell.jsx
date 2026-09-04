@@ -6,8 +6,26 @@ import { useLang } from '../../context/LanguageContext'
 import { api } from '../../lib/api'
 import { formatDateTime } from '../../lib/format'
 
+/**
+ * Studexa (app 11)-ийн мэдэгдлийн төрөл → хуудас. Багшийн тал (хүсэлт,
+ * илгээлт, салалт) багшийн хуудсууд руу, сурагчийн тал порталын хэсэг рүү.
+ */
+const STUDEXA_TARGETS = {
+  STUDEXA_JOIN_REQUEST: '/studexa/students',
+  STUDEXA_LEFT: '/studexa/students',
+  STUDEXA_SUBMITTED: '/studexa/homework',
+  STUDEXA_JOIN_APPROVED: '/studexa/portal',
+  STUDEXA_UNLINKED: '/studexa/portal',
+  STUDEXA_HOMEWORK: '/studexa/portal?section=homework',
+  STUDEXA_GRADED: '/studexa/portal?section=homework',
+  STUDEXA_SCHEDULE: '/studexa/portal?section=schedule',
+  STUDEXA_ANNOUNCEMENT: '/studexa/portal?section=announcements',
+}
+
 /** Мэдэгдэл дарахад очих хуудас — refType/refId + эрхээс хамаарна */
 export function notifTarget(n, role) {
+  // Studexa-гийн мэдэгдэл role-оос үл хамааран өөрийн хуудас руугаа
+  if (n.type && STUDEXA_TARGETS[n.type]) return STUDEXA_TARGETS[n.type]
   // Харилцагч (нийлүүлэгч) дотоод хуудсанд хүрэхгүй — бага үлдэгдлийн
   // мэдэгдэл нь өөрийнх нь самбар руу очно
   if (role === 'OPERATOR') return '/'

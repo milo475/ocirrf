@@ -8,7 +8,7 @@ import { api } from '../../../lib/api'
 import LineChart from '../components/LineChart'
 import ScoreTable from '../components/ScoreTable'
 import { Card, Field, inputCls, Loading, LoadError, PageHead, Pill } from '../components/ui'
-import { ATT_STATUS, fmtDate, HW_STATUS, PAY_STATUS } from '../lib/labels'
+import { ATT_STATUS, fmtDate, HW_STATUS, localDateStr, PAY_STATUS } from '../lib/labels'
 import { useApi } from '../lib/useApi'
 
 /** Сурагчийн дэлгэрэнгүй: ахиц, даалгавар, холбоо барих, ирц, төлбөр, дүн */
@@ -201,7 +201,7 @@ function PaymentCard({ data, id, call, onDelete }) {
 function AssessmentModal({ open, onClose, studentId, onSaved }) {
   const { show } = useToast()
   const { data: gb } = useApi('/studexa/gradebook', [open])
-  const [form, setForm] = useState({ columnId: '', newColumnName: '', newColumnMax: 100, date: new Date().toISOString().slice(0, 10), score: 0 })
+  const [form, setForm] = useState({ columnId: '', newColumnName: '', newColumnMax: 100, date: localDateStr(), score: 0 })
   const [saving, setSaving] = useState(false)
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value })
   async function submit(e) {

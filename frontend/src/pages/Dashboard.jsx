@@ -1,5 +1,6 @@
 import { Navigate } from 'react-router'
 import { useAuth } from '../context/AuthContext'
+import { isStudexaStudent } from '../lib/studentUser'
 import AdminDashboard from './dashboards/AdminDashboard'
 import DriverDashboard from './dashboards/DriverDashboard'
 import ManagerDashboard from './dashboards/ManagerDashboard'
@@ -10,6 +11,9 @@ import StockHealthDashboard from './dashboards/StockHealthDashboard'
 /** / хуудас — эрх бүр өөрийн самбартай */
 export default function Dashboard() {
   const { user, hasPerm } = useAuth()
+
+  // Studexa-гийн сурагч OPERATOR role-тэй ч харилцагчийн самбар нь түүнд хамаагүй
+  if (isStudexaStudent(user)) return <Navigate to="/studexa/portal" replace />
 
   switch (user?.role) {
     case 'ADMIN':

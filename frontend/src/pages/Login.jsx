@@ -41,7 +41,7 @@ export default function Login() {
   if (user)
     return (
       <Navigate
-        to={user.mustChangePassword ? '/change-password' : homeFor(user.role)}
+        to={user.mustChangePassword ? '/change-password' : homeFor(user)}
         replace
       />
     )
@@ -56,7 +56,7 @@ export default function Login() {
       navigate(
         loggedIn.mustChangePassword
           ? '/change-password'
-          : homeFor(loggedIn.role),
+          : homeFor(loggedIn),
         { replace: true },
       )
     } catch (err) {

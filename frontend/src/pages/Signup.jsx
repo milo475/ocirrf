@@ -34,7 +34,7 @@ export default function Signup() {
     )
   }
 
-  if (user) return <Navigate to={homeFor(user.role)} replace />
+  if (user) return <Navigate to={homeFor(user)} replace />
 
   async function onSubmit(e) {
     e.preventDefault()
@@ -52,7 +52,7 @@ export default function Signup() {
         password,
         ...(phone.trim() ? { phone: phone.trim() } : {}),
       })
-      navigate(homeFor(created.role), { replace: true })
+      navigate(homeFor(created), { replace: true })
     } catch (err) {
       setError(err.message ?? 'Алдаа гарлаа')
     } finally {

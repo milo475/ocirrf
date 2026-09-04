@@ -1,4 +1,14 @@
 import 'dotenv/config';
+
+/**
+ * ЦАГИЙН БҮС. Систем «өнөөдөр»-ийн хил (setHours(0,0,0,0)), захиалга/хуудасны
+ * дугаарын огноо (ORD-YYYYMMDD), тайлангийн огнооны муж (parseDateRange)
+ * зэргийг СЕРВЕРИЙН ЛОКАЛ цагаар тооцдог. Docker (node:20-slim) болон
+ * ихэнх VPS UTC тул TZ тодорхой тавиагүй бол өдрийн хил Улаанбаатараас
+ * 8 цагаар зөрж, тайлан/самбар буруу өдөрт тоолдог байв. dotenv-ийн
+ * ДАРАА, бусад модуль Date ашиглахаас ӨМНӨ тавина (Node TZ-г шууд дагана).
+ */
+process.env.TZ ??= 'Asia/Ulaanbaatar';
 import { mkdirSync } from 'node:fs';
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';

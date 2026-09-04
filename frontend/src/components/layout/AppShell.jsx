@@ -18,6 +18,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useLang } from '../../context/LanguageContext'
 import { API_BASE, api, getAccessToken } from '../../lib/api'
 import { initOfflineQueue } from '../../lib/offlineQueue'
+import { isStudexaStudent } from '../../lib/studentUser'
 import NotificationBell from './NotificationBell'
 import ThemeToggle from './ThemeToggle'
 
@@ -35,8 +36,8 @@ const ROLE_LABELS = {
  * enum-д сурагчийн role байхгүй) боловч ажлын үүрэг нь «Харилцагч» биш —
  * studexa.portal эрхтэй OPERATOR-ыг «Сурагч» гэж харуулна.
  */
-function roleLabelFor(user, hasPerm) {
-  if (user.role === 'OPERATOR' && hasPerm('studexa.portal')) return 'Сурагч'
+function roleLabelFor(user) {
+  if (isStudexaStudent(user)) return 'Сурагч'
   return ROLE_LABELS[user.role] ?? user.role
 }
 
@@ -243,7 +244,7 @@ export default function AppShell() {
             <div className="px-3 py-2">
               <p className="text-sm truncate">{user.name}</p>
               <span className="mt-1 inline-flex font-mono text-[11px] uppercase tracking-wide border rounded px-1.5 py-0.5 text-accent border-accent/40 bg-accent/12">
-                {t(roleLabelFor(user, hasPerm))}
+                {t(roleLabelFor(user))}
               </span>
             </div>
           )}
@@ -419,7 +420,7 @@ export default function AppShell() {
                 <div className="px-3 py-2">
                   <p className="text-sm truncate">{user.name}</p>
                   <span className="mt-1 inline-flex font-mono text-[11px] uppercase tracking-wide border rounded px-1.5 py-0.5 text-accent border-accent/40 bg-accent/12">
-                    {t(roleLabelFor(user, hasPerm))}
+                    {t(roleLabelFor(user))}
                   </span>
                 </div>
               )}
@@ -449,8 +450,11 @@ export default function AppShell() {
  */
 function AppSwitcher() {
   const { t } = useLang()
+  const { user } = useAuth()
   const [open, setOpen] = useState(false)
-  const [apps, setApps] = useState([])
+  const [allApps, setApps] = useState([])
+  // Сурагчид цөм «Урсгал» app switcher-т ч харагдахгүй (Launcher-тэй ижил)
+  const apps = isStudexaStudent(user) ? allApps.filter((a) => a.key !== 'ursgal') : allApps
 
   useEffect(() => {
     let alive = true

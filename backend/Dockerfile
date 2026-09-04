@@ -24,6 +24,8 @@ RUN cd frontend && npm run build
 # ── 2. Runtime ──
 FROM node:20-slim
 ENV NODE_ENV=production
+# Өдрийн хил/дугаарын огноо Улаанбаатарын цагаар (main.ts-ийн default-тай ижил)
+ENV TZ=Asia/Ulaanbaatar
 WORKDIR /app/backend
 
 # Бүтэн node_modules — prisma CLI (migrate deploy) + tsx (seed) runtime-д хэрэгтэй

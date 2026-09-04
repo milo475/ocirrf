@@ -1,6 +1,7 @@
 import { Navigate, Outlet } from 'react-router'
 import { navFor } from '../../config/nav'
 import { useAuth } from '../../context/AuthContext'
+import { isStudexaStudent } from '../../lib/studentUser'
 
 /**
  * Хэрэглэгчийн эрхээс хамаарсан "нүүр" зам.
@@ -10,7 +11,11 @@ import { useAuth } from '../../context/AuthContext'
  * нь тэдгээрийн нэг. Жолоочийн mobile урсгал л шууд хүргэлт рүүгээ
  * (хаб нь түүнд нэмэлт алхам).
  */
-export function homeFor(role) {
+export function homeFor(userOrRole) {
+  const user = typeof userOrRole === 'object' ? userOrRole : null
+  const role = user ? user.role : userOrRole
+  // Studexa-гийн сурагч: цөм app-д хийх ажилгүй тул шууд өөрийн портал руу
+  if (user && isStudexaStudent(user)) return '/studexa/portal'
   if (role === 'DRIVER') return '/deliveries'
   return '/launcher'
 }
@@ -26,6 +31,7 @@ export function homeFor(role) {
  */
 export function landingFor(user, hasPerm) {
   if (!user) return '/login'
+  if (isStudexaStudent(user)) return '/studexa/portal'
   if (user.role === 'DRIVER') return '/deliveries'
   const reachable = navFor(user, hasPerm).find((i) => i.path !== '/dashboard')
   return reachable?.path ?? '/settings'
@@ -39,7 +45,7 @@ export function landingFor(user, hasPerm) {
 export default function RoleRoute({ roles }) {
   const { user } = useAuth()
   if (!user || !roles.includes(user.role)) {
-    return <Navigate to={homeFor(user?.role)} replace />
+    return <Navigate to={homeFor(user)} replace />
   }
   return <Outlet />
 }

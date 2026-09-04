@@ -384,6 +384,11 @@ export class OrderRequestsService {
     if (!request) {
       throw new NotFoundException('Хүсэлт олдсонгүй');
     }
+    // Аль хэдийн захиалга болсон (CONVERTED) хүсэлтийг татгалзвал бодит
+    // захиалга NEW/CONVERTED жагсаалтаас алга болж REJECTED-ийн ард нуугдана
+    if (request.status !== OrderRequestStatus.NEW) {
+      throw new BadRequestException('Энэ хүсэлт аль хэдийн боловсруулагдсан');
+    }
     return this.prisma.orderRequest.update({
       where: { id },
       data: {
