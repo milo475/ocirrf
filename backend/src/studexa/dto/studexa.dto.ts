@@ -310,6 +310,46 @@ export class StudentNoteDto {
   @IsString() @MinLength(1) @MaxLength(2000) text: string;
 }
 
+// ───────────────────────────── Нэгдсэн анги (сургуулийн түвшин)
+
+export class ClassDto {
+  @IsString() @MinLength(1) @MaxLength(100) name: string;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(12) grade?:
+    number | null;
+  @EmptyToUndefined() @IsOptional() @IsUUID('4') homeroomTeacherId?: string;
+}
+
+export class ClassTeacherDto {
+  @IsUUID('4') teacherId: string;
+  @EmptyToUndefined() @IsOptional() @IsUUID('4') subjectId?: string;
+}
+
+export class PupilDto {
+  @IsString()
+  @MinLength(1, { message: 'Нэр хоосон байж болохгүй' })
+  @MaxLength(100)
+  name: string;
+  @IsOptional() @IsString() @MaxLength(20) phone?: string;
+  @IsOptional() @IsString() @MaxLength(100) fatherName?: string;
+  @IsOptional() @IsString() @MaxLength(20) fatherPhone?: string;
+  @IsOptional() @IsString() @MaxLength(100) motherName?: string;
+  @IsOptional() @IsString() @MaxLength(20) motherPhone?: string;
+  @IsOptional() @IsString() @MaxLength(30) registerNo?: string;
+  @EmptyToUndefined() @IsOptional() @IsString() @IsDateStr() birthDate?: string;
+  @EmptyToUndefined()
+  @IsOptional()
+  @IsEnum(StudexaGender)
+  gender?: StudexaGender;
+  @IsOptional() @IsString() @MaxLength(200) address?: string;
+  @IsOptional() @IsEnum(StudexaStudentStatus) status?: StudexaStudentStatus;
+}
+
+export class LinkPupilDto {
+  @IsEmail({}, { message: 'Имэйл хаяг буруу байна' })
+  @MaxLength(254)
+  email: string;
+}
+
 // ───────────────────────────── Хуваарь
 
 export class LessonDto {

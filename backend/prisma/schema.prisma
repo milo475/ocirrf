@@ -189,6 +189,9 @@ model Organization {
   studexaSubjects      StudexaSubject[]
   studexaTerms         StudexaTerm[]
   studexaLessonEntries StudexaLessonEntry[]
+  studexaSchoolClasses StudexaSchoolClass[]
+  studexaClassTeachers StudexaClassTeacher[]
+  studexaPupils        StudexaPupil[]
 }
 
 model User {
@@ -243,6 +246,7 @@ model User {
   // Studexa app (11)
   studexaTeacher      StudexaTeacher?
   studexaStudentLinks StudexaStudent[]
+  studexaPupils       StudexaPupil[]
   studexaJoinRequests StudexaJoinRequest[]
 
   @@index([organizationId])
@@ -903,16 +907,18 @@ model StudexaTeacher {
   gradingScale   Json?
   createdAt      DateTime          @default(now())
 
-  students      StudexaStudent[]
-  groups        StudexaGroup[]
-  lessons       StudexaLesson[]
-  gradeColumns  StudexaGradeColumn[]
-  announcements StudexaAnnouncement[]
-  notes         StudexaNote[]
-  joinRequests  StudexaJoinRequest[]
-  subjects      StudexaSubject[]
-  terms         StudexaTerm[]
-  lessonEntries StudexaLessonEntry[]
+  students        StudexaStudent[]
+  groups          StudexaGroup[]
+  lessons         StudexaLesson[]
+  gradeColumns    StudexaGradeColumn[]
+  announcements   StudexaAnnouncement[]
+  notes           StudexaNote[]
+  joinRequests    StudexaJoinRequest[]
+  subjects        StudexaSubject[]
+  terms           StudexaTerm[]
+  lessonEntries   StudexaLessonEntry[]
+  classTeachings  StudexaClassTeacher[]
+  homeroomClasses StudexaSchoolClass[]  @relation("StudexaHomeroom")
 
   @@index([organizationId, createdAt])
 }
@@ -938,6 +944,9 @@ model StudexaStudent {
   /// Холбогдсон сурагчийн акаунт (портал) — заавал биш
   userId          String?
   user            User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+  /// Сургуулийн мастер бүртгэл (нэгдсэн анги) — энэ мөр нь тухайн багшийн roster
+  pupilId         String?
+  pupil           StudexaPupil?        @relation(fields: [pupilId], references: [id], onDelete: SetNull)
   name            String
   /// Их сургуулийн оюутны код (бүртгүүлэхэд өгсөн)
   studentCode     String               @default("")
@@ -973,6 +982,72 @@ model StudexaStudent {
 
   @@index([organizationId, teacherId, name])
   @@index([userId])
+  @@index([pupilId])
+}
+
+/// СУРГУУЛИЙН АНГИ — байгууллагын түвшинд; олон багш (ангийн багш + хичээлийн
+/// багш нар) хуваалцана. Багш бүрд ангийн нэртэй бүлэг + roster (StudexaStudent)
+/// автоматаар үүснэ — багшийн ирц/дүн/даалгаврын логик өөрчлөгдөхгүй.
+model StudexaSchoolClass {
+  id                String          @id @default(uuid())
+  organizationId    String
+  organization      Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name              String
+  grade             Int?
+  homeroomTeacherId String?
+  homeroomTeacher   StudexaTeacher? @relation("StudexaHomeroom", fields: [homeroomTeacherId], references: [id], onDelete: SetNull)
+  createdAt         DateTime        @default(now())
+
+  teachers StudexaClassTeacher[]
+  pupils   StudexaPupil[]
+
+  @@unique([organizationId, name])
+}
+
+/// Ангид хичээл заадаг багш (хичээл нь заавал биш)
+model StudexaClassTeacher {
+  id             String             @id @default(uuid())
+  organizationId String
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  classId        String
+  class          StudexaSchoolClass @relation(fields: [classId], references: [id], onDelete: Cascade)
+  teacherId      String
+  teacher        StudexaTeacher     @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  subjectId      String?
+  subject        StudexaSubject?    @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  createdAt      DateTime           @default(now())
+
+  @@unique([organizationId, classId, teacherId])
+  @@index([organizationId, teacherId])
+}
+
+/// Сурагчийн СУРГУУЛИЙН мастер бүртгэл — ангийн багш бүрд roster мөр (StudexaStudent.pupilId)
+model StudexaPupil {
+  id             String               @id @default(uuid())
+  organizationId String
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  classId        String?
+  class          StudexaSchoolClass?  @relation(fields: [classId], references: [id], onDelete: SetNull)
+  userId         String?
+  user           User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name           String
+  registerNo     String               @default("")
+  birthDate      String?
+  gender         StudexaGender?
+  address        String               @default("")
+  phone          String               @default("")
+  fatherName     String               @default("")
+  fatherPhone    String               @default("")
+  motherName     String               @default("")
+  motherPhone    String               @default("")
+  status         StudexaStudentStatus @default(ACTIVE)
+  enrolled       String
+  createdAt      DateTime             @default(now())
+
+  rosters StudexaStudent[]
+
+  @@index([organizationId, classId, name])
+  @@index([userId])
 }
 
 /// Сурагчийн хувийн тэмдэглэл (зан байдал, эцэг эхтэй ярилцсан г.м.) — багшид л харагдана
@@ -999,8 +1074,9 @@ model StudexaSubject {
   color          String         @default("indigo")
   createdAt      DateTime       @default(now())
 
-  lessons StudexaLesson[]
-  columns StudexaGradeColumn[]
+  lessons       StudexaLesson[]
+  columns       StudexaGradeColumn[]
+  classTeachers StudexaClassTeacher[]
 
   @@unique([organizationId, teacherId, name])
 }

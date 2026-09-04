@@ -11,6 +11,7 @@ import {
 import { NotificationsService } from '../notifications/notifications.service';
 import { OrgContext } from '../org/org-context';
 import { PrismaService } from '../prisma/prisma.service';
+import { StudexaSchoolService } from './school.service';
 import {
   AssessmentAddDto,
   GroupAddDto,
@@ -59,6 +60,7 @@ const STUDENT_SELECT = {
   motherName: true,
   motherPhone: true,
   userId: true,
+  pupilId: true,
   user: { select: { id: true, username: true, fullName: true } },
 } as const;
 
@@ -67,6 +69,7 @@ export class StudexaStudentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
+    private readonly school: StudexaSchoolService,
   ) {}
 
   private async requireStudent(teacher: TeacherCtx, id: string) {
@@ -288,7 +291,7 @@ export class StudexaStudentsService {
   async update(teacher: TeacherCtx, id: string, dto: StudentDto) {
     await this.requireStudent(teacher, id);
     const group = await this.cleanGroup(teacher, dto.group);
-    return this.prisma.studexaStudent.update({
+    const updated = await this.prisma.studexaStudent.update({
       where: { id },
       data: {
         name: dto.name.trim(),
@@ -321,6 +324,23 @@ export class StudexaStudentsService {
       },
       select: STUDENT_SELECT,
     });
+    // Нэгдсэн ангийн сурагч бол мастер бүртгэл + бусад багшийн roster-т тархана
+    if (updated.pupilId) {
+      await this.school.syncFromRoster(updated.pupilId, {
+        name: updated.name,
+        phone: updated.phone,
+        fatherName: updated.fatherName,
+        fatherPhone: updated.fatherPhone,
+        motherName: updated.motherName,
+        motherPhone: updated.motherPhone,
+        registerNo: updated.registerNo,
+        birthDate: updated.birthDate,
+        gender: updated.gender,
+        address: updated.address,
+        status: updated.status,
+      });
+    }
+    return updated;
   }
 
   async remove(teacher: TeacherCtx, id: string) {
@@ -601,6 +621,8 @@ export class StudexaStudentsService {
         },
       });
       studentId = s.id;
+      // Нэгдсэн ангийн сурагч: акаунт мастер + бусад багшийн roster-т тархана
+      if (s.pupilId) await this.school.propagateUser(s.pupilId, jr.userId);
     }
     await this.prisma.studexaJoinRequest.delete({ where: { id } });
     await this.notifications.notify([jr.userId], {

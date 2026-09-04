@@ -13,6 +13,9 @@ import LessonForm from './pages/LessonForm'
 import Notes from './pages/Notes'
 import Portal from './pages/Portal'
 import Schedule from './pages/Schedule'
+import School from './pages/School'
+import SchoolClass from './pages/SchoolClass'
+import SchoolPupil from './pages/SchoolPupil'
 import Setup from './pages/Setup'
 import StudentDetail from './pages/StudentDetail'
 import StudentForm from './pages/StudentForm'
@@ -45,6 +48,9 @@ export default function StudexaRoutes() {
         <Route path="homework" element={<Homework />} />
         <Route path="homework/new" element={<HomeworkForm />} />
         <Route path="academics" element={<Academics />} />
+        <Route path="school" element={<School />} />
+        <Route path="school/classes/:id" element={<SchoolClass />} />
+        <Route path="school/pupils/:id" element={<SchoolPupil />} />
         <Route path="announcements" element={<Announcements />} />
         <Route path="notes" element={<Notes />} />
         <Route path="settings" element={<TeacherSettings />} />

@@ -102,6 +102,12 @@ export const PERM = {
    * override-оор автоматаар олгогдоно (role default биш).
    */
   STUDEXA_PORTAL: 'studexa.portal',
+  /**
+   * Сургуулийн удирдлага: байгууллагын түвшний АНГИ (олон багш хуваалцана),
+   * ангид багш оноох, сурагчийн мастер бүртгэл, нэгдсэн дүнгийн хуудас.
+   * ADMIN default; сургалтын менежерт override-оор олгоно.
+   */
+  STUDEXA_MANAGE: 'studexa.manage',
 } as const;
 
 export type PermKey = (typeof PERM)[keyof typeof PERM];
@@ -153,6 +159,7 @@ export const PERM_LABELS: Record<PermKey, string> = {
   [PERM.PLATFORM_MANAGE_APPS]: 'Апп идэвхжүүлэх/унтраах',
   [PERM.STUDEXA_TEACH]: 'Studexa: багшаар ажиллах',
   [PERM.STUDEXA_PORTAL]: 'Studexa: сурагчийн портал',
+  [PERM.STUDEXA_MANAGE]: 'Studexa: сургуулийн удирдлага (анги, багш, сурагч)',
 };
 
 /** Panel-ын бүлэглэлт — дараалал нь UI-ийн дараалал */
@@ -218,7 +225,7 @@ export const PERM_GROUPS: { group: string; keys: PermKey[] }[] = [
   },
   {
     group: 'STUDEXA',
-    keys: [PERM.STUDEXA_TEACH, PERM.STUDEXA_PORTAL],
+    keys: [PERM.STUDEXA_TEACH, PERM.STUDEXA_PORTAL, PERM.STUDEXA_MANAGE],
   },
 ];
 

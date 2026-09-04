@@ -5,6 +5,8 @@ import { StudexaGradebookService } from './gradebook.service';
 import { StudexaHomeworkService } from './homework.service';
 import { StudexaPortalService } from './portal.service';
 import { StudexaScheduleService } from './schedule.service';
+import { StudexaSchoolService } from './school.service';
+import { StudexaSchoolController } from './studexa-school.controller';
 import { StudexaStudentsService } from './students.service';
 import { StudexaFilesController } from './studexa-files.controller';
 import { StudexaPortalController } from './studexa-portal.controller';
@@ -26,10 +28,12 @@ import { StudexaTeacherService } from './teacher.service';
     StudexaPortalController,
     StudexaPublicController,
     StudexaFilesController,
+    StudexaSchoolController,
   ],
   providers: [
     StudexaTeacherService,
     StudexaAcademicsService,
+    StudexaSchoolService,
     StudexaStudentsService,
     StudexaGradebookService,
     StudexaAttendanceService,

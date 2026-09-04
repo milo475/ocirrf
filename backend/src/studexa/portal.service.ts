@@ -19,6 +19,7 @@ import { PermissionsService } from '../permissions/permissions.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RegisterStudentDto } from './dto/studexa.dto';
 import { StudexaAcademicsService } from './academics.service';
+import { StudexaSchoolService } from './school.service';
 import {
   buildLineChart,
   buildScheduleGrid,
@@ -42,7 +43,13 @@ export class StudexaPortalService {
     private readonly notifications: NotificationsService,
     private readonly permissions: PermissionsService,
     private readonly academics: StudexaAcademicsService,
+    private readonly school: StudexaSchoolService,
   ) {}
+
+  /** Сургуулийн нэгдсэн анги (мастер бүртгэлтэй холбогдсон бол): анги, багш нар, нэгдсэн дүн, хуваарь */
+  schoolInfo(user: AuthUser) {
+    return this.school.portalSchool(user);
+  }
 
   /** Сурагчийн өөрийн дүнгийн хуудас (улирлаар) */
   async reportCard(user: AuthUser, t?: string, termId?: string) {

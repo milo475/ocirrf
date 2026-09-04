@@ -1,7 +1,9 @@
 import { escape } from 'node:querystring';
+import { BadRequestException } from '@nestjs/common';
 import type { PrismaService } from '../prisma/prisma.service';
 import {
   StudexaAttendanceStatus,
+  StudexaGender,
   StudexaMonthPayState,
   StudexaPayState,
   StudexaSchoolType,
@@ -515,6 +517,21 @@ export type ScheduleLesson = {
   color: string;
   subjectId: string | null;
   subjectName: string | null;
+  /** Нэгдсэн ангийн хуваарьт (олон багш) — багшийн нэр */
+  teacherName?: string | null;
+};
+
+export type GridLessonRow = {
+  id: string;
+  title: string;
+  group: string;
+  weekday: number;
+  startTime: string;
+  endTime: string;
+  color: string;
+  subjectId: string | null;
+  subject?: { name: string } | null;
+  teacherName?: string | null;
 };
 
 export type ScheduleGrid = {
@@ -548,6 +565,11 @@ export async function buildScheduleGrid(
     orderBy: [{ weekday: 'asc' }, { startTime: 'asc' }],
     include: { subject: { select: { name: true } } },
   });
+  return gridFromLessons(lessons);
+}
+
+/** Бэлэн хичээлийн жагсаалтаас тор (нэгдсэн ангийн олон багшийн хуваарьт ч хэрэглэнэ) */
+export function gridFromLessons(lessons: GridLessonRow[]): ScheduleGrid {
   const total = (DAY_END - DAY_START) * 60;
   const hours: { label: string; top: number }[] = [];
   for (let h = DAY_START; h < DAY_END; h++) {
@@ -575,6 +597,7 @@ export async function buildScheduleGrid(
             color: l.color,
             subjectId: l.subjectId,
             subjectName: l.subject?.name ?? null,
+            teacherName: l.teacherName ?? null,
           },
           top: (100 * start) / total,
           height: (100 * (end - start)) / total,
@@ -685,4 +708,162 @@ export function buildCsv(
 /** Content-Disposition-д зориулж файлын нэрийг URL-кодлоно */
 export function contentDisposition(filename: string): string {
   return `attachment; filename="${filename}"; filename*=UTF-8''${escape(filename)}`;
+}
+
+// ───────────────────────────────────────────── Сурагчийн CSV (импорт)
+
+/** Энгийн CSV parser: хашилт, хашилт доторх хуваагч/мөр, `,`/`;` хуваагч (автомат) */
+export function parseCsv(text: string): string[][] {
+  const firstLine = text.split(/\r?\n/)[0] ?? '';
+  const delim =
+    (firstLine.match(/;/g)?.length ?? 0) > (firstLine.match(/,/g)?.length ?? 0)
+      ? ';'
+      : ',';
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = '';
+  let quoted = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (quoted) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') {
+          cell += '"';
+          i++;
+        } else quoted = false;
+      } else cell += ch;
+    } else if (ch === '"') {
+      quoted = true;
+    } else if (ch === delim) {
+      row.push(cell);
+      cell = '';
+    } else if (ch === '\n' || ch === '\r') {
+      if (ch === '\r' && text[i + 1] === '\n') i++;
+      row.push(cell);
+      rows.push(row);
+      row = [];
+      cell = '';
+    } else cell += ch;
+  }
+  if (cell !== '' || row.length) {
+    row.push(cell);
+    rows.push(row);
+  }
+  return rows;
+}
+
+export type StudentCsvRow = {
+  line: number;
+  name: string;
+  group: string;
+  phone: string;
+  fatherName: string;
+  fatherPhone: string;
+  motherName: string;
+  motherPhone: string;
+  birthDate: string | null;
+  gender: StudexaGender | null;
+  registerNo: string;
+  address: string;
+};
+
+/**
+ * Сурагчийн CSV → мөрүүд. Толгойн мөр монгол/англи аль ч нэртэй байж болно,
+ * UTF-8 BOM зөвшөөрнө. Мөр бүрийн алдаа (нэр хоосон, огноо буруу, бүлгийн нэр
+ * буруу) `skipped`-д орно; бүлгийн canonical нэрийг дуудагч тал шийднэ.
+ */
+export function parseStudentCsv(buffer: Buffer): {
+  rows: StudentCsvRow[];
+  skipped: { line: number; reason: string }[];
+} {
+  const text = buffer.toString('utf8').replace(/^\uFEFF/, '');
+  const lines = parseCsv(text);
+  if (lines.length < 2)
+    throw new BadRequestException(
+      'CSV-д толгойн мөр + дор хаяж нэг сурагчийн мөр байх ёстой',
+    );
+  const header = lines[0].map((h) => h.trim().toLowerCase());
+  const col = (names: string[]) => header.findIndex((h) => names.includes(h));
+  const idx = {
+    name: col(['name', 'нэр', 'сурагчийн нэр']),
+    group: col(['group', 'бүлэг', 'анги']),
+    phone: col(['phone', 'утас', 'сурагчийн утас']),
+    fatherName: col(['fathername', 'father_name', 'аавын нэр']),
+    fatherPhone: col([
+      'fatherphone',
+      'father_phone',
+      'аавын утас',
+      'аавын утасны дугаар',
+    ]),
+    motherName: col(['mothername', 'mother_name', 'ээжийн нэр']),
+    motherPhone: col([
+      'motherphone',
+      'mother_phone',
+      'ээжийн утас',
+      'ээжийн утасны дугаар',
+    ]),
+    birthDate: col(['birthdate', 'birth_date', 'төрсөн огноо']),
+    gender: col(['gender', 'хүйс']),
+    registerNo: col([
+      'registerno',
+      'register_no',
+      'регистр',
+      'регистрийн дугаар',
+    ]),
+    address: col(['address', 'хаяг']),
+  };
+  if (idx.name < 0)
+    throw new BadRequestException(
+      'Толгойн мөрөнд «нэр» (name) багана байх ёстой',
+    );
+  const get = (row: string[], i: number) =>
+    i >= 0 ? (row[i] ?? '').trim() : '';
+  const rows: StudentCsvRow[] = [];
+  const skipped: { line: number; reason: string }[] = [];
+  for (let n = 1; n < lines.length; n++) {
+    const row = lines[n];
+    if (row.every((c) => !c.trim())) continue;
+    const name = get(row, idx.name);
+    if (!name) {
+      skipped.push({ line: n + 1, reason: 'Нэр хоосон' });
+      continue;
+    }
+    const group = get(row, idx.group);
+    if (group) {
+      const err = groupNameError(group);
+      if (err) {
+        skipped.push({ line: n + 1, reason: err });
+        continue;
+      }
+    }
+    const birthRaw = get(row, idx.birthDate);
+    if (birthRaw && !isValidDateStr(birthRaw)) {
+      skipped.push({
+        line: n + 1,
+        reason: `Төрсөн огноо буруу (YYYY-MM-DD): ${get(row, idx.birthDate)}`,
+      });
+      continue;
+    }
+    const g = get(row, idx.gender).toLowerCase();
+    const gender = ['эр', 'эрэгтэй', 'male', 'm', 'э'].includes(g)
+      ? StudexaGender.MALE
+      : ['эм', 'эмэгтэй', 'female', 'f'].includes(g)
+        ? StudexaGender.FEMALE
+        : null;
+    rows.push({
+      line: n + 1,
+      name: name.slice(0, 100),
+      group,
+      phone: get(row, idx.phone).slice(0, 20),
+      fatherName: get(row, idx.fatherName).slice(0, 100),
+      fatherPhone: get(row, idx.fatherPhone).slice(0, 20),
+      motherName: get(row, idx.motherName).slice(0, 100),
+      motherPhone: get(row, idx.motherPhone).slice(0, 20),
+      birthDate: birthRaw || null,
+      gender,
+      registerNo: get(row, idx.registerNo).slice(0, 30),
+      address: get(row, idx.address).slice(0, 200),
+    });
+  }
+  return { rows, skipped };
 }

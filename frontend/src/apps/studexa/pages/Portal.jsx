@@ -21,6 +21,7 @@ const SECTIONS = [
   ['homework', 'Миний даалгавар'],
   ['grades', 'Миний дүн'],
   ['report', 'Дүнгийн хуудас'],
+  ['school', 'Миний анги'],
   ['payment', 'Төлбөр'],
   ['announcements', 'Зарлал'],
 ]
@@ -167,6 +168,8 @@ export default function Portal() {
 
           {sec === 'report' && <PortalReportCard recordId={cur.id} />}
 
+          {sec === 'school' && <PortalSchool />}
+
           {sec === 'announcements' && (
             cur.announcements.length === 0 ? <Card><p className="text-sm text-ink-muted">Одоогоор зарлал алга.</p></Card> :
             cur.announcements.map((a) => (
@@ -197,6 +200,32 @@ export default function Portal() {
       <ConfirmDialog open={leave} title="Багшаас салах" message="Итгэлтэй байна уу? Багш дахин баталгаажуулснаар сэргэнэ." danger confirmLabel="Багшаас салах"
         onConfirm={async () => { setLeave(false); await api(`/studexa/portal/leave/${cur.id}`, { method: 'POST' }).catch((e) => show(e.message, { type: 'error' })); go('t', ''); reload() }} onCancel={() => setLeave(false)} />
     </div>
+  )
+}
+
+/** Нэгдсэн анги: ангийн багш, багш нар, бүх багшийн дүнгийн нэгтгэл, ангийн хуваарь */
+function PortalSchool() {
+  const { data, error, loading, reload } = useApi('/studexa/portal/school')
+  if (loading && data === null) return <Loading />
+  if (error) return <LoadError error={error} onRetry={reload} />
+  if (!data) return <Card><p className="text-sm text-ink-muted">Та сургуулийн нэгдсэн ангид бүртгэгдээгүй байна. Багш тань эсвэл сургуулийн удирдлага таны акаунтыг ангийн мастер бүртгэлтэй холбосны дараа энд ангийн мэдээлэл харагдана.</p></Card>
+  return (
+    <>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Stat label="Анги" value={data.class.name} sub={data.class.grade ? `${data.class.grade}-р анги` : undefined} />
+        <Stat label="Ангийн багш" value={data.homeroom?.name ?? '—'} sub={data.homeroom?.code} />
+        <Stat label="Нэгдсэн дүн" value={data.report.percent === null ? '—' : `${data.report.percent}%`} sub={`үнэлгээ ${data.report.letter}`} />
+      </div>
+      <Card title="👩‍🏫 Багш нар">
+        <ul className="divide-y divide-rule text-sm">
+          {data.teachers.map((t) => <li key={t.code} className="py-1.5 flex justify-between"><span>{t.name} <span className="font-mono text-xs text-ink-muted">{t.code}</span></span><span className="text-ink-muted">{t.subject ?? '—'}</span></li>)}
+        </ul>
+      </Card>
+      {data.report.sections.map((s) => <ReportCard key={s.teacher.id} card={s.card} title={`📄 ${s.subject ?? 'Хичээл'} — ${s.teacher.name}`} />)}
+      <Card title="🗓 Ангийн нэгдсэн хуваарь">
+        {data.timetable.days.some((d) => d.lessons.length) ? <ScheduleGrid grid={data.timetable} showGroup={false} /> : <p className="text-sm text-ink-muted">Хуваарь алга.</p>}
+      </Card>
+    </>
   )
 }
 

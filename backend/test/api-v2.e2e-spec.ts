@@ -1251,7 +1251,7 @@ describe('ocirrf v2 API (e2e)', () => {
       // 37 = 33 (v2 сүүлчийн байдал) + platform.manage_apps (App Registry)
       //      + orders.record_payment (борлуулагчийн нарийн төлбөрийн эрх)
       //      + studexa.teach, studexa.portal (Studexa — app 11)
-      expect(allKeys).toHaveLength(37);
+      expect(allKeys).toHaveLength(38);
       expect(allKeys).toContain('studexa.teach');
       expect(allKeys).toContain('studexa.portal');
       expect(allKeys).toContain('drivers.zones');

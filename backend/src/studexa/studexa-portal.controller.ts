@@ -41,6 +41,11 @@ export class StudexaPortalController {
     return this.portal.portal(user, q.t);
   }
 
+  @Get('school')
+  school(@CurrentUser() user: AuthUser) {
+    return this.portal.schoolInfo(user);
+  }
+
   @Get('report-card')
   reportCard(
     @CurrentUser() user: AuthUser,

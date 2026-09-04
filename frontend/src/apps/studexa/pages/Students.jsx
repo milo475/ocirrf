@@ -234,6 +234,7 @@ export default function Students() {
                   <tr key={s.id} className="border-b border-rule">
                     <td className="py-2 pr-3 font-medium">
                       <Link className="hover:text-accent" to={`/studexa/students/${s.id}`}>{s.name}</Link>
+                      {s.pupilId && <Link className="ml-1 text-xs" title="Сургуулийн нэгдсэн ангийн сурагч — мастер бүртгэл" to={`/studexa/school/pupils/${s.pupilId}`}>🏫</Link>}
                     </td>
                     {uni && <td className="py-2 px-2 font-mono">{s.studentCode || '—'}</td>}
                     <td className="py-2 px-2">{s.group || <span className="text-ink-muted">—</span>}{s.status !== 'ACTIVE' && <> <Pill item={STUDENT_STATUS[s.status]} /></>}</td>

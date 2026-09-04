@@ -84,7 +84,7 @@ COMING_SOON ──(SUPERADMIN консол)──► ACTIVE ──► идэвх
               + permission key-үүд  WAREHOUSE / SELLER; ROLE_DEFAULTS
                                     матриц + хэрэглэгч бүрийн override
 3. APP ДОТОР  permission key-үүд    orders.view … platform.manage_apps
-                                    (37 key, permission-keys.ts; studexa.* нь app 11-ийнх)
+                                    (38 key, permission-keys.ts; studexa.* нь app 11-ийнх)
 ```
 
 - SUPERADMIN нь байгууллагын role-уудаас **бүрэн тусдаа** — зөвхөн
@@ -165,6 +165,7 @@ bundle-д, ursgal-ийн 28 хуудас `app-ursgal-*.js`-д (≈308 kB / gzip 
 | `platform-admin.e2e-spec.ts` | SUPERADMIN консол, түдгэлзүүлэлт, каталог |
 | `platform-flow.e2e-spec.ts` | Бүтэн урсгал нэг integration тестээр |
 | `studexa.e2e-spec.ts` | Studexa (app 11): багш/сурагчийн урсгал, файлын эрх, cross-tenant, сургуулийн нэмэлтүүд (улирал, дүнгийн хуудас, зөрчил, импорт) |
+| `studexa-school.e2e-spec.ts` | Studexa нэгдсэн анги: studexa.manage, ангийн/хичээлийн багш, мастер ↔ roster синк, нэгдсэн дүн/хуваарь, акаунт холболт |
 
 Тестүүд тусдаа `ocirrf_test` DB дээр ажиллана (`test/jest-e2e.setup.js`).
 

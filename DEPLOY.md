@@ -102,6 +102,10 @@ Multitenancy-ийн ДАРАА энэ дарааллаар (prisma migrate deplo
    subject/term, `StudexaPayment.year` (одоо байгаа мөрүүд ЭНЭ ОНООР
    бөглөгдөнө — өмнөх оны төлбөр байсан бол гараар засна) + unique
    (org, student, year, month). Ердийн `migrate deploy`.
+   `20260904200000_studexa_school_classes` — нэгдсэн анги: 3 шинэ хүснэгт
+   (SchoolClass, ClassTeacher, Pupil) + `StudexaStudent.pupilId`. Хуучин
+   өгөгдөлд хүрэхгүй; шинэ permission `studexa.manage` (ADMIN default —
+   кодын матриц, DB өөрчлөлт хэрэггүй). Ердийн `migrate deploy`.
 2. `20260902180000_app_registry` — Application + OrganizationApp,
    каталогийн 6 app seed, бүх байгууллагад ursgal идэвхжинэ. Хуучин
    кодтой зэрэгцэн ажиллаж БОЛНО (шинэ хүснэгтүүд л нэмэгддэг).

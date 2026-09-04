@@ -81,9 +81,29 @@ Django Studexa (`~/studexa`) төслийг платформын модулий�
 толгой, `,`/`;`, BOM). Frontend: «Хичээл · Улирал» хуудас
 (`/studexa/academics`), `components/ReportCard.jsx` (багш + портал).
 
-- **Backend:** `src/studexa/` — 17 org-scoped Prisma model (`Studexa*`),
-  migration `20260904000000_app_studexa` + `20260904150000_studexa_school_features`.
-  Байгууллага дотроо өгөгдөл **багш бүрээр** (`StudexaTeacher`) тусгаарлагдана.
+**Нэгдсэн анги — сургуулийн түвшин (2026-09-04, migration
+`20260904200000_studexa_school_classes`):** `StudexaSchoolClass` (байгууллагын
+анги, `homeroomTeacherId` — ангийн багш), `StudexaClassTeacher` (ангид заадаг
+багш + хичээл), `StudexaPupil` (сурагчийн МАСТЕР бүртгэл) ба
+`StudexaStudent.pupilId`. Зарчим: багш бүрийн ирц/дүн/даалгаврын логик
+өөрчлөгдөхгүй — ангийн багш бүрд ангийн нэртэй бүлэг + roster мөр
+(`StudexaStudent`) **автоматаар** үүснэ (`school.service.ts ensureRosters`),
+мастерын профайл/акаунт бүх roster-т тархана (`propagate`), багш roster-оо
+засахад мастер + бусад багш дагана (`syncFromRoster`), элсэх хүсэлт батлахад
+акаунт мастерт тархана (`propagateUser`). Анги нэр солиход бүлэг/хуваарь дагана.
+Нэгдсэн дүнгийн хуудас = багш (хичээл) бүрийн одоогийн улирлын хуудас + дундаж;
+нэгдсэн хуваарь = бүх багшийн энэ ангид заадаг хичээл (`teacherName`-тэй).
+Эрх: `studexa.manage` (38 дахь key, ADMIN default) — бүх анги, багш оноох,
+устгах; ангийн багш — өөрийн ангийн сурагчдыг нэмэх/засах/гаргах/акаунт холбох;
+хичээлийн багш — харах. API `/api/studexa/school/*`, портал `portal/school`.
+Frontend: «Сургууль · Ангиуд» (`/studexa/school`, `SchoolClass.jsx`,
+`SchoolPupil.jsx`), порталд «Миний анги». Тест `studexa-school.e2e-spec.ts`.
+
+- **Backend:** `src/studexa/` — 20 org-scoped Prisma model (`Studexa*`),
+  migration `20260904000000_app_studexa` + `20260904150000_studexa_school_features`
+  + `20260904200000_studexa_school_classes`.
+  Байгууллага дотроо өгөгдөл **багш бүрээр** (`StudexaTeacher`) тусгаарлагдана;
+  сургуулийн давхарга (`school.service.ts`) дээр нь нэгдсэн анги нэмнэ.
   Сургуулийн нэмэлтүүдийн логик `academics.service.ts`-д.
 - **Эрх:** `studexa.teach` (багш — ADMIN, MANAGER default) ба
   `studexa.portal` (сурагчийн портал — сурагч бүртгүүлэхэд override-оор).

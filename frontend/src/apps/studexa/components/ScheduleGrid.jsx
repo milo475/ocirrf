@@ -52,6 +52,7 @@ export default function ScheduleGrid({ grid, editable = false, showGroup = true 
                     <span className="font-mono">
                       {item.lesson.startTime}–{item.lesson.endTime}
                     </span>
+                    {item.lesson.teacherName && <span className="block truncate opacity-80">{item.lesson.teacherName}</span>}
                   </>
                 )
                 const cls = 'absolute inset-x-1 rounded border px-1.5 py-1 text-[11px] leading-tight overflow-hidden'

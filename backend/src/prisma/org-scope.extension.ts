@@ -59,6 +59,9 @@ export const SCOPED_MODELS: ReadonlySet<string> = new Set<string>([
   'StudexaSubject',
   'StudexaTerm',
   'StudexaLessonEntry',
+  'StudexaSchoolClass',
+  'StudexaClassTeacher',
+  'StudexaPupil',
   // 'Application' — САНААТАЙГААР байхгүй: платформын глобал каталог,
   // байгууллагаас хамааралгүй (App Registry)
 ]);

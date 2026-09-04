@@ -4,7 +4,6 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { StudexaGender } from '../generated/prisma/client';
 import { OrgContext } from '../org/org-context';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -18,10 +17,9 @@ import {
   canonicalGroupName,
   DEFAULT_GRADING_SCALE,
   effectiveAttendances,
-  groupNameError,
-  isValidDateStr,
   letterFor,
   normalizeScale,
+  parseStudentCsv,
   todayStr,
 } from './studexa.util';
 import type { TeacherCtx } from './teacher.service';
@@ -442,78 +440,17 @@ export class StudexaAcademicsService {
   // ───────────────────────────── CSV импорт
 
   /**
-   * Сурагчдыг CSV-ээс бөөнөөр нэмнэ. Толгойн мөр монгол/англи аль ч нэртэй
-   * байж болно; хуваагч нь `,` эсвэл `;` (автоматаар таньна), UTF-8 BOM зөвшөөрнө.
-   * Талбар: нэр*, бүлэг, утас, аавын нэр, аавын утас, ээжийн нэр, ээжийн утас,
-   * төрсөн огноо (YYYY-MM-DD), хүйс (эр/эм), регистр, хаяг.
+   * Сурагчдыг CSV-ээс бөөнөөр нэмнэ (parseStudentCsv — монгол/англи толгой,
+   * `,`/`;`, BOM). Бүлгийн нэр багшийн байгаа бүлэгт canonical болно.
    */
   async importCsv(teacher: TeacherCtx, buffer: Buffer) {
-    const text = buffer.toString('utf8').replace(/^\uFEFF/, '');
-    const lines = parseCsv(text);
-    if (lines.length < 2)
-      throw new BadRequestException(
-        'CSV-д толгойн мөр + дор хаяж нэг сурагчийн мөр байх ёстой',
-      );
-    const header = lines[0].map((h) => h.trim().toLowerCase());
-    const col = (names: string[]) => {
-      const i = header.findIndex((h) => names.includes(h));
-      return i >= 0 ? i : -1;
-    };
-    const idx = {
-      name: col(['name', 'нэр', 'сурагчийн нэр']),
-      group: col(['group', 'бүлэг', 'анги']),
-      phone: col(['phone', 'утас', 'сурагчийн утас']),
-      fatherName: col(['fathername', 'father_name', 'аавын нэр']),
-      fatherPhone: col([
-        'fatherphone',
-        'father_phone',
-        'аавын утас',
-        'аавын утасны дугаар',
-      ]),
-      motherName: col(['mothername', 'mother_name', 'ээжийн нэр']),
-      motherPhone: col([
-        'motherphone',
-        'mother_phone',
-        'ээжийн утас',
-        'ээжийн утасны дугаар',
-      ]),
-      birthDate: col(['birthdate', 'birth_date', 'төрсөн огноо']),
-      gender: col(['gender', 'хүйс']),
-      registerNo: col([
-        'registerno',
-        'register_no',
-        'регистр',
-        'регистрийн дугаар',
-      ]),
-      address: col(['address', 'хаяг']),
-    };
-    if (idx.name < 0)
-      throw new BadRequestException(
-        'Толгойн мөрөнд «нэр» (name) багана байх ёстой',
-      );
-
+    const { rows, skipped } = parseStudentCsv(buffer);
     const organizationId = OrgContext.require();
     const groupCache = new Map<string, string>();
     const created: string[] = [];
-    const skipped: { line: number; reason: string }[] = [];
-    const get = (row: string[], i: number) =>
-      i >= 0 ? (row[i] ?? '').trim() : '';
-
-    for (let n = 1; n < lines.length; n++) {
-      const row = lines[n];
-      if (row.every((c) => !c.trim())) continue;
-      const name = get(row, idx.name);
-      if (!name) {
-        skipped.push({ line: n + 1, reason: 'Нэр хоосон' });
-        continue;
-      }
-      let group = get(row, idx.group);
+    for (const r of rows) {
+      let group = r.group;
       if (group) {
-        const err = groupNameError(group);
-        if (err) {
-          skipped.push({ line: n + 1, reason: err });
-          continue;
-        }
         if (!groupCache.has(group))
           groupCache.set(
             group,
@@ -521,80 +458,26 @@ export class StudexaAcademicsService {
           );
         group = groupCache.get(group)!;
       }
-      const birthDate = get(row, idx.birthDate);
-      if (birthDate && !isValidDateStr(birthDate)) {
-        skipped.push({
-          line: n + 1,
-          reason: `Төрсөн огноо буруу (YYYY-MM-DD): ${get(row, idx.birthDate)}`,
-        });
-        continue;
-      }
-      const g = get(row, idx.gender).toLowerCase();
-      const gender = ['эр', 'эрэгтэй', 'male', 'm', 'э'].includes(g)
-        ? StudexaGender.MALE
-        : ['эм', 'эмэгтэй', 'female', 'f'].includes(g)
-          ? StudexaGender.FEMALE
-          : null;
       await this.prisma.studexaStudent.create({
         data: {
           organizationId,
           teacherId: teacher.id,
-          name: name.slice(0, 100),
+          name: r.name,
           group,
           enrolled: todayStr(),
-          phone: get(row, idx.phone).slice(0, 20),
-          fatherName: get(row, idx.fatherName).slice(0, 100),
-          fatherPhone: get(row, idx.fatherPhone).slice(0, 20),
-          motherName: get(row, idx.motherName).slice(0, 100),
-          motherPhone: get(row, idx.motherPhone).slice(0, 20),
-          birthDate: birthDate || null,
-          gender,
-          registerNo: get(row, idx.registerNo).slice(0, 30),
-          address: get(row, idx.address).slice(0, 200),
+          phone: r.phone,
+          fatherName: r.fatherName,
+          fatherPhone: r.fatherPhone,
+          motherName: r.motherName,
+          motherPhone: r.motherPhone,
+          birthDate: r.birthDate,
+          gender: r.gender,
+          registerNo: r.registerNo,
+          address: r.address,
         },
       });
-      created.push(name);
+      created.push(r.name);
     }
     return { created: created.length, names: created.slice(0, 50), skipped };
   }
-}
-
-/** Энгийн CSV parser: хашилт, хашилт доторх хуваагч/мөр, `,`/`;` хуваагч */
-export function parseCsv(text: string): string[][] {
-  const firstLine = text.split(/\r?\n/)[0] ?? '';
-  const delim =
-    (firstLine.match(/;/g)?.length ?? 0) > (firstLine.match(/,/g)?.length ?? 0)
-      ? ';'
-      : ',';
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let cell = '';
-  let quoted = false;
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (quoted) {
-      if (ch === '"') {
-        if (text[i + 1] === '"') {
-          cell += '"';
-          i++;
-        } else quoted = false;
-      } else cell += ch;
-    } else if (ch === '"') {
-      quoted = true;
-    } else if (ch === delim) {
-      row.push(cell);
-      cell = '';
-    } else if (ch === '\n' || ch === '\r') {
-      if (ch === '\r' && text[i + 1] === '\n') i++;
-      row.push(cell);
-      rows.push(row);
-      row = [];
-      cell = '';
-    } else cell += ch;
-  }
-  if (cell !== '' || row.length) {
-    row.push(cell);
-    rows.push(row);
-  }
-  return rows;
 }
