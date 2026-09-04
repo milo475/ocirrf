@@ -44,10 +44,11 @@ export default function Launcher() {
   const enabledKeys = new Set((myApps ?? []).map((a) => a.key))
   const canManage = hasPerm('platform.manage_apps')
   const loading = catalog === null || myApps === null
-  // Studexa-гийн сурагчид цөм «Урсгал» (агуулах/захиалга) хамаагүй — нуух
+  // Studexa-гийн сурагчид зөвхөн ӨӨРТ НЬ нээлттэй систем харагдана: цөм
+  // «Урсгал» (агуулах/захиалга) болон «Тун удахгүй»/идэвхжүүлээгүй card-ууд
+  // түүнд хамаагүй (идэвхжүүлэх эрх ч байхгүй) — нуух
   const student = isStudexaStudent(user)
   const systems = (catalog ?? [])
-    .filter((app) => !(student && app.key === 'ursgal'))
     .map((app) => ({
       ...app,
       state: enabledKeys.has(app.key)
@@ -56,6 +57,7 @@ export default function Launcher() {
           ? 'available'
           : 'soon',
     }))
+    .filter((app) => !student || (app.state === 'enabled' && app.key !== 'ursgal'))
   const enabledCount = systems.filter((s) => s.state === 'enabled').length
 
   async function enable(key) {
