@@ -16,6 +16,7 @@ import type { AuthUser } from './decorators/current-user.decorator';
 import { Public } from './decorators/public.decorator';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
+import { ForgotPasswordDto, ResetPasswordDto } from './dto/password-reset.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { RegisterOrgDto } from './dto/register-org.dto';
 import type { Request } from 'express';
@@ -33,6 +34,10 @@ const REFRESH_LIMIT = Number.isFinite(ENV_LIMIT) ? ENV_LIMIT : 20;
 // Байгууллагын бүртгэл бүр DB-д мөр үүсгэдэг тул хамгийн хатуу лимит:
 // нэг IP-ээс цагт 5 (бодит хэрэглээнд байгууллага нэг л удаа бүртгүүлнэ).
 const REGISTER_ORG_LIMIT = Number.isFinite(ENV_LIMIT) ? ENV_LIMIT : 5;
+// Нууц үг сэргээх: хүсэлт бүр и-мэйл илгээдэг тул IP-ээс цагт 5;
+// token таах суваг байх ёсгүй тул reset нь мөн хатуу
+const FORGOT_LIMIT = Number.isFinite(ENV_LIMIT) ? ENV_LIMIT : 5;
+const RESET_LIMIT = Number.isFinite(ENV_LIMIT) ? ENV_LIMIT : 10;
 
 @Controller('auth')
 export class AuthController {
@@ -64,6 +69,27 @@ export class AuthController {
   @Throttle({ default: { limit: REGISTER_ORG_LIMIT, ttl: 3_600_000 } })
   registerOrg(@Body() dto: RegisterOrgDto) {
     return this.authService.registerOrganization(dto);
+  }
+
+  /**
+   * «Нууц үг мартсан?» — и-мэйлээр сэргээх холбоос. И-мэйл бүртгэлтэй
+   * эсэхээс үл хамааран үргэлж { ok: true } (enumeration хаана).
+   */
+  @Public()
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: FORGOT_LIMIT, ttl: 3_600_000 } })
+  forgotPassword(@Body() dto: ForgotPasswordDto, @Req() req: Request) {
+    return this.authService.forgotPassword(dto.email, req.ip ?? null);
+  }
+
+  /** Холбоосын token + шинэ нууц үг → нэг удаагийн, 30 мин */
+  @Public()
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: RESET_LIMIT, ttl: 3_600_000 } })
+  resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto.token, dto.password);
   }
 
   @Public()

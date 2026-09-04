@@ -229,6 +229,7 @@ model User {
   returnsCreated      OrderReturn[]        @relation("ReturnsCreated")
   refreshTokens       RefreshToken[]
   loginHistory        LoginHistory[]
+  passwordResetTokens PasswordResetToken[]
   batchesCreated      ProductBatch[]       @relation("BatchesCreated")
   suppliesBrought     Supply[]             @relation("SuppliedBy")
   suppliesReceived    Supply[]             @relation("SuppliesReceived")
@@ -265,6 +266,21 @@ model LoginHistory {
   createdAt DateTime @default(now())
 
   @@index([userId, createdAt])
+}
+
+/// НУУЦ ҮГ СЭРГЭЭХ TOKEN — «Нууц үг мартсан?» урсгал. И-мэйлээр очих
+/// холбоосын token-ы зөвхөн sha256 hash DB-д; нэг удаагийн, 30 минут.
+/// RefreshToken-той адил хэрэглэгчийн (глобал) хүснэгт — org-scoped биш.
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
 }
 
 model RefreshToken {

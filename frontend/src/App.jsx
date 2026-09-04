@@ -16,6 +16,7 @@ import Launcher from './pages/Launcher'
 import Login from './pages/Login'
 import PlatformAdmin from './pages/PlatformAdmin'
 import PublicOrder from './pages/PublicOrder'
+import ResetPassword from './pages/ResetPassword'
 import Signup from './pages/Signup'
 
 function App() {
@@ -37,6 +38,8 @@ function App() {
                 <Route path="/login" element={<Login />} />
                 {/* Байгууллагын нээлттэй бүртгэл (Multi-tenancy) */}
                 <Route path="/signup" element={<Signup />} />
+                {/* И-мэйлээр ирсэн нууц үг сэргээх холбоос — нэвтрэлтгүй */}
+                <Route path="/reset-password" element={<ResetPassword />} />
                 {/* Нийтийн захиалгын линк — нэвтрэлтгүй (V5) */}
                 <Route path="/z/:token" element={<PublicOrder />} />
                 {/* Түр нууц үг солих — ProtectedRoute-ийн ГАДНА (V4-06) */}

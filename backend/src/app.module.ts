@@ -12,6 +12,7 @@ import { AuthThrottlerGuard } from './auth/guards/auth-throttler.guard';
 import { PasswordChangeGuard } from './auth/guards/password-change.guard';
 import { AllExceptionsFilter } from './logging/all-exceptions.filter';
 import { LoggingModule } from './logging/logging.module';
+import { MailModule } from './mail/mail.module';
 import { AppController } from './app.controller';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
@@ -88,6 +89,7 @@ import { WarehouseModule } from './warehouse/warehouse.module';
       },
     }),
     PrismaModule,
+    MailModule,
     PermissionsModule,
     PlatformModule,
     AuthModule,

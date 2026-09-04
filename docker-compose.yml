@@ -31,6 +31,14 @@ services:
       PORT: 3000
       # Цагийн бүс — өдрийн хил, дугаарын огноо, тайлангийн муж (default УБ)
       TZ: ${TZ:-Asia/Ulaanbaatar}
+      # И-мэйл (нууц үг сэргээх) — .env-д SMTP_* тавина; тавиагүй бол лог горим
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_SECURE: ${SMTP_SECURE:-0}
+      MAIL_FROM: ${MAIL_FROM:-ocirrf <noreply@ocirrf.mn>}
+      APP_URL: ${APP_URL:-http://localhost:3000}
     volumes:
       - uploads:/app/backend/uploads
       - logs:/app/backend/logs

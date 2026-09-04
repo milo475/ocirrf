@@ -18,13 +18,35 @@ export default function Login() {
   const [submitting, setSubmitting] = useState(false)
   const [forgotOpen, setForgotOpen] = useState(false)
   const [company, setCompany] = useState(null)
+  const [forgotEmail, setForgotEmail] = useState('')
+  const [forgotSent, setForgotSent] = useState(false)
+  const [forgotError, setForgotError] = useState(null)
+  const [forgotBusy, setForgotBusy] = useState(false)
 
   function openForgot() {
     setForgotOpen(true)
+    setForgotSent(false)
+    setForgotError(null)
+    setForgotEmail(email)
     if (!company) {
       api('/settings/company')
         .then(setCompany)
         .catch(() => setCompany({}))
+    }
+  }
+
+  /** И-мэйлээр сэргээх холбоос хүсэх — и-мэйл байгаа эсэхээс үл хамааран ижил хариу */
+  async function submitForgot(e) {
+    e.preventDefault()
+    setForgotError(null)
+    setForgotBusy(true)
+    try {
+      await api('/auth/forgot-password', { method: 'POST', body: { email: forgotEmail } })
+      setForgotSent(true)
+    } catch (err) {
+      setForgotError(err.message)
+    } finally {
+      setForgotBusy(false)
     }
   }
 
@@ -161,13 +183,44 @@ export default function Login() {
         onClose={() => setForgotOpen(false)}
         title={t('Нууц үг мартсан?')}
       >
-        <p className="text-sm">
-          {t(
-            'Админд хандаж түр нууц үг авна уу. Түр нууц үгээр нэвтэрсний дараа шинэ нууц үгээ зохионо.',
-          )}
+        {forgotSent ? (
+          <p className="text-sm text-safe">
+            ✓{' '}
+            {t(
+              'Хэрэв энэ и-мэйл бүртгэлтэй бол сэргээх холбоос илгээгдлээ. Захидлаа (спам хавтсаа ч) шалгана уу — холбоос 30 минут хүчинтэй.',
+            )}
+          </p>
+        ) : (
+          <form onSubmit={submitForgot} className="space-y-3">
+            <p className="text-sm text-ink-muted">
+              {t('Бүртгэлтэй и-мэйл хаягаа оруулбал нууц үг сэргээх холбоос илгээнэ.')}
+            </p>
+            <input
+              type="email"
+              value={forgotEmail}
+              onChange={(e) => setForgotEmail(e.target.value)}
+              required
+              autoFocus
+              placeholder="you@example.mn"
+              className="w-full bg-bg border border-rule rounded px-3 py-2 text-sm focus:outline-none focus:border-ink-muted"
+            />
+            {forgotError && (
+              <p className="text-sm text-alarm border border-alarm rounded px-3 py-2">{forgotError}</p>
+            )}
+            <button
+              type="submit"
+              disabled={forgotBusy}
+              className="w-full bg-ink text-bg rounded py-2 text-sm font-medium hover:opacity-90 disabled:opacity-60"
+            >
+              {forgotBusy ? t('Илгээж байна…') : t('Сэргээх холбоос илгээх')}
+            </button>
+          </form>
+        )}
+        <p className="mt-4 pt-3 border-t border-rule/50 text-xs text-ink-muted">
+          {t('И-мэйл хүлээж авахгүй бол админд хандаж түр нууц үг авна уу.')}
         </p>
         {company?.companyPhone && (
-          <p className="mt-3 text-sm text-ink-muted">
+          <p className="mt-2 text-sm text-ink-muted">
             {t('Холбогдох утас')}:{' '}
             <span className="font-mono text-ink">{company.companyPhone}</span>
           </p>

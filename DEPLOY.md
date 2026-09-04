@@ -256,3 +256,16 @@ Smoke: `bash backend/scripts/smoke-test.sh`.
 ecosystem.config.js мөн ижил default-тай. Өөр цагийн бүсэд ажиллуулах бол
 `.env`-д `TZ=` тавина. (Studexa app нь өдрөө `Asia/Ulaanbaatar`-аар тодорхой
 тооцдог тул TZ-ээс хамаарахгүй.)
+
+
+## И-мэйл (SMTP) — нууц үг сэргээх
+
+`POST /api/auth/forgot-password` нь бүртгэлтэй и-мэйл рүү 30 минутын нэг
+удаагийн холбоос (`APP_URL/reset-password?token=…`) илгээнэ; DB-д зөвхөн
+token-ы sha256 hash (`PasswordResetToken`, migration
+`20260904120000_password_reset_token`). Тохиргоо: `SMTP_HOST`, `SMTP_PORT`,
+`SMTP_USER`, `SMTP_PASS`, `SMTP_SECURE` (1 = TLS/465), `MAIL_FROM`, `APP_URL`
+(захидал дахь холбоосын нийтийн хаяг — заавал бодит домэйн). `SMTP_HOST`
+тавиагүй бол захидал илгээгдэхгүй, серверийн лог руу `[mail:log]` гэж
+хэвлэгдэнэ (dev/test) — production-д эхлэхэд анхааруулга гарна. Хязгаар:
+IP-ээс цагт 5 хүсэлт, 10 reset оролдлого.

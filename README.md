@@ -226,6 +226,9 @@ cd ../backend
 node dist/main        # http://localhost:3000
 ```
 
+Нууц үг мартсан бол `/login` → «Нууц үг мартсан?» → и-мэйлээр сэргээх холбоос
+(SMTP тохиргоо DEPLOY.md-д; тохируулаагүй бол холбоос серверийн логд гарна).
+
 Нэвтрэх (seed): `admin@ocirrf.mn/admin123`, `manager@ocirrf.mn/manager123`,
 `operator@ocirrf.mn/operator123`, `driver@ocirrf.mn/driver123`,
 `warehouse@ocirrf.mn/warehouse123`, `seller@ocirrf.mn/seller123`.

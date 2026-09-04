@@ -19,6 +19,7 @@ import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { RegisterOrgDto } from './dto/register-org.dto';
 import { SecurityLogService } from '../activity-log/security-log.service';
+import { MailService } from '../mail/mail.service';
 import { describeUserAgent } from './user-agent.util';
 
 export type JwtPayload = { sub: string; role: string; jti?: string };
@@ -43,6 +44,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly permissionsService: PermissionsService,
     private readonly securityLog: SecurityLogService,
+    private readonly mail: MailService,
   ) {}
 
   /**
@@ -500,4 +502,130 @@ export class AuthService {
       },
     };
   }
+
+  // ── Нууц үг сэргээх (и-мэйлээр) ──
+
+  /** Token-ы DB-д хадгалах hash — token өөрөө зөвхөн и-мэйлд */
+  private static hashResetToken(token: string): string {
+    return createHash('sha256').update(token).digest('hex');
+  }
+
+  /**
+   * «Нууц үг мартсан?» — и-мэйл бүртгэлтэй, идэвхтэй бол 30 минутын
+   * нэг удаагийн холбоос илгээнэ. И-мэйл байгаа эсэхээс үл хамааран
+   * ИЖИЛ хариу (enumeration хаана). Хуучин ашиглагдаагүй token-ууд
+   * хүчингүй болно. Байгууллага тодорхойгүй үе тул bypass.
+   */
+  async forgotPassword(rawEmail: string, ip: string | null) {
+    const email = rawEmail.trim().toLowerCase();
+    await OrgContext.runBypassed(async () => {
+      const user = await this.prisma.user.findUnique({
+        where: { username: email },
+        include: { organization: { select: { name: true, isActive: true } } },
+      });
+      if (!user || !user.isActive || !user.organization.isActive) return;
+
+      const token = randomBytes(32).toString('base64url');
+      const now = new Date();
+      await this.prisma.passwordResetToken.updateMany({
+        where: { userId: user.id, usedAt: null },
+        data: { usedAt: now },
+      });
+      await this.prisma.passwordResetToken.create({
+        data: {
+          userId: user.id,
+          tokenHash: AuthService.hashResetToken(token),
+          expiresAt: new Date(now.getTime() + 30 * 60_000),
+        },
+      });
+      const link = `${this.mail.appUrl}/reset-password?token=${token}`;
+      await this.mail.send({
+        to: user.username,
+        subject: 'ocirrf — нууц үг сэргээх',
+        text:
+          `Сайн байна уу, ${user.fullName}!\n\n` +
+          `Та «${user.organization.name}» байгууллагын ocirrf бүртгэлийнхээ нууц үгийг сэргээх хүсэлт илгээсэн байна.\n` +
+          `Доорх холбоос дээр дарж шинэ нууц үгээ тохируулна уу (30 минутын дотор, нэг удаа):\n\n${link}\n\n` +
+          'Хэрэв та энэ хүсэлтийг илгээгээгүй бол энэ захидлыг орхигдуулаарай — нууц үг тань хэвээрээ үлдэнэ.\n\n— ocirrf',
+        html:
+          `<p>Сайн байна уу, <b>${escapeHtml(user.fullName)}</b>!</p>` +
+          `<p>Та «${escapeHtml(user.organization.name)}» байгууллагын ocirrf бүртгэлийнхээ нууц үгийг сэргээх хүсэлт илгээсэн байна.</p>` +
+          `<p><a href="${link}" style="display:inline-block;padding:10px 18px;background:#1c1917;color:#fff;border-radius:6px;text-decoration:none">Шинэ нууц үг тохируулах</a></p>` +
+          `<p style="color:#666;font-size:13px">Холбоос 30 минутын дотор, нэг удаа хүчинтэй. Хэрэв та энэ хүсэлтийг илгээгээгүй бол орхигдуулаарай — нууц үг тань хэвээрээ үлдэнэ.</p>` +
+          `<p style="color:#999;font-size:12px">${link}</p>`,
+      });
+      await this.prisma.activityLog.create({
+        data: {
+          organizationId: user.organizationId,
+          userId: user.id,
+          action: 'password_reset_requested',
+          entity: 'security',
+          entityId: user.id,
+          meta: { ip },
+        },
+      });
+    });
+    return { ok: true };
+  }
+
+  /**
+   * Холбоосоор ирсэн token + шинэ нууц үг. Token нэг удаагийн (атом
+   * эзэмшилт), хугацаатай; амжилттай бол бүх refresh token унтарч,
+   * түгжээ/түр нууц үгийн төлөв арилна.
+   */
+  async resetPassword(token: string, password: string) {
+    const invalid = new BadRequestException(
+      'Сэргээх холбоос хүчингүй эсвэл хугацаа нь дууссан байна. Дахин хүсэлт илгээнэ үү.',
+    );
+    const tokenHash = AuthService.hashResetToken(token);
+    const passwordHash = await bcrypt.hash(password, 10);
+    return OrgContext.runBypassed(async () => {
+      const rec = await this.prisma.passwordResetToken.findUnique({
+        where: { tokenHash },
+        select: { id: true, userId: true, expiresAt: true, usedAt: true },
+      });
+      if (!rec || rec.usedAt || rec.expiresAt.getTime() < Date.now()) {
+        throw invalid;
+      }
+      await this.prisma.$transaction(async (tx) => {
+        const claimed = await tx.passwordResetToken.updateMany({
+          where: { id: rec.id, usedAt: null },
+          data: { usedAt: new Date() },
+        });
+        if (claimed.count === 0) throw invalid;
+        const user = await tx.user.update({
+          where: { id: rec.userId },
+          data: {
+            passwordHash,
+            mustChangePassword: false,
+            failedLoginCount: 0,
+            lockedUntil: null,
+          },
+          select: { id: true, organizationId: true },
+        });
+        await tx.refreshToken.updateMany({
+          where: { userId: user.id, revokedAt: null },
+          data: { revokedAt: new Date() },
+        });
+        await tx.activityLog.create({
+          data: {
+            organizationId: user.organizationId,
+            userId: user.id,
+            action: 'password_reset',
+            entity: 'security',
+            entityId: user.id,
+          },
+        });
+      });
+      return { ok: true };
+    });
+  }
+}
+
+function escapeHtml(v: string): string {
+  return v
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
