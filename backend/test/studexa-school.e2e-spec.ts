@@ -536,6 +536,96 @@ describe('Studexa — нэгдсэн анги (e2e)', () => {
     ).toBeNull();
   });
 
+  it('нэгтгэх: багш өмнө нь өөрөө бүртгэсэн (дүнтэй) сурагчийг мастерт холбоход хоосон roster устаж, хуучин мөр ангид орно ⭐', async () => {
+    const EMAIL_S2 = `sxs-s2-${T}@example.mn`;
+    await api()
+      .post('/api/studexa/register-student')
+      .send({
+        teacherCode: codeA,
+        email: EMAIL_S2,
+        password: 'student123',
+        firstName: 'Импорт',
+        lastName: 'А',
+      })
+      .expect(201);
+    const jrs = await api()
+      .get('/api/studexa/students')
+      .set(auth(tokA))
+      .expect(200);
+    const jr = jrs.body.joinRequests[0];
+    const userS2: string = jr.userId ?? jr.user.id;
+    // «Шинэ сурагч» болгож батлав → А-д бүлэггүй, акаунттай мөр; оноо тавина
+    const ap = await api()
+      .post(`/api/studexa/join-requests/${jr.id}/approve`)
+      .set(auth(tokA))
+      .send({ studentId: 'new' })
+      .expect(201);
+    const standalone: string = ap.body.studentId;
+    const cols = await api()
+      .get('/api/studexa/gradebook')
+      .set(auth(tokA))
+      .expect(200);
+    await api()
+      .post('/api/studexa/gradebook')
+      .set(auth(tokA))
+      .send({
+        cells: [
+          {
+            columnId: cols.body.columns[0].id,
+            studentId: standalone,
+            value: '7',
+          },
+        ],
+      })
+      .expect(201);
+    // Мастер «Импорт А»-г тэр акаунттай холбоно
+    const cls = await api()
+      .get(`/api/studexa/school/classes/${classId}`)
+      .set(auth(tokA))
+      .expect(200);
+    const pupil3: string = cls.body.pupils.find(
+      (p: { name: string }) => p.name === 'Импорт А',
+    ).id;
+    await api()
+      .post(`/api/studexa/school/pupils/${pupil3}/link`)
+      .set(auth(tokA))
+      .send({ email: EMAIL_S2 })
+      .expect(201);
+    const all = await api()
+      .get('/api/studexa/students?status=ALL&limit=100')
+      .set(auth(tokA))
+      .expect(200);
+    const rows = all.body.items.filter(
+      (s: { pupilId: string | null; userId: string | null }) =>
+        s.pupilId === pupil3 || s.userId === userS2,
+    );
+    expect(rows).toHaveLength(1); // хоосон auto-roster устаж, дүнтэй мөр л үлдэнэ
+    expect(rows[0]).toMatchObject({
+      id: standalone,
+      pupilId: pupil3,
+      userId: userS2,
+      group: '10г',
+      name: 'Импорт А',
+    });
+    const pd = await api()
+      .get(`/api/studexa/school/pupils/${pupil3}`)
+      .set(auth(tokA))
+      .expect(200);
+    const secA = pd.body.report.sections.find(
+      (x: { teacher: { id: string } }) => x.teacher.id === teacherA,
+    );
+    expect(secA.card.earned).toBe(7); // түүх алдагдаагүй
+    // М багшийн roster (өмнө нь акаунтгүй) зүгээр л холбогдоно
+    const stM = await api()
+      .get('/api/studexa/students?group=10г&limit=100')
+      .set(auth(tokM))
+      .expect(200);
+    expect(
+      stM.body.items.find((x: { name: string }) => x.name === 'Импорт А')
+        .userId,
+    ).toBe(userS2);
+  });
+
   it('ангиас гаргах (LEFT бүх roster-т), бүрмөсөн устгах, багш хасах, анги устгах', async () => {
     await api()
       .post(`/api/studexa/school/pupils/${pupil2}/leave`)

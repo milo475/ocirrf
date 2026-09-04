@@ -937,15 +937,59 @@ export class StudexaSchoolService {
     await this.propagate(updated);
   }
 
-  /** Багш roster-оо акаунттай холбоход (элсэх хүсэлт батлах) мастер + бусад roster дагана */
+  /** Roster мөрөнд ирц/оноо/даалгавар/төлбөр бүртгэгдээгүй бол «хоосон» */
+  private async rosterIsEmpty(studentId: string): Promise<boolean> {
+    const [a, g, h, p] = await Promise.all([
+      this.prisma.studexaAttendanceRecord.count({ where: { studentId } }),
+      this.prisma.studexaAssessment.count({ where: { studentId } }),
+      this.prisma.studexaHomework.count({ where: { studentId } }),
+      this.prisma.studexaPayment.count({ where: { studentId } }),
+    ]);
+    return a + g + h + p === 0;
+  }
+
+  /**
+   * Акаунтыг мастер + бүх roster-т тархаана. Багш энэ акаунттай сурагчийг
+   * ӨМНӨ НЬ өөрөө бүртгэсэн (ирц/дүнтэй) мөртэй бол автоматаар үүссэн хоосон
+   * roster-ийг устгаж, тэр мөрийг ангид нэгтгэнэ — нэг багшид нэг сурагч
+   * давхар гарахгүй, түүх алдагдахгүй.
+   */
   async propagateUser(pupilId: string, userId: string) {
+    const pupil = await this.prisma.studexaPupil.findFirst({
+      where: { id: pupilId },
+      include: { class: { select: { name: true } } },
+    });
+    if (!pupil) return;
     await this.prisma.studexaPupil.updateMany({
       where: { id: pupilId },
       data: { userId },
     });
-    await this.prisma.studexaStudent.updateMany({
-      where: { pupilId, userId: null },
-      data: { userId },
+    const rosters = await this.prisma.studexaStudent.findMany({
+      where: { pupilId },
+      select: { id: true, teacherId: true, userId: true, group: true },
     });
+    for (const r of rosters) {
+      if (r.userId === userId) continue;
+      const existing = await this.prisma.studexaStudent.findFirst({
+        where: { teacherId: r.teacherId, userId, pupilId: null },
+        select: { id: true },
+      });
+      if (existing && (await this.rosterIsEmpty(r.id))) {
+        await this.prisma.studexaStudent.delete({ where: { id: r.id } });
+        await this.prisma.studexaStudent.update({
+          where: { id: existing.id },
+          data: {
+            pupilId,
+            group: pupil.class?.name ?? r.group,
+            ...profileOf(pupil),
+          },
+        });
+        continue;
+      }
+      await this.prisma.studexaStudent.update({
+        where: { id: r.id },
+        data: { userId },
+      });
+    }
   }
 }
