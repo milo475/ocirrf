@@ -185,6 +185,10 @@ model Organization {
   studexaJoinRequests  StudexaJoinRequest[]
   studexaAnnouncements StudexaAnnouncement[]
   studexaNotes         StudexaNote[]
+  studexaStudentNotes  StudexaStudentNote[]
+  studexaSubjects      StudexaSubject[]
+  studexaTerms         StudexaTerm[]
+  studexaLessonEntries StudexaLessonEntry[]
 }
 
 model User {
@@ -872,6 +876,18 @@ enum StudexaHomeworkStatus {
   DONE
 }
 
+enum StudexaGender {
+  MALE
+  FEMALE
+}
+
+/// Сурагчийн төлөв — төгссөн/шилжсэн сурагч жагсаалт, ирц, нэгтгэлд орохгүй
+enum StudexaStudentStatus {
+  ACTIVE
+  GRADUATED
+  LEFT
+}
+
 /// Багшийн профайл — байгууллагын хэрэглэгч studexa.teach эрхээр
 /// «багш» болно. code нь сурагчид элсэхэд ашиглах ГЛОБАЛ unique код
 /// (trt0000 / stdx0000 / stu0000 эсвэл их сургуулийн өөрийн код).
@@ -883,6 +899,8 @@ model StudexaTeacher {
   user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   code           String            @unique
   schoolType     StudexaSchoolType @default(SCHOOL)
+  /// Үнэлгээний хуваарь [{min, label}] — null бол default (A/B/C/D/F, ЕБС-ийн 90/80/70/60)
+  gradingScale   Json?
   createdAt      DateTime          @default(now())
 
   students      StudexaStudent[]
@@ -892,6 +910,9 @@ model StudexaTeacher {
   announcements StudexaAnnouncement[]
   notes         StudexaNote[]
   joinRequests  StudexaJoinRequest[]
+  subjects      StudexaSubject[]
+  terms         StudexaTerm[]
+  lessonEntries StudexaLessonEntry[]
 
   @@index([organizationId, createdAt])
 }
@@ -909,59 +930,134 @@ model StudexaGroup {
 }
 
 model StudexaStudent {
-  id              String          @id @default(uuid())
+  id              String               @id @default(uuid())
   organizationId  String
-  organization    Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization    Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   teacherId       String
-  teacher         StudexaTeacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  teacher         StudexaTeacher       @relation(fields: [teacherId], references: [id], onDelete: Cascade)
   /// Холбогдсон сурагчийн акаунт (портал) — заавал биш
   userId          String?
-  user            User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user            User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
   name            String
   /// Их сургуулийн оюутны код (бүртгүүлэхэд өгсөн)
-  studentCode     String          @default("")
-  group           String          @default("")
+  studentCode     String               @default("")
+  /// Регистрийн дугаар / сурагчийн код
+  registerNo      String               @default("")
+  /// Төрсөн огноо YYYY-MM-DD
+  birthDate       String?
+  gender          StudexaGender?
+  address         String               @default("")
+  status          StudexaStudentStatus @default(ACTIVE)
+  group           String               @default("")
   /// Ирцийн статистик — бүртгэлээс автоматаар дахин тооцогдоно
-  attendance      Int             @default(100)
-  attendedLessons Int             @default(0)
-  totalLessons    Int             @default(0)
-  paymentStatus   StudexaPayState @default(PAID)
+  attendance      Int                  @default(100)
+  attendedLessons Int                  @default(0)
+  totalLessons    Int                  @default(0)
+  paymentStatus   StudexaPayState      @default(PAID)
   /// Бүртгүүлсэн огноо YYYY-MM-DD
   enrolled        String
   /// Даалгаврын хувь (гараар) — null бол даалгаврын бүртгэлээс тооцно
   hwPercent       Int?
-  phone           String          @default("")
-  fatherName      String          @default("")
-  fatherPhone     String          @default("")
-  motherName      String          @default("")
-  motherPhone     String          @default("")
-  createdAt       DateTime        @default(now())
+  phone           String               @default("")
+  fatherName      String               @default("")
+  fatherPhone     String               @default("")
+  motherName      String               @default("")
+  motherPhone     String               @default("")
+  createdAt       DateTime             @default(now())
 
-  attendances StudexaAttendanceRecord[]
-  assessments StudexaAssessment[]
-  homeworks   StudexaHomework[]
-  payments    StudexaPayment[]
+  attendances  StudexaAttendanceRecord[]
+  assessments  StudexaAssessment[]
+  homeworks    StudexaHomework[]
+  payments     StudexaPayment[]
+  studentNotes StudexaStudentNote[]
 
   @@index([organizationId, teacherId, name])
   @@index([userId])
 }
 
-/// Хичээлийн хуваарь: weekday 0=Даваа … 6=Ням, цаг "HH:MM"
-model StudexaLesson {
+/// Сурагчийн хувийн тэмдэглэл (зан байдал, эцэг эхтэй ярилцсан г.м.) — багшид л харагдана
+model StudexaStudentNote {
+  id             String         @id @default(uuid())
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  studentId      String
+  student        StudexaStudent @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  text           String
+  createdAt      DateTime       @default(now())
+
+  @@index([organizationId, studentId, createdAt])
+}
+
+/// Хичээл (судлагдахуун) — хуваарь, дүнгийн багана үүгээр бүлэглэгдэнэ
+model StudexaSubject {
   id             String         @id @default(uuid())
   organizationId String
   organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   teacherId      String
   teacher        StudexaTeacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  name           String
+  color          String         @default("indigo")
+  createdAt      DateTime       @default(now())
+
+  lessons StudexaLesson[]
+  columns StudexaGradeColumn[]
+
+  @@unique([organizationId, teacherId, name])
+}
+
+/// Улирал / хичээлийн жилийн хэсэг — дүнгийн багана, дүнгийн хуудас, ирцийн тайлан
+model StudexaTerm {
+  id             String         @id @default(uuid())
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  teacherId      String
+  teacher        StudexaTeacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  name           String
+  startDate      String
+  endDate        String
+  isCurrent      Boolean        @default(false)
+  createdAt      DateTime       @default(now())
+
+  columns StudexaGradeColumn[]
+
+  @@index([organizationId, teacherId, startDate])
+}
+
+/// Хичээлийн сэдвийн бүртгэл (журнал) — тухайн хичээлийн тухайн өдөр юу үзсэн
+model StudexaLessonEntry {
+  id             String         @id @default(uuid())
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  teacherId      String
+  teacher        StudexaTeacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  lessonId       String
+  lesson         StudexaLesson  @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  date           String
+  topic          String
+  createdAt      DateTime       @default(now())
+
+  @@unique([organizationId, lessonId, date])
+}
+
+/// Хичээлийн хуваарь: weekday 0=Даваа … 6=Ням, цаг "HH:MM"
+model StudexaLesson {
+  id             String          @id @default(uuid())
+  organizationId String
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  teacherId      String
+  teacher        StudexaTeacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
   title          String
   /// Хоосон бол бүх бүлэгт
-  group          String         @default("")
+  group          String          @default("")
   weekday        Int
   startTime      String
   endTime        String
-  color          String         @default("indigo")
+  color          String          @default("indigo")
+  subjectId      String?
+  subject        StudexaSubject? @relation(fields: [subjectId], references: [id], onDelete: SetNull)
 
   attendances StudexaAttendanceRecord[]
+  entries     StudexaLessonEntry[]
 
   @@index([organizationId, teacherId, weekday, startTime])
 }
@@ -987,14 +1083,18 @@ model StudexaAttendanceRecord {
 
 /// Дүнгийн нэгтгэлийн багана — багш нэр, дээд оноог өөрөө тохируулна
 model StudexaGradeColumn {
-  id             String         @id @default(uuid())
+  id             String          @id @default(uuid())
   organizationId String
-  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   teacherId      String
-  teacher        StudexaTeacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  teacher        StudexaTeacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
   name           String
-  maxScore       Int            @default(100)
-  order          Int            @default(0)
+  maxScore       Int             @default(100)
+  order          Int             @default(0)
+  subjectId      String?
+  subject        StudexaSubject? @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  termId         String?
+  term           StudexaTerm?    @relation(fields: [termId], references: [id], onDelete: SetNull)
 
   assessments StudexaAssessment[]
   homeworks   StudexaHomework[]
@@ -1063,10 +1163,12 @@ model StudexaPayment {
   organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   studentId      String
   student        StudexaStudent       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  /// Он — өмнө нь зөвхөн сар байсан тул дараа жилийн мөр давхардаж байв
+  year           Int                  @default(dbgenerated("(EXTRACT(year FROM CURRENT_DATE))::integer"))
   month          Int
   status         StudexaMonthPayState @default(PENDING)
 
-  @@unique([organizationId, studentId, month])
+  @@unique([organizationId, studentId, year, month])
 }
 
 /// Сурагчийн акаунт багшийн кодоор элсэх хүсэлт — батлагдмагц

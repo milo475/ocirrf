@@ -9,6 +9,8 @@ import { StudexaHomeworkStatus } from '../generated/prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
 import { OrgContext } from '../org/org-context';
 import { PrismaService } from '../prisma/prisma.service';
+import { join } from 'node:path';
+import { UPLOADS_DIR } from '../uploads.config';
 import { discardUpload } from '../uploads/upload-cleanup.util';
 import {
   HomeworkCreateDto,
@@ -80,8 +82,23 @@ export class StudexaHomeworkService {
       take: 1000,
     });
     const today = todayStr();
-    const index = new Map<string, any>();
-    const groups: any[] = [];
+    type HwRow = (typeof homeworks)[number];
+    type HwGroup = {
+      key: string;
+      title: string;
+      date: string;
+      dueDate: HwRow['dueDate'];
+      attachmentUrl: HwRow['attachmentUrl'];
+      link: HwRow['link'];
+      gradeColumn: HwRow['gradeColumn'];
+      items: HwRow[];
+      total?: number;
+      submitted?: number;
+      graded?: number;
+      overdue?: boolean;
+    };
+    const index = new Map<string, HwGroup>();
+    const groups: HwGroup[] = [];
     for (const hw of homeworks) {
       const key = `${hw.title}|${hw.date}|${hw.dueDate ?? ''}`;
       let g = index.get(key);
@@ -104,12 +121,12 @@ export class StudexaHomeworkService {
     }
     for (const g of groups) {
       g.total = g.items.length;
-      g.submitted = g.items.filter((h: any) => h.submission).length;
-      g.graded = g.items.filter((h: any) => h.score !== null).length;
+      g.submitted = g.items.filter((h) => h.submission).length;
+      g.graded = g.items.filter((h) => h.score !== null).length;
       g.overdue = Boolean(
         g.dueDate &&
         g.dueDate < today &&
-        g.items.some((h: any) => h.status !== StudexaHomeworkStatus.DONE),
+        g.items.some((h) => h.status !== StudexaHomeworkStatus.DONE),
       );
     }
     return {
@@ -133,7 +150,10 @@ export class StudexaHomeworkService {
           'Дуусах огноо эхлэх огнооноос өмнө байж болохгүй',
         );
       }
-      let where: Record<string, unknown> = { teacherId: teacher.id };
+      let where: Record<string, unknown> = {
+        teacherId: teacher.id,
+        status: 'ACTIVE',
+      };
       if (dto.target === 'all') {
         // бүх сурагч
       } else if (dto.target.startsWith('group:')) {
@@ -413,15 +433,8 @@ export class StudexaHomeworkService {
     }
   }
 
-  private pathOf(url: string): string {
-    const name = url.split('/').pop() ?? '';
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { join } = require('node:path') as typeof import('node:path');
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { UPLOADS_DIR } =
-      require('../uploads.config') as typeof import('../uploads.config');
-    return join(UPLOADS_DIR, name);
-  }
+  private readonly pathOf = (url: string): string =>
+    join(UPLOADS_DIR, url.split('/').pop() ?? '');
 
   /**
    * Файлд хандах эрх: даалгаврын хавсралт → тухайн багш эсвэл түүний

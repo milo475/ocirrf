@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router'
 import PermRoute from '../../components/auth/PermRoute'
+import Academics from './pages/Academics'
 import Announcements from './pages/Announcements'
 import Attendance from './pages/Attendance'
 import Dashboard from './pages/Dashboard'
@@ -43,6 +44,7 @@ export default function StudexaRoutes() {
         <Route path="schedule/:id/edit" element={<LessonForm />} />
         <Route path="homework" element={<Homework />} />
         <Route path="homework/new" element={<HomeworkForm />} />
+        <Route path="academics" element={<Academics />} />
         <Route path="announcements" element={<Announcements />} />
         <Route path="notes" element={<Notes />} />
         <Route path="settings" element={<TeacherSettings />} />

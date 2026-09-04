@@ -190,7 +190,7 @@ export class StudexaTeacherService {
     const today = todayStr();
     const weekday = weekdayOf(today);
     const students = await this.prisma.studexaStudent.findMany({
-      where: { teacherId: teacher.id },
+      where: { teacherId: teacher.id, status: 'ACTIVE' },
       select: {
         id: true,
         name: true,

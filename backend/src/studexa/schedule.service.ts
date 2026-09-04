@@ -40,6 +40,50 @@ export class StudexaScheduleService {
     };
   }
 
+  /**
+   * ХУВААРИЙН ЗӨРЧИЛ: ижил гараг, цаг давхцсан, бүлэг нь огтлолцсон
+   * (аль нэг нь «бүх бүлэг» эсвэл ижил бүлэг) хичээл байвал 400.
+   */
+  private async assertNoConflict(
+    teacher: TeacherCtx,
+    dto: LessonDto,
+    group: string,
+    excludeId?: string,
+  ) {
+    const same = await this.prisma.studexaLesson.findMany({
+      where: {
+        teacherId: teacher.id,
+        weekday: dto.weekday,
+        ...(excludeId ? { id: { not: excludeId } } : {}),
+      },
+    });
+    const clash = same.find(
+      (l) =>
+        l.startTime < dto.endTime &&
+        l.endTime > dto.startTime &&
+        (l.group === '' || group === '' || l.group === group),
+    );
+    if (clash) {
+      throw new BadRequestException(
+        `Хуваарийн зөрчил: ${clash.title}${clash.group ? ` (${clash.group})` : ' (бүх бүлэг)'} ${clash.startTime}–${clash.endTime} энэ цагтай давхцаж байна`,
+      );
+    }
+  }
+
+  private async subjectFor(
+    teacher: TeacherCtx,
+    raw: string | undefined,
+  ): Promise<string | null> {
+    const id = (raw ?? '').trim();
+    if (!id) return null;
+    const s = await this.prisma.studexaSubject.findFirst({
+      where: { id, teacherId: teacher.id },
+      select: { id: true },
+    });
+    if (!s) throw new BadRequestException('Хичээл (судлагдахуун) олдсонгүй');
+    return s.id;
+  }
+
   private validate(dto: LessonDto) {
     if (dto.endTime <= dto.startTime) {
       throw new BadRequestException('Дуусах цаг эхлэх цагаас хойш байх ёстой');
@@ -86,6 +130,8 @@ export class StudexaScheduleService {
   async create(teacher: TeacherCtx, dto: LessonDto) {
     this.validate(dto);
     const group = (dto.group ?? '').trim();
+    await this.assertNoConflict(teacher, dto, group);
+    const subjectId = await this.subjectFor(teacher, dto.subjectId);
     const lesson = await this.prisma.studexaLesson.create({
       data: {
         organizationId: OrgContext.require(),
@@ -96,6 +142,7 @@ export class StudexaScheduleService {
         startTime: dto.startTime,
         endTime: dto.endTime,
         color: dto.color ?? 'indigo',
+        subjectId,
       },
     });
     await this.notifyGroup(
@@ -110,6 +157,7 @@ export class StudexaScheduleService {
   async get(teacher: TeacherCtx, id: string) {
     const l = await this.prisma.studexaLesson.findFirst({
       where: { id, teacherId: teacher.id },
+      include: { subject: { select: { id: true, name: true } } },
     });
     if (!l) throw new NotFoundException('Хичээл олдсонгүй');
     return l;
@@ -119,6 +167,8 @@ export class StudexaScheduleService {
     await this.get(teacher, id);
     this.validate(dto);
     const group = (dto.group ?? '').trim();
+    await this.assertNoConflict(teacher, dto, group, id);
+    const subjectId = await this.subjectFor(teacher, dto.subjectId);
     const lesson = await this.prisma.studexaLesson.update({
       where: { id },
       data: {
@@ -128,6 +178,7 @@ export class StudexaScheduleService {
         startTime: dto.startTime,
         endTime: dto.endTime,
         color: dto.color ?? 'indigo',
+        subjectId,
       },
     });
     await this.notifyGroup(

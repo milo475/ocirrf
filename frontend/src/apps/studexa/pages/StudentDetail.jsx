@@ -6,9 +6,10 @@ import Modal from '../../../components/ui/Modal'
 import { useToast } from '../../../components/ui/Toast'
 import { api } from '../../../lib/api'
 import LineChart from '../components/LineChart'
+import ReportCard from '../components/ReportCard'
 import ScoreTable from '../components/ScoreTable'
 import { Card, Field, inputCls, Loading, LoadError, PageHead, Pill } from '../components/ui'
-import { ATT_STATUS, fmtDate, HW_STATUS, localDateStr, PAY_STATUS } from '../lib/labels'
+import { ATT_STATUS, fmtDate, fmtDateTime, GENDER, HW_STATUS, localDateStr, PAY_STATUS, STUDENT_STATUS } from '../lib/labels'
 import { useApi } from '../lib/useApi'
 
 /** Сурагчийн дэлгэрэнгүй: ахиц, даалгавар, холбоо барих, ирц, төлбөр, дүн */
@@ -21,6 +22,9 @@ export default function StudentDetail() {
   const [del, setDel] = useState(false)
   const [unlink, setUnlink] = useState(false)
   const [scoreOpen, setScoreOpen] = useState(false)
+  const [term, setTerm] = useState('')
+  const { data: terms } = useApi('/studexa/terms')
+  const { data: card, reload: reloadCard } = useApi(`/studexa/students/${id}/report-card${term ? `?term=${term}` : ''}`)
   const uni = me?.teacher?.schoolType === 'UNIVERSITY'
 
   if (loading && !data) return <Loading />
@@ -41,7 +45,7 @@ export default function StudentDetail() {
     <div className="space-y-6">
       <PageHead
         title={s.name}
-        sub={`${s.group || 'Бүлэггүй'} · Ирц: ${s.attendance}%${s.studentCode ? ` · Оюутны код: ${s.studentCode}` : ''}`}
+        sub={`${s.group || 'Бүлэггүй'} · Ирц: ${s.attendance}%${s.studentCode ? ` · Оюутны код: ${s.studentCode}` : ''}${s.status !== 'ACTIVE' ? ` · ${STUDENT_STATUS[s.status]?.label}` : ''}`}
         actions={
           <>
             <Button variant="ghost" onClick={() => navigate(`/studexa/students/${id}/edit`)}>✎ Засах</Button>
@@ -88,8 +92,13 @@ export default function StudentDetail() {
         </div>
 
         <div className="space-y-4">
-          <Card title="Холбоо барих">
+          <Card title="Мэдээлэл, холбоо барих">
             <dl className="text-sm divide-y divide-rule">
+              <Row label="Төлөв"><Pill item={STUDENT_STATUS[s.status] ?? STUDENT_STATUS.ACTIVE} /></Row>
+              <Row label="Регистр / код">{s.registerNo || '—'}</Row>
+              <Row label="Төрсөн огноо">{s.birthDate ? fmtDate(s.birthDate) : '—'}</Row>
+              <Row label="Хүйс">{s.gender ? GENDER[s.gender] : '—'}</Row>
+              <Row label="Хаяг">{s.address || '—'}</Row>
               <Row label="Холбогдсон акаунт">
                 {s.user ? (
                   <span className="flex items-center gap-2">
@@ -124,8 +133,8 @@ export default function StudentDetail() {
               data={data}
               id={id}
               call={call}
-              onDelete={(month) =>
-                api(`/studexa/students/${id}/payments/${month}`, { method: 'DELETE' })
+              onDelete={(year, month) =>
+                api(`/studexa/students/${id}/payments/${year}/${month}`, { method: 'DELETE' })
                   .then(reload)
                   .catch((e) => show(e.message, { type: 'error' }))
               }
@@ -133,6 +142,10 @@ export default function StudentDetail() {
           )}
         </div>
       </div>
+
+      <ReportCard card={card} terms={terms ?? []} term={term} onTerm={setTerm} />
+
+      <NotesCard studentId={id} />
 
       <Card
         title={`Дүнгийн хүснэгт (${fmtDate(s.enrolled)}-нд бүртгүүлсэн)`}
@@ -146,7 +159,7 @@ export default function StudentDetail() {
         <ScoreTable table={data.scoreTable} />
       </Card>
 
-      <AssessmentModal open={scoreOpen} onClose={() => setScoreOpen(false)} studentId={id} onSaved={() => { setScoreOpen(false); reload() }} />
+      <AssessmentModal open={scoreOpen} onClose={() => setScoreOpen(false)} studentId={id} onSaved={() => { setScoreOpen(false); reload(); reloadCard() }} />
       <ConfirmDialog open={del} title="Сурагч устгах" message={`«${s.name}» сурагчийн даалгавар, дүн, төлбөрийн бүх мэдээлэл хамт устана.`} confirmLabel="Тийм, устгах" danger
         onConfirm={async () => { await api(`/studexa/students/${id}`, { method: 'DELETE' }); navigate('/studexa/students') }} onCancel={() => setDel(false)} />
       <ConfirmDialog open={unlink} title="Акаунт салгах" message="Сурагчийн акаунт-холболтыг салгах уу? Сурагч порталаас энэ бүртгэлийг харахаа болино." confirmLabel="Салгах" danger
@@ -166,23 +179,28 @@ function Row({ label, children }) {
 
 function PaymentCard({ data, id, call, onDelete }) {
   const [month, setMonth] = useState(data.currentMonth)
+  const [year, setYear] = useState(data.currentYear ?? new Date().getFullYear())
   const [status, setStatus] = useState('PAID')
+  const years = [data.currentYear - 1, data.currentYear, data.currentYear + 1]
   return (
     <Card title="💳 Сарын төлбөр">
       <ul className="divide-y divide-rule text-sm">
         {data.payments.map((p) => (
           <li key={p.id} className="py-1.5 flex items-center justify-between">
-            <span>{p.month}-р сар</span>
+            <span>{p.year} он · {p.month}-р сар</span>
             <span className="flex items-center gap-2">
               <Pill item={PAY_STATUS[p.status]} />
               <button type="button" className="text-ink-muted hover:text-alarm" title="Энэ сарын бүртгэлийг устгах"
-                onClick={() => onDelete(p.month)}>✕</button>
+                onClick={() => onDelete(p.year, p.month)}>✕</button>
             </span>
           </li>
         ))}
         {data.payments.length === 0 && <li className="py-1.5 text-ink-muted">Сарын төлбөр бүртгэгдээгүй байна.</li>}
       </ul>
-      <form className="mt-3 flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); call(`/studexa/students/${id}/payments`, { month: Number(month), status }, 'Хадгалагдлаа') }}>
+      <form className="mt-3 flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); call(`/studexa/students/${id}/payments`, { year: Number(year), month: Number(month), status }, 'Хадгалагдлаа') }}>
+        <select className={`${inputCls} w-auto`} value={year} onChange={(e) => setYear(e.target.value)}>
+          {years.map((y) => <option key={y} value={y}>{y} он</option>)}
+        </select>
         <select className={`${inputCls} w-auto`} value={month} onChange={(e) => setMonth(e.target.value)}>
           {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => <option key={m} value={m}>{m}-р сар</option>)}
         </select>
@@ -194,6 +212,46 @@ function PaymentCard({ data, id, call, onDelete }) {
         <Button type="submit">Хадгалах</Button>
       </form>
       <p className="mt-2 text-xs text-ink-muted">Аль нэг сар «Хоцорсон» бол сурагчийн ерөнхий төлбөрийн төлөв автоматаар «Хоцорсон» болно.</p>
+    </Card>
+  )
+}
+
+/** Сурагчийн хувийн тэмдэглэл — зан байдал, эцэг эхтэй ярилцсан, анхаарах зүйл (багшид л харагдана) */
+function NotesCard({ studentId }) {
+  const { show } = useToast()
+  const { data: notes, reload } = useApi(`/studexa/students/${studentId}/notes`)
+  const [text, setText] = useState('')
+  const [saving, setSaving] = useState(false)
+  async function add(e) {
+    e.preventDefault()
+    if (!text.trim()) return
+    setSaving(true)
+    try {
+      await api(`/studexa/students/${studentId}/notes`, { method: 'POST', body: { text } })
+      setText('')
+      reload()
+    } catch (err) {
+      show(err.message, { type: 'error' })
+    } finally {
+      setSaving(false)
+    }
+  }
+  return (
+    <Card title="📝 Сурагчийн тэмдэглэл (зан байдал, эцэг эхтэй ярилцсан г.м. — зөвхөн багшид)">
+      <form onSubmit={add} className="flex gap-2">
+        <input className={inputCls} value={text} onChange={(e) => setText(e.target.value)} maxLength={2000} placeholder="ж: 09.04 — ээжтэй нь ярилцав, гэрийн даалгаврыг хянана" />
+        <Button type="submit" loading={saving}>Нэмэх</Button>
+      </form>
+      <ul className="mt-3 divide-y divide-rule text-sm">
+        {(notes ?? []).map((n) => (
+          <li key={n.id} className="py-2 flex gap-3">
+            <span className="font-mono text-xs text-ink-muted whitespace-nowrap">{fmtDateTime(n.createdAt)}</span>
+            <span className="flex-1 whitespace-pre-wrap">{n.text}</span>
+            <button type="button" className="text-ink-muted hover:text-alarm" onClick={() => api(`/studexa/students/${studentId}/notes/${n.id}`, { method: 'DELETE' }).then(reload).catch((e) => show(e.message, { type: 'error' }))}>✕</button>
+          </li>
+        ))}
+        {notes && notes.length === 0 && <li className="py-2 text-ink-muted">Тэмдэглэл алга.</li>}
+      </ul>
     </Card>
   )
 }

@@ -19,6 +19,8 @@ export default function ClassTable({ table }) {
               </th>
             ))}
             <th className="text-right py-2 pl-2 font-normal whitespace-nowrap">Нийт оноо</th>
+            <th className="text-center py-2 pl-2 font-normal" title="Үнэлгээний хуваарь: Хичээл · Улирал хуудас">Үнэлгээ</th>
+            <th className="text-right py-2 pl-2 font-normal">Эрэмбэ</th>
           </tr>
         </thead>
         <tbody>
@@ -37,6 +39,8 @@ export default function ClassTable({ table }) {
                 </td>
               ))}
               <td className="py-2 pl-2 text-right font-mono tabular-nums whitespace-nowrap">{r.grandLabel}</td>
+              <td className="py-2 pl-2 text-center font-mono font-medium">{r.letter ?? '—'}</td>
+              <td className="py-2 pl-2 text-right font-mono tabular-nums">{r.rank ?? '—'}</td>
             </tr>
           ))}
         </tbody>

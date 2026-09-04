@@ -27,6 +27,15 @@ export const PAY_STATUS = {
   OVERDUE: { label: 'Хоцорсон', cls: 'text-alarm border-alarm/40 bg-alarm/10' },
 }
 
+export const GENDER = { MALE: 'Эрэгтэй', FEMALE: 'Эмэгтэй' }
+
+/** Сурагчийн төлөв — төгссөн/шилжсэн нь жагсаалт, ирц, нэгтгэлд орохгүй */
+export const STUDENT_STATUS = {
+  ACTIVE: { label: 'Суралцаж буй', cls: 'text-safe border-safe/40 bg-safe/12' },
+  GRADUATED: { label: 'Төгссөн', cls: 'text-status-new border-status-new/40 bg-status-new/12' },
+  LEFT: { label: 'Шилжсэн', cls: 'text-ink-muted border-rule bg-bg' },
+}
+
 export const LESSON_COLORS = [
   ['indigo', 'Индиго'],
   ['green', 'Ногоон'],

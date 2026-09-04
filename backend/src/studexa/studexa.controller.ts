@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -23,6 +24,8 @@ import { RequirePermission } from '../permissions/require-permission.decorator';
 import { NotificationsService } from '../notifications/notifications.service';
 import { OrgContext } from '../org/org-context';
 import { PrismaService } from '../prisma/prisma.service';
+import { memoryStorage } from 'multer';
+import { StudexaAcademicsService } from './academics.service';
 import { StudexaAttendanceService } from './attendance.service';
 import {
   AnnouncementDto,
@@ -31,6 +34,7 @@ import {
   AttendanceSaveDto,
   ColumnCreateDto,
   GradebookSaveDto,
+  GradingScaleDto,
   GroupAddDto,
   GroupNameDto,
   HomeworkCreateDto,
@@ -44,6 +48,9 @@ import {
   QueryStudentsDto,
   SetupTeacherDto,
   StudentDto,
+  StudentNoteDto,
+  SubjectDto,
+  TermDto,
   UpdateTeacherDto,
 } from './dto/studexa.dto';
 import { StudexaGradebookService } from './gradebook.service';
@@ -75,6 +82,7 @@ export class StudexaController {
     private readonly schedule: StudexaScheduleService,
     private readonly homework: StudexaHomeworkService,
     private readonly notifications: NotificationsService,
+    private readonly academics: StudexaAcademicsService,
   ) {}
 
   // ───────────────────────────── Профайл, самбар
@@ -111,11 +119,174 @@ export class StudexaController {
   async classTable(
     @CurrentUser() user: AuthUser,
     @Query('group') group?: string,
+    @Query('term') term?: string,
   ) {
     return this.students.classTable(
       await this.teachers.require(user),
       group || undefined,
+      term || undefined,
     );
+  }
+
+  /** CSV-ээс бөөнөөр нэмэх (толгой: нэр, бүлэг, утас, аавын нэр … — academics.service) */
+  @Post('students/import')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: 2 * 1024 * 1024 },
+    }),
+  )
+  async importStudents(
+    @CurrentUser() user: AuthUser,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    if (!file?.buffer) throw new BadRequestException('CSV файл хавсаргана уу');
+    return this.academics.importCsv(
+      await this.teachers.require(user),
+      file.buffer,
+    );
+  }
+
+  // ───────────────────────────── Сурагчийн тэмдэглэл, дүнгийн хуудас
+
+  @Get('students/:id/notes')
+  async studentNotes(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.academics.studentNotes(await this.teachers.require(user), id);
+  }
+
+  @Post('students/:id/notes')
+  async addStudentNote(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: StudentNoteDto,
+  ) {
+    return this.academics.addStudentNote(
+      await this.teachers.require(user),
+      id,
+      dto,
+    );
+  }
+
+  @Delete('students/:id/notes/:noteId')
+  async deleteStudentNote(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('noteId', ParseUUIDPipe) noteId: string,
+  ) {
+    return this.academics.deleteStudentNote(
+      await this.teachers.require(user),
+      id,
+      noteId,
+    );
+  }
+
+  @Get('students/:id/report-card')
+  async reportCard(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('term') term?: string,
+  ) {
+    return this.academics.reportCard(
+      await this.teachers.require(user),
+      id,
+      term || undefined,
+    );
+  }
+
+  // ───────────────────────────── Хичээл (судлагдахуун), улирал, үнэлгээ
+
+  @Get('subjects')
+  async subjects(@CurrentUser() user: AuthUser) {
+    return this.academics.subjects(await this.teachers.require(user));
+  }
+
+  @Post('subjects')
+  async createSubject(@CurrentUser() user: AuthUser, @Body() dto: SubjectDto) {
+    return this.academics.createSubject(await this.teachers.require(user), dto);
+  }
+
+  @Patch('subjects/:id')
+  async updateSubject(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SubjectDto,
+  ) {
+    return this.academics.updateSubject(
+      await this.teachers.require(user),
+      id,
+      dto,
+    );
+  }
+
+  @Delete('subjects/:id')
+  async deleteSubject(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.academics.deleteSubject(await this.teachers.require(user), id);
+  }
+
+  @Get('terms')
+  async terms(@CurrentUser() user: AuthUser) {
+    return this.academics.terms(await this.teachers.require(user));
+  }
+
+  @Post('terms')
+  async createTerm(@CurrentUser() user: AuthUser, @Body() dto: TermDto) {
+    return this.academics.createTerm(await this.teachers.require(user), dto);
+  }
+
+  @Patch('terms/:id')
+  async updateTerm(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: TermDto,
+  ) {
+    return this.academics.updateTerm(
+      await this.teachers.require(user),
+      id,
+      dto,
+    );
+  }
+
+  @Post('terms/:id/current')
+  async setCurrentTerm(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.academics.setCurrentTerm(await this.teachers.require(user), id);
+  }
+
+  @Delete('terms/:id')
+  async deleteTerm(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.academics.deleteTerm(await this.teachers.require(user), id);
+  }
+
+  @Get('grading-scale')
+  async gradingScale(@CurrentUser() user: AuthUser) {
+    return this.academics.gradingScale(await this.teachers.require(user));
+  }
+
+  @Post('grading-scale')
+  async setGradingScale(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: GradingScaleDto,
+  ) {
+    return this.academics.setGradingScale(
+      await this.teachers.require(user),
+      dto,
+    );
+  }
+
+  @Delete('grading-scale')
+  async resetGradingScale(@CurrentUser() user: AuthUser) {
+    return this.academics.resetGradingScale(await this.teachers.require(user));
   }
 
   @Post('students')
@@ -169,15 +340,17 @@ export class StudexaController {
     return this.students.setPayment(await this.teachers.require(user), id, dto);
   }
 
-  @Delete('students/:id/payments/:month')
+  @Delete('students/:id/payments/:year/:month')
   async deletePayment(
     @CurrentUser() user: AuthUser,
     @Param('id', ParseUUIDPipe) id: string,
+    @Param('year', ParseIntPipe) year: number,
     @Param('month', ParseIntPipe) month: number,
   ) {
     return this.students.deletePayment(
       await this.teachers.require(user),
       id,
+      year,
       month,
     );
   }
@@ -309,10 +482,12 @@ export class StudexaController {
   async gradebookGet(
     @CurrentUser() user: AuthUser,
     @Query('group') group?: string,
+    @Query('term') term?: string,
   ) {
     return this.gradebook.get(
       await this.teachers.require(user),
       group || undefined,
+      term || undefined,
     );
   }
 
@@ -568,11 +743,13 @@ export class StudexaController {
   async exportGradebook(
     @CurrentUser() user: AuthUser,
     @Query('group') group: string | undefined,
+    @Query('term') term: string | undefined,
     @Res() res: Response,
   ) {
     const csv = await this.gradebook.exportCsv(
       await this.teachers.require(user),
       group || undefined,
+      term || undefined,
     );
     res.setHeader('Content-Disposition', contentDisposition('negtgel.csv'));
     res.send(csv);

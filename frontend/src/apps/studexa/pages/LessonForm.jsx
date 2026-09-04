@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import Button from '../../../components/ui/Button'
 import ConfirmDialog from '../../../components/ui/ConfirmDialog'
 import { useToast } from '../../../components/ui/Toast'
@@ -15,7 +15,8 @@ export default function LessonForm() {
   const navigate = useNavigate()
   const { show } = useToast()
   const { data: groups } = useApi('/studexa/groups')
-  const [form, setForm] = useState({ title: '', group: params.get('group') ?? '', weekday: 0, startTime: '09:00', endTime: '10:30', color: 'indigo' })
+  const { data: subjects } = useApi('/studexa/subjects')
+  const [form, setForm] = useState({ title: '', group: params.get('group') ?? '', weekday: 0, startTime: '09:00', endTime: '10:30', color: 'indigo', subjectId: '' })
   const [loading, setLoading] = useState(Boolean(id))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
@@ -24,7 +25,7 @@ export default function LessonForm() {
   useEffect(() => {
     if (!id) return
     api(`/studexa/lessons/${id}`)
-      .then((l) => setForm({ title: l.title, group: l.group, weekday: l.weekday, startTime: l.startTime, endTime: l.endTime, color: l.color }))
+      .then((l) => setForm({ title: l.title, group: l.group, weekday: l.weekday, startTime: l.startTime, endTime: l.endTime, color: l.color, subjectId: l.subjectId ?? '' }))
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false))
   }, [id])
@@ -56,7 +57,14 @@ export default function LessonForm() {
       <form onSubmit={submit} className="mt-6 space-y-4">
         <Card>
           <div className="space-y-4">
-            <Field label="Хичээл"><input className={inputCls} value={form.title} onChange={set('title')} required maxLength={100} /></Field>
+            <Field label="Хичээлийн нэр"><input className={inputCls} value={form.title} onChange={set('title')} required maxLength={100} placeholder="ж: Математик 10а" /></Field>
+            <Field label="Хичээл (судлагдахуун)" hint="Дүнгийн хуудсанд оноо энэ хичээлээр бүлэглэгдэнэ">
+              <select className={inputCls} value={form.subjectId} onChange={(e) => { const sid = e.target.value; const sub = (subjects ?? []).find((x) => x.id === sid); setForm({ ...form, subjectId: sid, title: form.title || sub?.name || '' }) }}>
+                <option value="">— Сонгоогүй —</option>
+                {(subjects ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+              {(subjects ?? []).length === 0 && <p className="mt-1 text-xs text-ink-muted"><Link className="underline underline-offset-2" to="/studexa/academics">Хичээлийн жагсаалт</Link> хуудсанд хичээлүүдээ бүртгэнэ.</p>}
+            </Field>
             <Field label="Бүлэг" hint="Сурагчийн тоо бүлгээс автоматаар тоологдоно">
               <select className={inputCls} value={form.group} onChange={set('group')}>
                 <option value="">👥 Бүх бүлэгт</option>
@@ -77,7 +85,7 @@ export default function LessonForm() {
                 {LESSON_COLORS.map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
             </Field>
-            <p className="text-xs text-ink-muted">Хичээлийн цаг 07:00–23:00 хооронд байх ёстой.</p>
+            <p className="text-xs text-ink-muted">Хичээлийн цаг 07:00–23:00 хооронд байх ёстой. Ижил бүлгийн (эсвэл бүх бүлгийн) хичээл цаг давхцвал хадгалагдахгүй — зөрчлийг шалгана.</p>
           </div>
         </Card>
         {error && <Notice tone="error">{error}</Notice>}

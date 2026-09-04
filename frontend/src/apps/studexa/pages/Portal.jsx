@@ -5,6 +5,7 @@ import ConfirmDialog from '../../../components/ui/ConfirmDialog'
 import { useToast } from '../../../components/ui/Toast'
 import { api, apiUpload } from '../../../lib/api'
 import LineChart from '../components/LineChart'
+import ReportCard from '../components/ReportCard'
 import ScheduleGrid from '../components/ScheduleGrid'
 import ScoreTable from '../components/ScoreTable'
 import { Card, Field, inputCls, Loading, LoadError, Notice, PageHead, Pill, Stat, Tabs } from '../components/ui'
@@ -19,6 +20,7 @@ const SECTIONS = [
   ['attendance', 'Ирцийн түүх'],
   ['homework', 'Миний даалгавар'],
   ['grades', 'Миний дүн'],
+  ['report', 'Дүнгийн хуудас'],
   ['payment', 'Төлбөр'],
   ['announcements', 'Зарлал'],
 ]
@@ -163,6 +165,8 @@ export default function Portal() {
 
           {sec === 'grades' && <Card title="📊 Миний дүн"><ScoreTable table={cur.scoreTable} /></Card>}
 
+          {sec === 'report' && <PortalReportCard recordId={cur.id} />}
+
           {sec === 'announcements' && (
             cur.announcements.length === 0 ? <Card><p className="text-sm text-ink-muted">Одоогоор зарлал алга.</p></Card> :
             cur.announcements.map((a) => (
@@ -182,7 +186,7 @@ export default function Portal() {
               <Card title="💳 Төлбөрийн түүх">
                 {cur.payments.length === 0 ? <p className="text-sm text-ink-muted">Сарын төлбөрийн бүртгэл хийгдээгүй байна. Дэлгэрэнгүйг багшаасаа лавлана уу.</p> : (
                   <ul className="divide-y divide-rule text-sm">
-                    {cur.payments.map((p) => <li key={p.id} className="py-1.5 flex justify-between"><span>{p.month}-р сар</span><Pill item={PAY_STATUS[p.status]} /></li>)}
+                    {cur.payments.map((p) => <li key={p.id} className="py-1.5 flex justify-between"><span>{p.year} он · {p.month}-р сар</span><Pill item={PAY_STATUS[p.status]} /></li>)}
                   </ul>
                 )}
               </Card>
@@ -194,6 +198,15 @@ export default function Portal() {
         onConfirm={async () => { setLeave(false); await api(`/studexa/portal/leave/${cur.id}`, { method: 'POST' }).catch((e) => show(e.message, { type: 'error' })); go('t', ''); reload() }} onCancel={() => setLeave(false)} />
     </div>
   )
+}
+
+/** Сурагчийн өөрийн улирлын дүнгийн хуудас (багшийнхтай ижил формат) */
+function PortalReportCard({ recordId }) {
+  const [term, setTerm] = useState('')
+  const { data, error, loading, reload } = useApi(`/studexa/portal/report-card?t=${recordId}${term ? `&term=${term}` : ''}`)
+  if (loading && !data) return <Loading />
+  if (error) return <LoadError error={error} onRetry={reload} />
+  return <ReportCard card={data} terms={data.terms} term={term} onTerm={setTerm} title="📄 Миний дүнгийн хуудас" />
 }
 
 function HomeworkItem({ hw, open, today, onDone }) {

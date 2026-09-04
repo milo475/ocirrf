@@ -13,25 +13,41 @@ export default function Gradebook() {
   const { show } = useToast()
   const [params] = useSearchParams()
   const group = params.get('group') ?? ''
-  const qs = group ? `?group=${encodeURIComponent(group)}` : ''
+  const term = params.get('term') ?? ''
+  const q = new URLSearchParams()
+  if (group) q.set('group', group)
+  if (term) q.set('term', term)
+  const qs = q.toString() ? `?${q}` : ''
   const { data, error, loading, reload } = useApi(`/studexa/gradebook${qs}`)
   if (loading && !data) return <Loading />
   if (error) return <LoadError error={error} onRetry={reload} />
+  const termName = term ? data.terms.find((t) => t.id === term)?.name : ''
 
   return (
     <div className="space-y-5">
       <PageHead
         title="Дүнгийн нэгтгэл засах"
-        sub={group ? `📁 ${group}` : 'Нүд болон баганын нэрэнд шууд бичнэ · Оноог хоосолбол устгана · Баганын /тоо хэсгээр дээд оноог өөрчилнө'}
-        actions={<Link className="border border-rule rounded px-3 py-2 text-sm hover:border-ink-muted" to={`/studexa/students/new${qs}`}>+ Сурагч нэмэх</Link>}
+        sub={[group ? `📁 ${group}` : '', termName ? `📅 ${termName}` : '', 'Нүд болон баганын нэрэнд шууд бичнэ · Оноог хоосолбол устгана · Баганын /тоо хэсгээр дээд оноог өөрчилнө'].filter(Boolean).join(' · ')}
+        actions={
+          <>
+            {data.terms.length > 0 && (
+              <select className={`${inputCls} w-auto`} value={term} onChange={(e) => { const n = new URLSearchParams(params); if (e.target.value) n.set('term', e.target.value); else n.delete('term'); navigate(`/studexa/gradebook?${n}`) }} title="Улирлаар шүүх — шинэ багана энэ улиралд хамаарна">
+                <option value="">Бүх улирал</option>
+                {data.terms.map((t) => <option key={t.id} value={t.id}>{t.isCurrent ? '● ' : ''}{t.name}</option>)}
+              </select>
+            )}
+            <Link className="border border-rule rounded px-3 py-2 text-sm hover:border-ink-muted" to="/studexa/academics">Хичээл · Улирал</Link>
+            <Link className="border border-rule rounded px-3 py-2 text-sm hover:border-ink-muted" to={`/studexa/students/new${group ? `?group=${encodeURIComponent(group)}` : ''}`}>+ Сурагч нэмэх</Link>
+          </>
+        }
       />
       {/* key: сервер өгөгдөл шинэчлэгдэх бүрт засварын төлөв дахин эхэлнэ */}
-      <GradebookEditor key={JSON.stringify(data.columns) + data.rows.length} data={data} qs={qs} group={group} reload={reload} navigate={navigate} show={show} />
+      <GradebookEditor key={JSON.stringify(data.columns) + data.rows.length} data={data} qs={qs} group={group} term={term} reload={reload} navigate={navigate} show={show} />
     </div>
   )
 }
 
-function GradebookEditor({ data, qs, group, reload, navigate, show }) {
+function GradebookEditor({ data, qs, group, term, reload, navigate, show }) {
   const [cols, setCols] = useState(() => data.columns.map((c) => ({ ...c })))
   const [cells, setCells] = useState(() => {
     const c = {}
@@ -48,7 +64,7 @@ function GradebookEditor({ data, qs, group, reload, navigate, show }) {
     setSaving(true)
     try {
       const body = {
-        columns: cols.map((c) => ({ id: c.id, name: c.name, maxScore: Number(c.maxScore) || undefined })),
+        columns: cols.map((c) => ({ id: c.id, name: c.name, maxScore: Number(c.maxScore) || undefined, subjectId: c.subjectId ?? '', termId: c.termId ?? '' })),
         cells: Object.entries(cells).map(([k, v]) => { const [columnId, studentId] = k.split('|'); return { columnId, studentId, value: v } }),
         attendance: Object.entries(att).map(([studentId, value]) => ({ studentId, value })),
         hwPercent: Object.entries(hw).map(([studentId, value]) => ({ studentId, value })),
@@ -66,7 +82,7 @@ function GradebookEditor({ data, qs, group, reload, navigate, show }) {
   async function addColumn(e) {
     e.preventDefault()
     try {
-      await api('/studexa/gradebook/columns', { method: 'POST', body: { name: newCol.name, maxScore: Number(newCol.max) || 100 } })
+      await api('/studexa/gradebook/columns', { method: 'POST', body: { name: newCol.name, maxScore: Number(newCol.max) || 100, subjectId: newCol.subjectId || undefined, termId: newCol.termId || undefined } })
       setNewCol(null)
       reload()
     } catch (err) {
@@ -99,18 +115,50 @@ function GradebookEditor({ data, qs, group, reload, navigate, show }) {
                     <div className="mt-1 flex items-center gap-1 text-ink-muted">
                       /<input type="number" min={1} max={1000} className={`${inputCls} py-1 w-20`} value={c.maxScore} onChange={(e) => setCols(cols.map((x, j) => (j === i ? { ...x, maxScore: e.target.value } : x)))} />
                     </div>
+                    {(data.subjects.length > 0 || data.terms.length > 0) && (
+                      <div className="mt-1 flex flex-col gap-1 normal-case tracking-normal">
+                        {data.subjects.length > 0 && (
+                          <select className={`${inputCls} py-0.5 text-xs`} value={c.subjectId ?? ''} title="Хичээл" onChange={(e) => setCols(cols.map((x, j) => (j === i ? { ...x, subjectId: e.target.value } : x)))}>
+                            <option value="">— хичээл —</option>
+                            {data.subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                          </select>
+                        )}
+                        {data.terms.length > 0 && (
+                          <select className={`${inputCls} py-0.5 text-xs`} value={c.termId ?? ''} title="Улирал" onChange={(e) => setCols(cols.map((x, j) => (j === i ? { ...x, termId: e.target.value } : x)))}>
+                            <option value="">— улирал —</option>
+                            {data.terms.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                          </select>
+                        )}
+                      </div>
+                    )}
                   </th>
                 ))}
                 <th className="py-2 pl-2 font-normal">
                   {newCol ? (
-                    <form onSubmit={addColumn} className="flex items-center gap-1">
-                      <input className={`${inputCls} py-1 w-32`} placeholder="Баганын нэр" value={newCol.name} onChange={(e) => setNewCol({ ...newCol, name: e.target.value })} autoFocus required />
-                      <input type="number" className={`${inputCls} py-1 w-20`} min={1} max={1000} value={newCol.max} onChange={(e) => setNewCol({ ...newCol, max: e.target.value })} />
-                      <Button type="submit">✓</Button>
-                      <Button variant="ghost" onClick={() => setNewCol(null)}>✕</Button>
+                    <form onSubmit={addColumn} className="flex flex-col gap-1 normal-case tracking-normal min-w-40">
+                      <div className="flex items-center gap-1">
+                        <input className={`${inputCls} py-1 w-32`} placeholder="Баганын нэр" value={newCol.name} onChange={(e) => setNewCol({ ...newCol, name: e.target.value })} autoFocus required />
+                        <input type="number" className={`${inputCls} py-1 w-20`} min={1} max={1000} value={newCol.max} onChange={(e) => setNewCol({ ...newCol, max: e.target.value })} />
+                      </div>
+                      {data.subjects.length > 0 && (
+                        <select className={`${inputCls} py-0.5 text-xs`} value={newCol.subjectId} onChange={(e) => setNewCol({ ...newCol, subjectId: e.target.value })}>
+                          <option value="">— хичээл —</option>
+                          {data.subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        </select>
+                      )}
+                      {data.terms.length > 0 && (
+                        <select className={`${inputCls} py-0.5 text-xs`} value={newCol.termId} onChange={(e) => setNewCol({ ...newCol, termId: e.target.value })}>
+                          <option value="">— улирал —</option>
+                          {data.terms.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                        </select>
+                      )}
+                      <div className="flex gap-1">
+                        <Button type="submit">✓</Button>
+                        <Button variant="ghost" onClick={() => setNewCol(null)}>✕</Button>
+                      </div>
                     </form>
                   ) : (
-                    <Button variant="ghost" onClick={() => setNewCol({ name: '', max: 100 })} title="Шинэ багана нэмэх">+</Button>
+                    <Button variant="ghost" onClick={() => setNewCol({ name: '', max: 100, subjectId: '', termId: term || (data.terms.find((t) => t.isCurrent)?.id ?? '') })} title="Шинэ багана нэмэх">+</Button>
                   )}
                 </th>
               </tr>

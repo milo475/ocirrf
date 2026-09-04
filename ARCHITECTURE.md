@@ -164,7 +164,7 @@ bundle-д, ursgal-ийн 28 хуудас `app-ursgal-*.js`-д (≈308 kB / gzip 
 | `platform-apps.e2e-spec.ts` | App Registry, идэвхжүүлэлт, SPA |
 | `platform-admin.e2e-spec.ts` | SUPERADMIN консол, түдгэлзүүлэлт, каталог |
 | `platform-flow.e2e-spec.ts` | Бүтэн урсгал нэг integration тестээр |
-| `studexa.e2e-spec.ts` | Studexa (app 11): багш/сурагчийн урсгал, файлын эрх, cross-tenant |
+| `studexa.e2e-spec.ts` | Studexa (app 11): багш/сурагчийн урсгал, файлын эрх, cross-tenant, сургуулийн нэмэлтүүд (улирал, дүнгийн хуудас, зөрчил, импорт) |
 
 Тестүүд тусдаа `ocirrf_test` DB дээр ажиллана (`test/jest-e2e.setup.js`).
 

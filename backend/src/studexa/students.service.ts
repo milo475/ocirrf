@@ -4,7 +4,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { StudexaMonthPayState } from '../generated/prisma/client';
+import {
+  StudexaMonthPayState,
+  StudexaStudentStatus,
+} from '../generated/prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
 import { OrgContext } from '../org/org-context';
 import { PrismaService } from '../prisma/prisma.service';
@@ -24,6 +27,7 @@ import {
   ChartPoint,
   clip,
   groupNameError,
+  normalizeScale,
   recalcAttendance,
   shortDate,
   syncPaymentStatus,
@@ -37,6 +41,11 @@ const STUDENT_SELECT = {
   id: true,
   name: true,
   studentCode: true,
+  registerNo: true,
+  birthDate: true,
+  gender: true,
+  address: true,
+  status: true,
   group: true,
   attendance: true,
   attendedLessons: true,
@@ -97,6 +106,10 @@ export class StudexaStudentsService {
           ? { group: q.group }
           : {}),
       ...(q.payment ? { paymentStatus: q.payment } : {}),
+      // Төгссөн/шилжсэн сурагч default-аар нуугдана (status=ALL бол бүгд)
+      ...(q.status === 'ALL'
+        ? {}
+        : { status: (q.status ?? 'ACTIVE') as StudexaStudentStatus }),
     };
     const [
       items,
@@ -117,7 +130,7 @@ export class StudexaStudentsService {
       this.prisma.studexaStudent.count({ where }),
       this.groupCards(teacher),
       this.prisma.studexaStudent.count({
-        where: { teacherId: teacher.id, group: '' },
+        where: { teacherId: teacher.id, group: '', status: 'ACTIVE' },
       }),
       this.joinRequests(teacher),
       this.prisma.studexaStudent.findMany({
@@ -145,7 +158,7 @@ export class StudexaStudentsService {
     const [counts, names] = await Promise.all([
       this.prisma.studexaStudent.groupBy({
         by: ['group'],
-        where: { teacherId: teacher.id, group: { not: '' } },
+        where: { teacherId: teacher.id, group: { not: '' }, status: 'ACTIVE' },
         _count: { _all: true },
       }),
       this.prisma.studexaGroup.findMany({
@@ -163,9 +176,21 @@ export class StudexaStudentsService {
   }
 
   /** Ангийн нэгтгэл (бүлгээр шүүж болно) — жагсаалтын хуудасны хүснэгт */
-  async classTable(teacher: TeacherCtx, group?: string) {
+  async classTable(teacher: TeacherCtx, group?: string, termId?: string) {
+    const scale = normalizeScale(
+      (
+        await this.prisma.studexaTeacher.findUnique({
+          where: { id: teacher.id },
+          select: { gradingScale: true },
+        })
+      )?.gradingScale,
+    );
     const students = await this.prisma.studexaStudent.findMany({
-      where: { teacherId: teacher.id, ...(group ? { group } : {}) },
+      where: {
+        teacherId: teacher.id,
+        status: 'ACTIVE',
+        ...(group ? { group } : {}),
+      },
       select: {
         id: true,
         name: true,
@@ -175,7 +200,10 @@ export class StudexaStudentsService {
       },
       orderBy: [{ group: 'asc' }, { name: 'asc' }],
     });
-    return buildClassTable(this.prisma, teacher.id, students);
+    return buildClassTable(this.prisma, teacher.id, students, {
+      termId,
+      scale,
+    });
   }
 
   // ───────────────────────────── CRUD
@@ -196,6 +224,11 @@ export class StudexaStudentsService {
         fatherPhone: dto.fatherPhone?.trim() ?? '',
         motherName: dto.motherName?.trim() ?? '',
         motherPhone: dto.motherPhone?.trim() ?? '',
+        registerNo: dto.registerNo?.trim() ?? '',
+        birthDate: dto.birthDate ?? null,
+        gender: dto.gender ?? null,
+        address: dto.address?.trim() ?? '',
+        status: dto.status ?? 'ACTIVE',
       },
       select: STUDENT_SELECT,
     });
@@ -220,7 +253,7 @@ export class StudexaStudentsService {
         }),
         this.prisma.studexaPayment.findMany({
           where: { studentId: id },
-          orderBy: { month: 'asc' },
+          orderBy: [{ year: 'desc' }, { month: 'asc' }],
         }),
         this.prisma.studexaAttendanceRecord.findMany({
           where: { studentId: id },
@@ -248,6 +281,7 @@ export class StudexaStudentsService {
       attendances,
       progressChart: buildLineChart(chart),
       currentMonth: Number(todayStr().slice(5, 7)),
+      currentYear: Number(todayStr().slice(0, 4)),
     };
   }
 
@@ -277,6 +311,13 @@ export class StudexaStudentsService {
         ...(dto.motherPhone !== undefined
           ? { motherPhone: dto.motherPhone.trim() }
           : {}),
+        ...(dto.registerNo !== undefined
+          ? { registerNo: dto.registerNo.trim() }
+          : {}),
+        ...(dto.birthDate !== undefined ? { birthDate: dto.birthDate } : {}),
+        ...(dto.gender !== undefined ? { gender: dto.gender } : {}),
+        ...(dto.address !== undefined ? { address: dto.address.trim() } : {}),
+        ...(dto.status !== undefined ? { status: dto.status } : {}),
       },
       select: STUDENT_SELECT,
     });
@@ -311,17 +352,20 @@ export class StudexaStudentsService {
   async setPayment(teacher: TeacherCtx, id: string, dto: PaymentSetDto) {
     await this.requireStudent(teacher, id);
     const organizationId = OrgContext.require();
+    const year = dto.year ?? Number(todayStr().slice(0, 4));
     await this.prisma.studexaPayment.upsert({
       where: {
-        organizationId_studentId_month: {
+        organizationId_studentId_year_month: {
           organizationId,
           studentId: id,
+          year,
           month: dto.month,
         },
       },
       create: {
         organizationId,
         studentId: id,
+        year,
         month: dto.month,
         status: dto.status,
       },
@@ -331,10 +375,15 @@ export class StudexaStudentsService {
     return { ok: true };
   }
 
-  async deletePayment(teacher: TeacherCtx, id: string, month: number) {
+  async deletePayment(
+    teacher: TeacherCtx,
+    id: string,
+    year: number,
+    month: number,
+  ) {
     await this.requireStudent(teacher, id);
     await this.prisma.studexaPayment.deleteMany({
-      where: { studentId: id, month },
+      where: { studentId: id, year, month },
     });
     await syncPaymentStatus(this.prisma, id);
     return { ok: true };
@@ -356,12 +405,13 @@ export class StudexaStudentsService {
       );
     }
     const organizationId = OrgContext.require();
-    let column;
+    let column: { id: string; maxScore: number };
     if (dto.columnId) {
-      column = await this.prisma.studexaGradeColumn.findFirst({
+      const found = await this.prisma.studexaGradeColumn.findFirst({
         where: { id: dto.columnId, teacherId: teacher.id },
       });
-      if (!column) throw new NotFoundException('Багана олдсонгүй');
+      if (!found) throw new NotFoundException('Багана олдсонгүй');
+      column = found;
     } else {
       const last = await this.prisma.studexaGradeColumn.findFirst({
         where: { teacherId: teacher.id },

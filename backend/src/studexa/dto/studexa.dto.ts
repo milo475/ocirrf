@@ -25,10 +25,12 @@ import {
 } from 'class-validator';
 import {
   StudexaAttendanceStatus,
+  StudexaGender,
   StudexaHomeworkStatus,
   StudexaMonthPayState,
   StudexaPayState,
   StudexaSchoolType,
+  StudexaStudentStatus,
 } from '../../generated/prisma/client';
 
 import { isValidDateStr } from '../studexa.util';
@@ -97,6 +99,15 @@ export class StudentDto {
   @IsOptional() @IsString() @MaxLength(20) fatherPhone?: string;
   @IsOptional() @IsString() @MaxLength(100) motherName?: string;
   @IsOptional() @IsString() @MaxLength(20) motherPhone?: string;
+  // Сургуулийн профайл
+  @IsOptional() @IsString() @MaxLength(30) registerNo?: string;
+  @EmptyToUndefined() @IsOptional() @IsString() @IsDateStr() birthDate?: string;
+  @EmptyToUndefined()
+  @IsOptional()
+  @IsEnum(StudexaGender)
+  gender?: StudexaGender;
+  @IsOptional() @IsString() @MaxLength(200) address?: string;
+  @IsOptional() @IsEnum(StudexaStudentStatus) status?: StudexaStudentStatus;
 }
 
 export class QueryStudentsDto {
@@ -107,6 +118,11 @@ export class QueryStudentsDto {
   @IsOptional()
   @IsEnum(StudexaPayState)
   payment?: StudexaPayState;
+  /** ACTIVE (default) | GRADUATED | LEFT | ALL */
+  @EmptyToUndefined()
+  @IsOptional()
+  @IsIn(['ACTIVE', 'GRADUATED', 'LEFT', 'ALL'])
+  status?: string;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number = 1;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) limit?: number =
     20;
@@ -127,6 +143,14 @@ export class GroupAddDto {
 }
 
 export class PaymentSetDto {
+  /** Он — өгөхгүй бол энэ он */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(2000)
+  @Max(2100)
+  year?: number;
+
   @Type(() => Number)
   @IsInt()
   @Min(1)
@@ -181,6 +205,8 @@ export class AttendanceSaveDto extends AttendanceQueryDto {
   /** { studentId: 'PRESENT' | 'LATE' | 'ABSENT' } */
   @IsObject()
   statuses: Record<string, StudexaAttendanceStatus>;
+  /** Хичээлийн сэдэв (журнал) — хичээл сонгосон үед */
+  @IsOptional() @IsString() @MaxLength(500) topic?: string;
 }
 
 // ───────────────────────────── Дүнгийн нэгтгэл
@@ -201,6 +227,9 @@ export class GradeColumnEditDto {
   @Min(1)
   @Max(1000)
   maxScore?: number;
+  /** '' — хичээлгүй болгоно; undefined — өөрчлөхгүй */
+  @IsOptional() @IsString() @MaxLength(40) subjectId?: string;
+  @IsOptional() @IsString() @MaxLength(40) termId?: string;
 }
 
 export class GradeStudentValueDto {
@@ -247,6 +276,38 @@ export class ColumnCreateDto {
   @Min(1)
   @Max(1000)
   maxScore?: number;
+  @EmptyToUndefined() @IsOptional() @IsUUID('4') subjectId?: string;
+  @EmptyToUndefined() @IsOptional() @IsUUID('4') termId?: string;
+}
+
+// ───────────────────────────── Хичээл, улирал, үнэлгээ (сургуулийн нэмэлт)
+
+export class SubjectDto {
+  @IsString() @MinLength(1) @MaxLength(100) name: string;
+  @IsOptional() @IsIn(['indigo', 'green', 'purple']) color?: string;
+}
+
+export class TermDto {
+  @IsString() @MinLength(1) @MaxLength(100) name: string;
+  @IsString() @IsDateStr() startDate: string;
+  @IsString() @IsDateStr() endDate: string;
+}
+
+export class GradingStepDto {
+  @Type(() => Number) @IsInt() @Min(0) @Max(100) min: number;
+  @IsString() @MinLength(1) @MaxLength(8) label: string;
+}
+
+export class GradingScaleDto {
+  @IsArray()
+  @ArrayMaxSize(12)
+  @ValidateNested({ each: true })
+  @Type(() => GradingStepDto)
+  scale: GradingStepDto[];
+}
+
+export class StudentNoteDto {
+  @IsString() @MinLength(1) @MaxLength(2000) text: string;
 }
 
 // ───────────────────────────── Хуваарь
@@ -262,6 +323,8 @@ export class LessonDto {
   @Matches(TIME, { message: 'Цаг HH:MM хэлбэртэй байна' })
   endTime: string;
   @IsOptional() @IsIn(['indigo', 'green', 'purple']) color?: string;
+  /** Хичээл (судлагдахуун) — '' бол хоосон */
+  @IsOptional() @IsString() @MaxLength(40) subjectId?: string;
 }
 
 // ───────────────────────────── Даалгавар

@@ -1,12 +1,12 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import Button from '../../../components/ui/Button'
 import ConfirmDialog from '../../../components/ui/ConfirmDialog'
 import { useToast } from '../../../components/ui/Toast'
-import { api } from '../../../lib/api'
+import { api, apiUpload } from '../../../lib/api'
 import ClassTable from '../components/ClassTable'
 import { Card, inputCls, Loading, LoadError, Notice, PageHead, Pill } from '../components/ui'
-import { PAY_STATUS } from '../lib/labels'
+import { PAY_STATUS, STUDENT_STATUS } from '../lib/labels'
 import { downloadFile, useApi } from '../lib/useApi'
 
 /** Сурагчдын жагсаалт + бүлгийн картууд + элсэх хүсэлтүүд + ангийн нэгтгэл */
@@ -17,14 +17,22 @@ export default function Students() {
   const q = params.get('q') ?? ''
   const group = params.get('group') ?? ''
   const payment = params.get('payment') ?? ''
+  const status = params.get('status') ?? ''
+  const term = params.get('term') ?? ''
   const page = Number(params.get('page') ?? 1)
   const qs = new URLSearchParams({ page: String(page), limit: '50' })
   if (q) qs.set('q', q)
   if (group) qs.set('group', group)
   if (payment) qs.set('payment', payment)
+  if (status) qs.set('status', status)
   const { data, error, loading, reload } = useApi(`/studexa/students?${qs}`)
   const { data: me } = useApi('/studexa/me')
-  const { data: table, reload: reloadTable } = useApi('/studexa/class-table')
+  const { data: terms } = useApi('/studexa/terms')
+  const tableQ = term ? `?term=${encodeURIComponent(term)}` : ''
+  const { data: table, reload: reloadTable } = useApi(`/studexa/class-table${tableQ}`)
+  const fileRef = useRef(null)
+  const [importing, setImporting] = useState(false)
+  const [importResult, setImportResult] = useState(null)
   const [newGroup, setNewGroup] = useState('')
   const [notice, setNotice] = useState(null)
   const [del, setDel] = useState(null)
@@ -68,6 +76,25 @@ export default function Students() {
     reload()
   }
 
+  /** CSV импорт — толгой: нэр, бүлэг, утас, аавын нэр, аавын утас, ээжийн нэр, ээжийн утас, төрсөн огноо, хүйс, регистр, хаяг */
+  async function importCsv(file) {
+    if (!file) return
+    setImporting(true)
+    setImportResult(null)
+    try {
+      const r = await apiUpload('/studexa/students/import', { file })
+      setImportResult(r)
+      show(`${r.created} сурагч нэмэгдлээ`)
+      reload()
+      reloadTable()
+    } catch (err) {
+      show(err.message, { type: 'error' })
+    } finally {
+      setImporting(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
+
   async function remove() {
     try {
       await api(`/studexa/students/${del.id}`, { method: 'DELETE' })
@@ -90,11 +117,21 @@ export default function Students() {
         actions={
           <>
             <Link to="/studexa/attendance" className="border border-rule rounded px-3 py-2 text-sm hover:border-ink-muted">📋 Ирц бүртгэх</Link>
+            <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={(e) => importCsv(e.target.files?.[0])} />
+            <Button variant="ghost" loading={importing} onClick={() => fileRef.current?.click()} title="CSV толгой: нэр, бүлэг, утас, аавын нэр, аавын утас, ээжийн нэр, ээжийн утас, төрсөн огноо, хүйс, регистр, хаяг">⬆ CSV импорт</Button>
             <Button onClick={() => navigate('/studexa/students/new')}>+ Сурагч нэмэх</Button>
           </>
         }
       />
       {notice && <Notice tone="error">{notice}</Notice>}
+      {importResult && (
+        <Notice tone={importResult.skipped.length ? 'error' : 'ok'}>
+          ✓ {importResult.created} сурагч нэмэгдлээ.
+          {importResult.skipped.length > 0 && (
+            <> Алгассан {importResult.skipped.length} мөр: {importResult.skipped.slice(0, 5).map((s) => `${s.line}-р мөр — ${s.reason}`).join('; ')}{importResult.skipped.length > 5 ? ' …' : ''}</>
+          )}
+        </Notice>
+      )}
 
       {data.joinRequests.length > 0 && (
         <Card title="🔔 Элсэх хүсэлтүүд">
@@ -165,6 +202,12 @@ export default function Students() {
             <option value="OVERDUE">Хоцорсон</option>
           </select>
         )}
+        <select className={`${inputCls} w-auto`} value={status} onChange={(e) => setParam('status', e.target.value)} title="Төгссөн/шилжсэн сурагч default-аар нуугдана">
+          <option value="">Суралцаж буй</option>
+          <option value="GRADUATED">Төгссөн</option>
+          <option value="LEFT">Шилжсэн</option>
+          <option value="ALL">Бүгд (төгссөн, шилжсэн хамт)</option>
+        </select>
         <span className="text-xs text-ink-muted ml-auto">{data.total} сурагч</span>
       </div>
 
@@ -193,7 +236,7 @@ export default function Students() {
                       <Link className="hover:text-accent" to={`/studexa/students/${s.id}`}>{s.name}</Link>
                     </td>
                     {uni && <td className="py-2 px-2 font-mono">{s.studentCode || '—'}</td>}
-                    <td className="py-2 px-2">{s.group || <span className="text-ink-muted">—</span>}</td>
+                    <td className="py-2 px-2">{s.group || <span className="text-ink-muted">—</span>}{s.status !== 'ACTIVE' && <> <Pill item={STUDENT_STATUS[s.status]} /></>}</td>
                     <td className="py-2 px-2 text-right font-mono tabular-nums">{s.attendance}%</td>
                     {!uni && <td className="py-2 px-2"><Pill item={PAY_STATUS[s.paymentStatus]} /></td>}
                     <td className="py-2 px-2 font-mono">{s.phone || '—'}</td>
@@ -221,8 +264,14 @@ export default function Students() {
         title="Дүнгийн нэгтгэл (өөрийн тохируулсан баганаар)"
         action={
           <>
-            <Button variant="ghost" onClick={() => downloadFile('/studexa/export/gradebook.csv', 'negtgel.csv').catch((e) => show(e.message, { type: 'error' }))}>⬇ CSV</Button>
-            <Button onClick={() => navigate('/studexa/gradebook')}>✎ Нэгтгэл засах</Button>
+            {(terms ?? []).length > 0 && (
+              <select className={`${inputCls} w-auto`} value={term} onChange={(e) => setParam('term', e.target.value)} title="Улирлаар шүүх">
+                <option value="">Бүх улирал</option>
+                {terms.map((t) => <option key={t.id} value={t.id}>{t.isCurrent ? '● ' : ''}{t.name}</option>)}
+              </select>
+            )}
+            <Button variant="ghost" onClick={() => downloadFile(`/studexa/export/gradebook.csv${tableQ}`, 'negtgel.csv').catch((e) => show(e.message, { type: 'error' }))}>⬇ CSV</Button>
+            <Button onClick={() => navigate(`/studexa/gradebook${tableQ}`)}>✎ Нэгтгэл засах</Button>
           </>
         }
       >

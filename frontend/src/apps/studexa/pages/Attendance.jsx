@@ -44,7 +44,7 @@ export default function Attendance() {
           </>
         }
       />
-      {saved && <Notice>✓ {saved.day.replace(/-/g, '.')}-ний ирц хадгалагдлаа ({saved.saved} сурагч). Сурагчдын ирцийн хувь шинэчлэгдсэн.</Notice>}
+      {saved && <Notice>✓ {saved.day.replace(/-/g, '.')}-ний ирц хадгалагдлаа ({saved.saved} сурагч). Сурагчдын ирцийн хувь шинэчлэгдсэн.{saved.absentNotified ? ` Тасалсан ${saved.absentNotified} сурагчид мэдэгдэл илгээгдлээ.` : ''}</Notice>}
 
       {data.groups.length > 0 && (
         <Tabs items={[['', '👥 Бүх бүлэг'], ...data.groups.map((g) => [g, `📁 ${g}`])]} value={group} onChange={(v) => setParam('group', v)} />
@@ -83,6 +83,7 @@ function AttendanceEditor({ data, onSaved }) {
     for (const r of data.rows) if (r.status) init[r.student.id] = r.status
     return init
   })
+  const [topic, setTopic] = useState(data.topic ?? '')
   const [saving, setSaving] = useState(false)
 
   async function save() {
@@ -90,7 +91,7 @@ function AttendanceEditor({ data, onSaved }) {
     try {
       const r = await api('/studexa/attendance', {
         method: 'POST',
-        body: { date: data.day, lessonId: data.lesson?.id, group: data.group || undefined, statuses },
+        body: { date: data.day, lessonId: data.lesson?.id, group: data.group || undefined, statuses, ...(data.lesson ? { topic } : {}) },
       })
       onSaved(r)
     } catch (e) {
@@ -102,6 +103,12 @@ function AttendanceEditor({ data, onSaved }) {
 
   return (
     <>
+      {data.lesson && (
+        <Card title="📖 Хичээлийн сэдэв (журнал)">
+          <input className={inputCls} value={topic} onChange={(e) => setTopic(e.target.value)} maxLength={500} placeholder="Өнөөдөр юу үзсэн — ж: Квадрат тэгшитгэл, §12" />
+          <p className="mt-1 text-xs text-ink-muted">Ирцтэй хамт хадгалагдана; хичээл бүрийн өдөр бүрийн сэдэв бүртгэгдэнэ.</p>
+        </Card>
+      )}
       <div>
         <Button variant="ghost" onClick={() => { const all = {}; for (const r of data.rows) all[r.student.id] = 'PRESENT'; setStatuses(all) }}>Бүгдийг «Ирсэн» болгох</Button>
       </div>

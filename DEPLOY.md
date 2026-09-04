@@ -97,6 +97,11 @@ Multitenancy-ийн ДАРАА энэ дарааллаар (prisma migrate deplo
    хүснэгт + 5 enum + каталогт `studexa` ACTIVE INSERT + default
    байгууллагад идэвхжүүлэлт. Хуучин хүснэгтэд хүрэхгүй, ердийн
    `prisma migrate deploy`-оор суудаг; `UPLOADS_DIR`-д `sx-*` файлууд нэмэгдэнэ.
+   `20260904150000_studexa_school_features` — 4 шинэ хүснэгт (Subject, Term,
+   StudentNote, LessonEntry), Student-д профайл/төлөв, GradeColumn/Lesson-д
+   subject/term, `StudexaPayment.year` (одоо байгаа мөрүүд ЭНЭ ОНООР
+   бөглөгдөнө — өмнөх оны төлбөр байсан бол гараар засна) + unique
+   (org, student, year, month). Ердийн `migrate deploy`.
 2. `20260902180000_app_registry` — Application + OrganizationApp,
    каталогийн 6 app seed, бүх байгууллагад ursgal идэвхжинэ. Хуучин
    кодтой зэрэгцэн ажиллаж БОЛНО (шинэ хүснэгтүүд л нэмэгддэг).

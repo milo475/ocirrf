@@ -4,11 +4,13 @@ import Button from '../../../components/ui/Button'
 import { useToast } from '../../../components/ui/Toast'
 import { api } from '../../../lib/api'
 import { Card, Field, inputCls, Loading, Notice, PageHead } from '../components/ui'
+import { GENDER, STUDENT_STATUS } from '../lib/labels'
 import { useApi } from '../lib/useApi'
 
 const EMPTY = {
   name: '', group: '', studentCode: '', paymentStatus: 'PAID', phone: '',
   fatherName: '', fatherPhone: '', motherName: '', motherPhone: '',
+  registerNo: '', birthDate: '', gender: '', address: '', status: 'ACTIVE',
 }
 
 /** Сурагч нэмэх / засах */
@@ -34,6 +36,8 @@ export default function StudentForm() {
           name: s.name, group: s.group, studentCode: s.studentCode, paymentStatus: s.paymentStatus,
           phone: s.phone, fatherName: s.fatherName, fatherPhone: s.fatherPhone,
           motherName: s.motherName, motherPhone: s.motherPhone,
+          registerNo: s.registerNo ?? '', birthDate: s.birthDate ?? '', gender: s.gender ?? '',
+          address: s.address ?? '', status: s.status ?? 'ACTIVE',
         })
       })
       .catch((e) => setError(e.message))
@@ -95,6 +99,28 @@ export default function StudentForm() {
             <Field label="Утас">
               <input className={inputCls} value={form.phone} onChange={set('phone')} maxLength={20} />
             </Field>
+          </div>
+        </Card>
+        <Card title="Сургуулийн профайл">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Регистр / сурагчийн код"><input className={inputCls} value={form.registerNo} onChange={set('registerNo')} maxLength={30} /></Field>
+            <Field label="Төрсөн огноо"><input type="date" className={inputCls} value={form.birthDate} onChange={set('birthDate')} /></Field>
+            <Field label="Хүйс">
+              <select className={inputCls} value={form.gender} onChange={set('gender')}>
+                <option value="">—</option>
+                {Object.entries(GENDER).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
+            </Field>
+            {id && (
+              <Field label="Төлөв" hint="Төгссөн/шилжсэн сурагч жагсаалт, ирц, нэгтгэлд орохгүй (мэдээлэл хадгалагдана)">
+                <select className={inputCls} value={form.status} onChange={set('status')}>
+                  {Object.entries(STUDENT_STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                </select>
+              </Field>
+            )}
+            <div className="sm:col-span-2">
+              <Field label="Гэрийн хаяг"><input className={inputCls} value={form.address} onChange={set('address')} maxLength={200} /></Field>
+            </div>
           </div>
         </Card>
         <Card title="Эцэг эхийн мэдээлэл">

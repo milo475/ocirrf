@@ -25,17 +25,47 @@ function toScore(raw: string | undefined, top = 100): number | null {
 export class StudexaGradebookService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private columns(teacherId: string) {
+  private columns(teacherId: string, termId?: string) {
     return this.prisma.studexaGradeColumn.findMany({
-      where: { teacherId },
+      where: { teacherId, ...(termId ? { termId } : {}) },
       orderBy: [{ order: 'asc' }, { id: 'asc' }],
     });
   }
 
-  async get(teacher: TeacherCtx, group?: string) {
-    const [students, columns] = await Promise.all([
+  /** subjectId/termId багшийнх мөн эсэхийг шалгана ('' → null, undefined → өөрчлөхгүй) */
+  private async refFor(
+    teacher: TeacherCtx,
+    kind: 'subject' | 'term',
+    raw: string | undefined,
+  ): Promise<string | null | undefined> {
+    if (raw === undefined) return undefined;
+    const id = raw.trim();
+    if (!id) return null;
+    const found =
+      kind === 'subject'
+        ? await this.prisma.studexaSubject.findFirst({
+            where: { id, teacherId: teacher.id },
+            select: { id: true },
+          })
+        : await this.prisma.studexaTerm.findFirst({
+            where: { id, teacherId: teacher.id },
+            select: { id: true },
+          });
+    if (!found)
+      throw new BadRequestException(
+        kind === 'subject' ? 'Хичээл олдсонгүй' : 'Улирал олдсонгүй',
+      );
+    return found.id;
+  }
+
+  async get(teacher: TeacherCtx, group?: string, termId?: string) {
+    const [students, columns, subjects, terms] = await Promise.all([
       this.prisma.studexaStudent.findMany({
-        where: { teacherId: teacher.id, ...(group ? { group } : {}) },
+        where: {
+          teacherId: teacher.id,
+          status: 'ACTIVE',
+          ...(group ? { group } : {}),
+        },
         select: {
           id: true,
           name: true,
@@ -45,7 +75,17 @@ export class StudexaGradebookService {
         },
         orderBy: [{ group: 'asc' }, { name: 'asc' }],
       }),
-      this.columns(teacher.id),
+      this.columns(teacher.id, termId),
+      this.prisma.studexaSubject.findMany({
+        where: { teacherId: teacher.id },
+        orderBy: { name: 'asc' },
+        select: { id: true, name: true, color: true },
+      }),
+      this.prisma.studexaTerm.findMany({
+        where: { teacherId: teacher.id },
+        orderBy: { startDate: 'desc' },
+        select: { id: true, name: true, isCurrent: true },
+      }),
     ]);
     const ids = students.map((s) => s.id);
     const [assessments, withRecords] = await Promise.all([
@@ -68,10 +108,15 @@ export class StudexaGradebookService {
       scores.set(`${a.studentId}|${a.columnId}`, a.score);
     return {
       group: group ?? '',
+      termId: termId ?? '',
+      subjects,
+      terms,
       columns: columns.map((c) => ({
         id: c.id,
         name: c.name,
         maxScore: c.maxScore,
+        subjectId: c.subjectId,
+        termId: c.termId,
       })),
       rows: students.map((s) => ({
         student: { id: s.id, name: s.name, group: s.group },
@@ -116,7 +161,11 @@ export class StudexaGradebookService {
     const columns = await this.columns(teacher.id);
     const colById = new Map(columns.map((c) => [c.id, c]));
     const students = await this.prisma.studexaStudent.findMany({
-      where: { teacherId: teacher.id, ...(group ? { group } : {}) },
+      where: {
+        teacherId: teacher.id,
+        status: 'ACTIVE',
+        ...(group ? { group } : {}),
+      },
       select: { id: true, attendance: true, hwPercent: true },
     });
     const stuById = new Map(students.map((s) => [s.id, s]));
@@ -138,6 +187,21 @@ export class StudexaGradebookService {
       if (edit.maxScore && edit.maxScore !== col.maxScore) {
         await this.setColumnMax(col.id, edit.maxScore);
         col.maxScore = edit.maxScore;
+        changed++;
+      }
+      const subjectId = await this.refFor(teacher, 'subject', edit.subjectId);
+      const termId = await this.refFor(teacher, 'term', edit.termId);
+      const refData = {
+        ...(subjectId !== undefined && subjectId !== col.subjectId
+          ? { subjectId }
+          : {}),
+        ...(termId !== undefined && termId !== col.termId ? { termId } : {}),
+      };
+      if (Object.keys(refData).length) {
+        await this.prisma.studexaGradeColumn.update({
+          where: { id: col.id },
+          data: refData,
+        });
         changed++;
       }
     }
@@ -237,6 +301,9 @@ export class StudexaGradebookService {
         name: dto.name.trim(),
         maxScore: dto.maxScore ?? 100,
         order: (last?.order ?? 0) + 1,
+        subjectId:
+          (await this.refFor(teacher, 'subject', dto.subjectId)) ?? null,
+        termId: (await this.refFor(teacher, 'term', dto.termId)) ?? null,
       },
     });
   }
@@ -250,9 +317,17 @@ export class StudexaGradebookService {
   }
 
   /** Дүнгийн нэгтгэл — UTF-8 BOM CSV (платформын тайлангийн стандарт) */
-  async exportCsv(teacher: TeacherCtx, group?: string): Promise<string> {
+  async exportCsv(
+    teacher: TeacherCtx,
+    group?: string,
+    termId?: string,
+  ): Promise<string> {
     const students = await this.prisma.studexaStudent.findMany({
-      where: { teacherId: teacher.id, ...(group ? { group } : {}) },
+      where: {
+        teacherId: teacher.id,
+        status: 'ACTIVE',
+        ...(group ? { group } : {}),
+      },
       select: {
         id: true,
         name: true,
@@ -262,7 +337,9 @@ export class StudexaGradebookService {
       },
       orderBy: [{ group: 'asc' }, { name: 'asc' }],
     });
-    const table = await buildClassTable(this.prisma, teacher.id, students);
+    const table = await buildClassTable(this.prisma, teacher.id, students, {
+      termId,
+    });
     const headers = [
       'Сурагчийн нэр',
       'Бүлэг',
@@ -270,6 +347,8 @@ export class StudexaGradebookService {
       'Гэрийн даалгавар',
       ...table.colLabels,
       'Нийт оноо',
+      'Үнэлгээ',
+      'Эрэмбэ',
     ];
     const rows = table.rows.map((r) => [
       r.student.name,
@@ -278,6 +357,8 @@ export class StudexaGradebookService {
       r.hw,
       ...r.cells.map((c) => (c === '' ? '' : c)),
       r.grandLabel,
+      r.letter,
+      r.rank ?? '',
     ]);
     if (rows.length === 0)
       throw new BadRequestException('Экспортлох сурагч алга');

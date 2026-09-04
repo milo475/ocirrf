@@ -18,6 +18,7 @@ import { PERM } from '../permissions/permission-keys';
 import { PermissionsService } from '../permissions/permissions.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RegisterStudentDto } from './dto/studexa.dto';
+import { StudexaAcademicsService } from './academics.service';
 import {
   buildLineChart,
   buildScheduleGrid,
@@ -40,7 +41,24 @@ export class StudexaPortalService {
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
     private readonly permissions: PermissionsService,
+    private readonly academics: StudexaAcademicsService,
   ) {}
+
+  /** Сурагчийн өөрийн дүнгийн хуудас (улирлаар) */
+  async reportCard(user: AuthUser, t?: string, termId?: string) {
+    const records = await this.records(user);
+    const current = records.find((r) => r.id === t) ?? records[0];
+    if (!current) throw new NotFoundException('Багштай холбогдоогүй байна');
+    const [card, terms] = await Promise.all([
+      this.academics.reportCard({ id: current.teacher.id }, current.id, termId),
+      this.prisma.studexaTerm.findMany({
+        where: { teacherId: current.teacher.id },
+        orderBy: { startDate: 'desc' },
+        select: { id: true, name: true, isCurrent: true },
+      }),
+    ]);
+    return { ...card, terms };
+  }
 
   private records(user: AuthUser) {
     return this.prisma.studexaStudent.findMany({
@@ -112,7 +130,7 @@ export class StudexaPortalService {
       }),
       this.prisma.studexaPayment.findMany({
         where: { studentId: current.id },
-        orderBy: { month: 'desc' },
+        orderBy: [{ year: 'desc' }, { month: 'desc' }],
       }),
       this.prisma.studexaAnnouncement.findMany({
         where: {

@@ -330,9 +330,61 @@ const HW_POINTS: Record<string, number> = {
   PENDING: 0,
 };
 
+// ───────────────────────────────────────────── Үнэлгээний хуваарь
+
+export type GradingStep = { min: number; label: string };
+
+/** ЕБС-ийн default: 90+ A, 80+ B, 70+ C, 60+ D, бусад F */
+export const DEFAULT_GRADING_SCALE: GradingStep[] = [
+  { min: 90, label: 'A' },
+  { min: 80, label: 'B' },
+  { min: 70, label: 'C' },
+  { min: 60, label: 'D' },
+  { min: 0, label: 'F' },
+];
+
+/** Teacher.gradingScale (Json) → шалгаж, буурах эрэмбээр; хүчингүй бол default */
+export function normalizeScale(raw: unknown): GradingStep[] {
+  if (!Array.isArray(raw) || raw.length === 0) return DEFAULT_GRADING_SCALE;
+  const steps = raw
+    .filter(
+      (s): s is GradingStep =>
+        typeof s === 'object' &&
+        s !== null &&
+        Number.isInteger((s as GradingStep).min) &&
+        typeof (s as GradingStep).label === 'string' &&
+        (s as GradingStep).label.trim() !== '',
+    )
+    .map((s) => ({
+      min: Math.max(0, Math.min(100, s.min)),
+      label: s.label.trim(),
+    }))
+    .sort((a, b) => b.min - a.min);
+  if (steps.length === 0) return DEFAULT_GRADING_SCALE;
+  if (steps[steps.length - 1].min !== 0)
+    steps.push({ min: 0, label: steps[steps.length - 1].label });
+  return steps;
+}
+
+/** Хувь → үсгэн үнэлгээ (хуваарийн эхний таарах шат) */
+export function letterFor(
+  percent: number | null,
+  scale: GradingStep[],
+): string {
+  if (percent === null || Number.isNaN(percent)) return '—';
+  const step = scale.find((s) => percent >= s.min);
+  return step ? step.label : (scale[scale.length - 1]?.label ?? '—');
+}
+
 export type ClassTable = {
   colLabels: string[];
-  columns: { id: string; name: string; maxScore: number }[];
+  columns: {
+    id: string;
+    name: string;
+    maxScore: number;
+    subjectId: string | null;
+    termId: string | null;
+  }[];
   rows: {
     student: { id: string; name: string; group: string };
     att: string;
@@ -340,6 +392,8 @@ export type ClassTable = {
     cells: (number | '')[];
     grand: number | null;
     grandLabel: string;
+    letter: string;
+    rank: number | null;
   }[];
 };
 
@@ -357,9 +411,11 @@ export async function buildClassTable(
     attendance: number;
     hwPercent: number | null;
   }[],
+  opts: { termId?: string; scale?: GradingStep[] } = {},
 ): Promise<ClassTable> {
+  const scale = opts.scale ?? DEFAULT_GRADING_SCALE;
   const columns = await prisma.studexaGradeColumn.findMany({
-    where: { teacherId },
+    where: { teacherId, ...(opts.termId ? { termId: opts.termId } : {}) },
     orderBy: [{ order: 'asc' }, { id: 'asc' }],
   });
   const ids = students.map((s) => s.id);
@@ -415,7 +471,23 @@ export async function buildClassTable(
       grand: percent,
       grandLabel:
         percent === null ? '—' : `${earned} / ${possible} (${percent}%)`,
+      letter: letterFor(percent, scale),
+      rank: null as number | null,
     };
+  });
+
+  // Ангийн эрэмбэ: нийт хувиар буурах (тэнцвэл ижил байр), оноогүй нь эрэмбэгүй
+  const ranked = rows
+    .filter((r) => r.grand !== null)
+    .sort((a, b) => (b.grand as number) - (a.grand as number));
+  let rank = 0;
+  let prev: number | null = null;
+  ranked.forEach((r, i) => {
+    if (r.grand !== prev) {
+      rank = i + 1;
+      prev = r.grand;
+    }
+    r.rank = rank;
   });
 
   return {
@@ -424,6 +496,8 @@ export async function buildClassTable(
       id: c.id,
       name: c.name,
       maxScore: c.maxScore,
+      subjectId: c.subjectId,
+      termId: c.termId,
     })),
     rows,
   };
@@ -439,6 +513,8 @@ export type ScheduleLesson = {
   startTime: string;
   endTime: string;
   color: string;
+  subjectId: string | null;
+  subjectName: string | null;
 };
 
 export type ScheduleGrid = {
@@ -470,6 +546,7 @@ export async function buildScheduleGrid(
       ...(group !== null ? { OR: [{ group: '' }, { group }] } : {}),
     },
     orderBy: [{ weekday: 'asc' }, { startTime: 'asc' }],
+    include: { subject: { select: { name: true } } },
   });
   const total = (DAY_END - DAY_START) * 60;
   const hours: { label: string; top: number }[] = [];
@@ -496,6 +573,8 @@ export async function buildScheduleGrid(
             startTime: l.startTime,
             endTime: l.endTime,
             color: l.color,
+            subjectId: l.subjectId,
+            subjectName: l.subject?.name ?? null,
           },
           top: (100 * start) / total,
           height: (100 * (end - start)) / total,

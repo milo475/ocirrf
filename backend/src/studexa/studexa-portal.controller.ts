@@ -41,6 +41,15 @@ export class StudexaPortalController {
     return this.portal.portal(user, q.t);
   }
 
+  @Get('report-card')
+  reportCard(
+    @CurrentUser() user: AuthUser,
+    @Query() q: PortalQueryDto,
+    @Query('term') term?: string,
+  ) {
+    return this.portal.reportCard(user, q.t, term || undefined);
+  }
+
   @Post('join')
   join(@CurrentUser() user: AuthUser, @Body() dto: JoinDto) {
     return this.portal.join(user, dto.code);

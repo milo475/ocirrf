@@ -755,7 +755,7 @@ describe('Studexa — багшийн систем (e2e)', () => {
       .expect(200);
     expect(d2.body.student.paymentStatus).toBe('OVERDUE');
     await api()
-      .delete(`/api/studexa/students/${s2}/payments/3`)
+      .delete(`/api/studexa/students/${s2}/payments/${TODAY.slice(0, 4)}/3`)
       .set(auth(tokA))
       .expect(200);
     await api()
@@ -780,5 +780,586 @@ describe('Studexa — багшийн систем (e2e)', () => {
     expect(dash.body).toMatchObject({ totalStudents: 2 });
     expect(dash.body.attChart).toBeTruthy();
     expect(dash.body.groupBars[0]).toMatchObject({ label: '10а' });
+  });
+
+  // ───────────────────────── Сургуулийн нэмэлтүүд (2026-09-04)
+
+  it('хичээл, улирал, үнэлгээний хуваарь, дүнгийн хуудас, ангийн эрэмбэ ⭐', async () => {
+    // Өмнөх тест сурагчийг багшаас салгасан — дахин холбоно (хүсэлт → батлах)
+    await api()
+      .post('/api/studexa/portal/join')
+      .set(auth(tokS))
+      .send({ code: codeA })
+      .expect(201);
+    const jrs = await api()
+      .get('/api/studexa/students')
+      .set(auth(tokA))
+      .expect(200);
+    expect(jrs.body.joinRequests).toHaveLength(1);
+    await api()
+      .post(`/api/studexa/join-requests/${jrs.body.joinRequests[0].id}/approve`)
+      .set(auth(tokA))
+      .send({ studentId: linkedStudentId })
+      .expect(201);
+
+    const math = await api()
+      .post('/api/studexa/subjects')
+      .set(auth(tokA))
+      .send({ name: 'Математик' })
+      .expect(201);
+    await api()
+      .post('/api/studexa/subjects')
+      .set(auth(tokA))
+      .send({ name: 'Математик' })
+      .expect(409);
+    const t1 = await api()
+      .post('/api/studexa/terms')
+      .set(auth(tokA))
+      .send({
+        name: 'I улирал',
+        startDate: '2026-09-01',
+        endDate: '2026-11-30',
+      })
+      .expect(201);
+    expect(t1.body.isCurrent).toBe(true); // анхны улирал автоматаар идэвхтэй
+    await api()
+      .post('/api/studexa/terms')
+      .set(auth(tokA))
+      .send({ name: 'Буруу', startDate: '2026-12-01', endDate: '2026-11-30' })
+      .expect(400);
+    const t2 = await api()
+      .post('/api/studexa/terms')
+      .set(auth(tokA))
+      .send({
+        name: 'II улирал',
+        startDate: '2026-12-01',
+        endDate: '2027-03-01',
+      })
+      .expect(201);
+    expect(t2.body.isCurrent).toBe(false);
+    await api()
+      .post(`/api/studexa/terms/${t2.body.id}/current`)
+      .set(auth(tokA))
+      .expect(201);
+    const terms = await api()
+      .get('/api/studexa/terms')
+      .set(auth(tokA))
+      .expect(200);
+    expect(
+      terms.body
+        .filter((t: { isCurrent: boolean }) => t.isCurrent)
+        .map((t: { id: string }) => t.id),
+    ).toEqual([t2.body.id]);
+    // Б багш А-гийн улирал/хичээлд хүрэхгүй
+    await api()
+      .post(`/api/studexa/terms/${t1.body.id}/current`)
+      .set(auth(tokB))
+      .expect(404);
+
+    // Багана: хичээл + улирал (I улирал)
+    const c1 = await api()
+      .post('/api/studexa/gradebook/columns')
+      .set(auth(tokA))
+      .send({
+        name: 'Сорил 1',
+        maxScore: 50,
+        subjectId: math.body.id,
+        termId: t1.body.id,
+      })
+      .expect(201);
+    const c2 = await api()
+      .post('/api/studexa/gradebook/columns')
+      .set(auth(tokA))
+      .send({
+        name: 'Сорил 2',
+        maxScore: 50,
+        subjectId: math.body.id,
+        termId: t1.body.id,
+      })
+      .expect(201);
+    expect(c1.body).toMatchObject({
+      subjectId: math.body.id,
+      termId: t1.body.id,
+    });
+    await api()
+      .post('/api/studexa/gradebook')
+      .set(auth(tokA))
+      .send({
+        cells: [
+          { columnId: c1.body.id, studentId: s1, value: '45' },
+          { columnId: c2.body.id, studentId: s1, value: '40' },
+          { columnId: c1.body.id, studentId: s2, value: '25' },
+          { columnId: c2.body.id, studentId: s2, value: '20' },
+        ],
+      })
+      .expect(201);
+    // Улирлаар шүүсэн нэгтгэл — зөвхөн I улирлын 2 багана
+    const gb = await api()
+      .get(`/api/studexa/gradebook?term=${t1.body.id}`)
+      .set(auth(tokA))
+      .expect(200);
+    expect(gb.body.columns).toHaveLength(2);
+    expect(gb.body.subjects).toHaveLength(1);
+    expect(gb.body.terms).toHaveLength(2);
+
+    // Ангийн нэгтгэл: үсгэн үнэлгээ (default 90/80/70/60) + эрэмбэ
+    const ct = await api()
+      .get(`/api/studexa/class-table?term=${t1.body.id}&group=10а`)
+      .set(auth(tokA))
+      .expect(200);
+    const row1 = ct.body.rows.find(
+      (r: { student: { id: string } }) => r.student.id === s1,
+    );
+    const row2 = ct.body.rows.find(
+      (r: { student: { id: string } }) => r.student.id === s2,
+    );
+    expect(row1).toMatchObject({ grand: 85, letter: 'B', rank: 1 });
+    expect(row2).toMatchObject({ grand: 45, letter: 'F', rank: 2 });
+
+    // Өөрийн үнэлгээний хуваарь
+    await api()
+      .post('/api/studexa/grading-scale')
+      .set(auth(tokA))
+      .send({
+        scale: [
+          { min: 80, label: 'Сайн' },
+          { min: 50, label: 'Дунд' },
+          { min: 0, label: 'Муу' },
+        ],
+      })
+      .expect(201);
+    await api()
+      .post('/api/studexa/grading-scale')
+      .set(auth(tokA))
+      .send({
+        scale: [
+          { min: 80, label: 'X' },
+          { min: 50, label: 'X' },
+        ],
+      })
+      .expect(400); // давхардсан шошго
+    const ct2 = await api()
+      .get(`/api/studexa/class-table?term=${t1.body.id}&group=10а`)
+      .set(auth(tokA))
+      .expect(200);
+    expect(
+      ct2.body.rows.find(
+        (r: { student: { id: string } }) => r.student.id === s1,
+      ).letter,
+    ).toBe('Сайн');
+    expect(
+      ct2.body.rows.find(
+        (r: { student: { id: string } }) => r.student.id === s2,
+      ).letter,
+    ).toBe('Муу');
+    await api()
+      .delete('/api/studexa/grading-scale')
+      .set(auth(tokA))
+      .expect(200);
+    const sc = await api()
+      .get('/api/studexa/grading-scale')
+      .set(auth(tokA))
+      .expect(200);
+    expect(sc.body.isDefault).toBe(true);
+
+    // Дүнгийн хуудас (I улирал): хичээлээр бүлэглэсэн, нийт, үнэлгээ, эрэмбэ
+    const rc = await api()
+      .get(`/api/studexa/students/${s1}/report-card?term=${t1.body.id}`)
+      .set(auth(tokA))
+      .expect(200);
+    expect(rc.body).toMatchObject({
+      earned: 85,
+      possible: 100,
+      percent: 85,
+      letter: 'B',
+      rank: 1,
+      term: { name: 'I улирал' },
+    });
+    expect(rc.body.subjects).toHaveLength(1);
+    expect(rc.body.subjects[0]).toMatchObject({
+      subject: 'Математик',
+      percent: 85,
+      letter: 'B',
+    });
+    expect(rc.body.subjects[0].rows).toHaveLength(2);
+    // Улирал өгөхгүй → одоогийн (II) улирал → багана алга
+    const rc2 = await api()
+      .get(`/api/studexa/students/${s1}/report-card`)
+      .set(auth(tokA))
+      .expect(200);
+    expect(rc2.body.term.name).toBe('II улирал');
+    expect(rc2.body.percent).toBeNull();
+    await api()
+      .get(`/api/studexa/students/${s1}/report-card?term=${t1.body.id}`)
+      .set(auth(tokB))
+      .expect(404);
+    // Сурагч порталаас өөрийн дүнгийн хуудас
+    const prc = await api()
+      .get(`/api/studexa/portal/report-card?t=${linkedStudentId}`)
+      .set(auth(tokS))
+      .expect(200);
+    expect(prc.body.terms).toHaveLength(2);
+    expect(prc.body.student.id).toBe(linkedStudentId);
+
+    // Баганын хичээл/улирал засах: c2-г II улиралд шилжүүлбэл I улирлын хуудас 1 баганатай
+    await api()
+      .post('/api/studexa/gradebook')
+      .set(auth(tokA))
+      .send({
+        columns: [{ id: c2.body.id, subjectId: '', termId: t2.body.id }],
+      })
+      .expect(201);
+    const rc3 = await api()
+      .get(`/api/studexa/students/${s1}/report-card?term=${t1.body.id}`)
+      .set(auth(tokA))
+      .expect(200);
+    expect(rc3.body).toMatchObject({
+      earned: 45,
+      possible: 50,
+      percent: 90,
+      letter: 'A',
+    });
+    // Хичээл устгахад багана устахгүй (SetNull)
+    await api()
+      .delete(`/api/studexa/subjects/${math.body.id}`)
+      .set(auth(tokA))
+      .expect(200);
+    const gb2 = await api()
+      .get(`/api/studexa/gradebook?term=${t1.body.id}`)
+      .set(auth(tokA))
+      .expect(200);
+    expect(gb2.body.columns).toHaveLength(1);
+    expect(gb2.body.columns[0].subjectId).toBeNull();
+  });
+
+  it('хуваарийн зөрчил, хичээлийн сэдвийн журнал, тасалсны мэдэгдэл ⭐', async () => {
+    const phys = await api()
+      .post('/api/studexa/subjects')
+      .set(auth(tokA))
+      .send({ name: 'Физик', color: 'green' })
+      .expect(201);
+    const l1 = await api()
+      .post('/api/studexa/lessons')
+      .set(auth(tokA))
+      .send({
+        title: 'Физик',
+        group: '10а',
+        weekday: 3,
+        startTime: '10:00',
+        endTime: '11:00',
+        subjectId: phys.body.id,
+      })
+      .expect(201);
+    expect(l1.body.subjectId).toBe(phys.body.id);
+    const got = await api()
+      .get(`/api/studexa/lessons/${l1.body.id}`)
+      .set(auth(tokA))
+      .expect(200);
+    expect(got.body.subject).toMatchObject({ name: 'Физик' });
+    // Ижил бүлэг, цаг давхцсан → 400
+    const clash = await api()
+      .post('/api/studexa/lessons')
+      .set(auth(tokA))
+      .send({
+        title: 'Хими',
+        group: '10а',
+        weekday: 3,
+        startTime: '10:30',
+        endTime: '11:30',
+      })
+      .expect(400);
+    expect(clash.body.message).toContain('Хуваарийн зөрчил');
+    // Өөр бүлэг → зөрчилгүй
+    const l2 = await api()
+      .post('/api/studexa/lessons')
+      .set(auth(tokA))
+      .send({
+        title: 'Хими',
+        group: '11б',
+        weekday: 3,
+        startTime: '10:30',
+        endTime: '11:30',
+      })
+      .expect(201);
+    // «Бүх бүлэг» хичээл ямар ч бүлгийнхтэй давхцана → 400
+    await api()
+      .post('/api/studexa/lessons')
+      .set(auth(tokA))
+      .send({
+        title: 'Биеийн тамир',
+        weekday: 3,
+        startTime: '10:45',
+        endTime: '11:15',
+      })
+      .expect(400);
+    // Өөр гараг → OK; засахдаа 11б → 10а болгоход давхцана → 400
+    await api()
+      .post('/api/studexa/lessons')
+      .set(auth(tokA))
+      .send({
+        title: 'Биеийн тамир',
+        weekday: 4,
+        startTime: '10:45',
+        endTime: '11:15',
+      })
+      .expect(201);
+    await api()
+      .patch(`/api/studexa/lessons/${l2.body.id}`)
+      .set(auth(tokA))
+      .send({
+        title: 'Хими',
+        group: '10а',
+        weekday: 3,
+        startTime: '10:30',
+        endTime: '11:30',
+      })
+      .expect(400);
+    // Өөрийгөө засахад өөртэйгөө давхцахгүй
+    await api()
+      .patch(`/api/studexa/lessons/${l1.body.id}`)
+      .set(auth(tokA))
+      .send({
+        title: 'Физик',
+        group: '10а',
+        weekday: 3,
+        startTime: '10:00',
+        endTime: '11:15',
+        subjectId: phys.body.id,
+      })
+      .expect(200);
+    // Б багшийн хичээлийн (судлагдахуун) id → 400
+    const bad = await api().post('/api/studexa/lessons').set(auth(tokB)).send({
+      title: 'X',
+      weekday: 5,
+      startTime: '10:00',
+      endTime: '11:00',
+      subjectId: phys.body.id,
+    });
+    expect([400, 412]).toContain(bad.status);
+
+    // Хичээлийн сэдэв (журнал) ирцтэй хамт
+    const att = await api()
+      .post('/api/studexa/attendance')
+      .set(auth(tokA))
+      .send({
+        date: '2026-09-03',
+        lessonId: l1.body.id,
+        statuses: { [s1]: 'PRESENT', [s2]: 'ABSENT' },
+        topic: 'Ньютоны 2-р хууль',
+      })
+      .expect(201);
+    expect(att.body.saved).toBe(2);
+    const page = await api()
+      .get(`/api/studexa/attendance?date=2026-09-03&lessonId=${l1.body.id}`)
+      .set(auth(tokA))
+      .expect(200);
+    expect(page.body.topic).toBe('Ньютоны 2-р хууль');
+    // Сэдвийг хоослоход устна
+    await api()
+      .post('/api/studexa/attendance')
+      .set(auth(tokA))
+      .send({
+        date: '2026-09-03',
+        lessonId: l1.body.id,
+        statuses: { [s1]: 'PRESENT' },
+        topic: '',
+      })
+      .expect(201);
+    const page2 = await api()
+      .get(`/api/studexa/attendance?date=2026-09-03&lessonId=${l1.body.id}`)
+      .set(auth(tokA))
+      .expect(200);
+    expect(page2.body.topic).toBe('');
+
+    // Тасалсны мэдэгдэл: холбогдсон сурагч ABSENT болоход 1 удаа
+    const a1 = await api()
+      .post('/api/studexa/attendance')
+      .set(auth(tokA))
+      .send({ date: '2026-09-02', statuses: { [linkedStudentId]: 'ABSENT' } })
+      .expect(201);
+    expect(a1.body.absentNotified).toBe(1);
+    const a2 = await api()
+      .post('/api/studexa/attendance')
+      .set(auth(tokA))
+      .send({ date: '2026-09-02', statuses: { [linkedStudentId]: 'ABSENT' } })
+      .expect(201);
+    expect(a2.body.absentNotified).toBe(0); // өмнө нь ABSENT байсан → давхар мэдэгдэхгүй
+    const notif = await api()
+      .get('/api/notifications?unread=true')
+      .set(auth(tokS))
+      .expect(200);
+    const list: { type: string }[] = Array.isArray(notif.body)
+      ? notif.body
+      : (notif.body.items ?? []);
+    expect(list.some((n) => n.type === 'STUDEXA_ABSENT')).toBe(true);
+  });
+
+  it('сурагчийн профайл, төлөв (төгссөн нуугдана), тэмдэглэл, төлбөрийн он, CSV импорт ⭐', async () => {
+    const up = await api()
+      .patch(`/api/studexa/students/${s1}`)
+      .set(auth(tokA))
+      .send({
+        name: 'Анар',
+        group: '10а',
+        registerNo: 'АБ01010101',
+        birthDate: '2010-01-01',
+        gender: 'FEMALE',
+        address: 'БЗД 5-р хороо',
+      })
+      .expect(200);
+    expect(up.body).toMatchObject({
+      registerNo: 'АБ01010101',
+      birthDate: '2010-01-01',
+      gender: 'FEMALE',
+      status: 'ACTIVE',
+    });
+    await api()
+      .patch(`/api/studexa/students/${s1}`)
+      .set(auth(tokA))
+      .send({ name: 'Анар', birthDate: '2010-13-01' })
+      .expect(400);
+
+    // Тэмдэглэл (зөвхөн багшид)
+    const n1 = await api()
+      .post(`/api/studexa/students/${s1}/notes`)
+      .set(auth(tokA))
+      .send({ text: 'Ээжтэй нь ярилцав' })
+      .expect(201);
+    await api()
+      .get(`/api/studexa/students/${s1}/notes`)
+      .set(auth(tokA))
+      .expect(200)
+      .then((r) => expect(r.body).toHaveLength(1));
+    await api()
+      .get(`/api/studexa/students/${s1}/notes`)
+      .set(auth(tokB))
+      .expect(404);
+    await api()
+      .delete(`/api/studexa/students/${s1}/notes/${n1.body.id}`)
+      .set(auth(tokA))
+      .expect(200);
+    await api()
+      .get(`/api/studexa/students/${s1}/notes`)
+      .set(auth(tokA))
+      .expect(200)
+      .then((r) => expect(r.body).toHaveLength(0));
+
+    // Төлбөрийн он: 2025/3 ба 2026/3 тусдаа мөр
+    await api()
+      .post(`/api/studexa/students/${s1}/payments`)
+      .set(auth(tokA))
+      .send({ year: 2025, month: 3, status: 'PAID' })
+      .expect(201);
+    await api()
+      .post(`/api/studexa/students/${s1}/payments`)
+      .set(auth(tokA))
+      .send({ year: 2026, month: 3, status: 'OVERDUE' })
+      .expect(201);
+    let d = await api()
+      .get(`/api/studexa/students/${s1}`)
+      .set(auth(tokA))
+      .expect(200);
+    expect(
+      d.body.payments.filter((p: { month: number }) => p.month === 3),
+    ).toHaveLength(2);
+    expect(d.body.student.paymentStatus).toBe('OVERDUE');
+    await api()
+      .delete(`/api/studexa/students/${s1}/payments/2026/3`)
+      .set(auth(tokA))
+      .expect(200);
+    d = await api()
+      .get(`/api/studexa/students/${s1}`)
+      .set(auth(tokA))
+      .expect(200);
+    expect(
+      d.body.payments.filter((p: { month: number }) => p.month === 3),
+    ).toHaveLength(1);
+    expect(d.body.student.paymentStatus).toBe('PAID');
+
+    // CSV импорт: монгол толгой, BOM, хашилт доторх таслал, canonical бүлэг, алдаатай мөр алгасна
+    const csv =
+      '﻿нэр,бүлэг,утас,төрсөн огноо,хүйс,регистр\n' +
+      'Импорт Нэг,10А,88001122,2010-05-05,эм,АА11\n' +
+      'Импорт Хоёр,12в,,2010-13-01,,\n' +
+      ',10а,,,,\n' +
+      '"Импорт, Гурав",11б,,,эр,\n';
+    const imp = await api()
+      .post('/api/studexa/students/import')
+      .set(auth(tokA))
+      .attach('file', Buffer.from(csv, 'utf8'), 'students.csv')
+      .expect(201);
+    expect(imp.body.created).toBe(2);
+    expect(imp.body.skipped).toHaveLength(2);
+    const list = await api()
+      .get('/api/studexa/students?q=Импорт')
+      .set(auth(tokA))
+      .expect(200);
+    expect(list.body.total).toBe(2);
+    const one = list.body.items.find(
+      (s: { name: string }) => s.name === 'Импорт Нэг',
+    );
+    expect(one).toMatchObject({
+      group: '10а',
+      gender: 'FEMALE',
+      birthDate: '2010-05-05',
+      registerNo: 'АА11',
+    });
+    // цэг таслал хуваагч
+    const imp2 = await api()
+      .post('/api/studexa/students/import')
+      .set(auth(tokA))
+      .attach(
+        'file',
+        Buffer.from('name;group\nИмпорт Дөрөв;11б\n', 'utf8'),
+        'x.csv',
+      )
+      .expect(201);
+    expect(imp2.body.created).toBe(1);
+    await api()
+      .post('/api/studexa/students/import')
+      .set(auth(tokA))
+      .expect(400); // файлгүй
+
+    // Төлөв: төгссөн сурагч default жагсаалт, нэгтгэл, самбарт орохгүй
+    const before = await api()
+      .get('/api/studexa/dashboard')
+      .set(auth(tokA))
+      .expect(200);
+    await api()
+      .patch(`/api/studexa/students/${s2}`)
+      .set(auth(tokA))
+      .send({ name: 'Болор', group: '10а', status: 'GRADUATED' })
+      .expect(200);
+    const def = await api()
+      .get('/api/studexa/students?limit=100')
+      .set(auth(tokA))
+      .expect(200);
+    expect(def.body.items.some((s: { id: string }) => s.id === s2)).toBe(false);
+    const grad = await api()
+      .get('/api/studexa/students?status=GRADUATED')
+      .set(auth(tokA))
+      .expect(200);
+    expect(grad.body.items.map((s: { id: string }) => s.id)).toEqual([s2]);
+    const all = await api()
+      .get('/api/studexa/students?status=ALL&limit=100')
+      .set(auth(tokA))
+      .expect(200);
+    expect(all.body.items.some((s: { id: string }) => s.id === s2)).toBe(true);
+    const ct = await api()
+      .get('/api/studexa/class-table')
+      .set(auth(tokA))
+      .expect(200);
+    expect(
+      ct.body.rows.some(
+        (r: { student: { id: string } }) => r.student.id === s2,
+      ),
+    ).toBe(false);
+    const after = await api()
+      .get('/api/studexa/dashboard')
+      .set(auth(tokA))
+      .expect(200);
+    expect(after.body.totalStudents).toBe(before.body.totalStudents - 1);
+    // Дэлгэрэнгүй нь харагдсаар байна (мэдээлэл алдагдахгүй)
+    await api().get(`/api/studexa/students/${s2}`).set(auth(tokA)).expect(200);
   });
 });

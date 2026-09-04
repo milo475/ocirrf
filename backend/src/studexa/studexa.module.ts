@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { StudexaAcademicsService } from './academics.service';
 import { StudexaAttendanceService } from './attendance.service';
 import { StudexaGradebookService } from './gradebook.service';
 import { StudexaHomeworkService } from './homework.service';
@@ -28,6 +29,7 @@ import { StudexaTeacherService } from './teacher.service';
   ],
   providers: [
     StudexaTeacherService,
+    StudexaAcademicsService,
     StudexaStudentsService,
     StudexaGradebookService,
     StudexaAttendanceService,
